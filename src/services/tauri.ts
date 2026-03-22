@@ -104,6 +104,29 @@ export interface Priority {
   reasoning: string
 }
 
+// ── Progress ──
+export interface SaveResult {
+  snapshot_id: number
+  session_log_path: string
+}
+
+export async function saveProgress(
+  energyLevel: string,
+  tasksCompleted: string,
+  tasksOpen: string,
+  tasksDeferred: string,
+  priorities: string,
+): Promise<SaveResult> {
+  return invoke<SaveResult>('save_progress', {
+    energyLevel,
+    tasksCompleted,
+    tasksOpen,
+    tasksDeferred,
+    priorities,
+  })
+}
+
+// ── Priorities ──
 export async function generatePriorities(
   energyLevel: string,
   calendarSummary: string,

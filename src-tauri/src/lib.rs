@@ -5,7 +5,7 @@ mod parsers;
 use sqlx::sqlite::SqlitePoolOptions;
 use tauri::Manager;
 
-use commands::{calendar, obsidian, priorities, settings, todoist};
+use commands::{calendar, obsidian, priorities, progress, settings, todoist};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -66,6 +66,7 @@ pub fn run() {
             calendar::fetch_calendar_events,
             obsidian::read_quick_captures,
             priorities::generate_priorities,
+            progress::save_progress,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -7,6 +7,7 @@ import { TodayPanel } from '@/components/obsidian/TodayPanel'
 import { TodoistPanel } from '@/components/todoist/TodoistPanel'
 import { CalendarPanel } from '@/components/calendar/CalendarPanel'
 import { CapturesPanel } from '@/components/obsidian/CapturesPanel'
+import { SaveButton } from '@/components/shared/SaveButton'
 import { useRefresh } from '@/hooks/useRefresh'
 import { format } from 'date-fns'
 
@@ -34,6 +35,7 @@ export function Dashboard() {
         <div className="flex items-center gap-4">
           <EnergySelector />
           <RefreshButton onRefresh={triggerRefresh} />
+          <SaveButton />
         </div>
       </header>
 
