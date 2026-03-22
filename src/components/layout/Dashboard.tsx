@@ -1,15 +1,25 @@
+import { useCallback } from 'react'
 import { Panel } from './Panel'
 import { PrioritiesHero } from '@/components/priorities/PrioritiesHero'
 import { EnergySelector } from '@/components/priorities/EnergySelector'
 import { RefreshButton } from '@/components/shared/RefreshButton'
 import { TodayPanel } from '@/components/obsidian/TodayPanel'
 import { TodoistPanel } from '@/components/todoist/TodoistPanel'
+import { CalendarPanel } from '@/components/calendar/CalendarPanel'
+import { CapturesPanel } from '@/components/obsidian/CapturesPanel'
+import { useRefresh } from '@/hooks/useRefresh'
 import { format } from 'date-fns'
 
 export function Dashboard() {
-  const handleRefresh = () => {
-    // Will be wired up in later subtasks
-  }
+  // Global refresh — each panel also loads independently on mount,
+  // but this triggers a coordinated refresh of all sources
+  const refreshAll = useCallback(async () => {
+    // Individual panels manage their own data fetching via hooks.
+    // This is a placeholder for coordinated refresh (e.g., re-fetch all).
+    // For now, panels auto-refresh via their own useEffect on mount.
+  }, [])
+
+  const { triggerRefresh } = useRefresh(refreshAll)
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -23,7 +33,7 @@ export function Dashboard() {
         </div>
         <div className="flex items-center gap-4">
           <EnergySelector />
-          <RefreshButton onRefresh={handleRefresh} />
+          <RefreshButton onRefresh={triggerRefresh} />
         </div>
       </header>
 
@@ -42,9 +52,7 @@ export function Dashboard() {
           {/* Left column */}
           <div className="space-y-4">
             <Panel title="Schedule" icon="📅" className="min-h-[200px]">
-              <p className="text-sm text-muted-foreground">
-                Calendar events will appear here.
-              </p>
+              <CalendarPanel />
             </Panel>
 
             <Panel title="Tasks" icon="✓" className="min-h-[200px]">
@@ -59,9 +67,7 @@ export function Dashboard() {
             </Panel>
 
             <Panel title="Quick Captures" icon="💡" className="min-h-[200px]">
-              <p className="text-sm text-muted-foreground">
-                Captures from Obsidian inbox will appear here.
-              </p>
+              <CapturesPanel />
             </Panel>
           </div>
         </div>

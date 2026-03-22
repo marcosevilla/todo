@@ -1,7 +1,86 @@
+use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tauri::{AppHandle, Manager};
 
 use crate::parsers::markdown::{self, ParsedTodayMd};
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct QuickCapture {
+    pub timestamp: Option<String>,
+    pub content: String,
+}
+
+/// Parse Quick Captures.md — entries separated by ---
+fn parse_quick_captures(content: &str) -> Vec<QuickCapture> {
+    let mut captures = Vec::new();
+    let mut current_lines: Vec<&str> = Vec::new();
+
+    // Skip the header section (everything before the second ---)
+    let mut header_count = 0;
+    let mut in_body = false;
+
+    for line in content.lines() {
+        if line.trim() == "---" {
+            if !in_body {
+                header_count += 1;
+                if header_count >= 2 {
+                    in_body = true;
+                }
+                continue;
+            }
+            // Process accumulated lines as a capture
+            if !current_lines.is_empty() {
+                let entry = current_lines.join("\n").trim().to_string();
+                if !entry.is_empty() {
+                    let (timestamp, text) = extract_timestamp(&entry);
+                    captures.push(QuickCapture {
+                        timestamp,
+                        content: text,
+                    });
+                }
+            }
+            current_lines.clear();
+            continue;
+        }
+        if in_body {
+            current_lines.push(line);
+        }
+    }
+
+    // Handle last entry (no trailing ---)
+    if !current_lines.is_empty() {
+        let entry = current_lines.join("\n").trim().to_string();
+        if !entry.is_empty() {
+            let (timestamp, text) = extract_timestamp(&entry);
+            captures.push(QuickCapture {
+                timestamp,
+                content: text,
+            });
+        }
+    }
+
+    // Most recent first, limit to 10
+    captures.reverse();
+    captures.truncate(10);
+    captures
+}
+
+/// Try to extract a timestamp line from a capture entry
+fn extract_timestamp(entry: &str) -> (Option<String>, String) {
+    let lines: Vec<&str> = entry.lines().collect();
+    if lines.is_empty() {
+        return (None, entry.to_string());
+    }
+
+    // Check if first line looks like a timestamp (contains year and time)
+    let first = lines[0].trim();
+    if first.contains("202") && (first.contains("AM") || first.contains("PM")) {
+        let rest = lines[1..].join("\n").trim().to_string();
+        (Some(first.to_string()), if rest.is_empty() { first.to_string() } else { rest })
+    } else {
+        (None, entry.to_string())
+    }
+}
 
 /// Resolve the vault path from settings, expanding ~
 async fn get_vault_path(app: &AppHandle) -> Result<String, String> {
@@ -37,6 +116,19 @@ pub async fn read_today_md(app: AppHandle) -> Result<ParsedTodayMd, String> {
         .map_err(|e| format!("Failed to read today.md: {}", e))?;
 
     Ok(markdown::parse_today_md(&content))
+}
+
+/// Read quick captures from the inbox file
+#[tauri::command]
+pub async fn read_quick_captures(app: AppHandle) -> Result<Vec<QuickCapture>, String> {
+    let vault_path = get_vault_path(&app).await?;
+    let file_path = format!("{}/inbox/Quick Captures.md", vault_path);
+
+    let content = tokio::fs::read_to_string(&file_path)
+        .await
+        .map_err(|e| format!("Failed to read Quick Captures.md: {}", e))?;
+
+    Ok(parse_quick_captures(&content))
 }
 
 /// Toggle a checkbox in a vault file at a specific line

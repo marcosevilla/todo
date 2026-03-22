@@ -24,7 +24,7 @@ function App() {
   // Needs setup
   if (!setupComplete) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <SetupDialog open onComplete={() => setSetupComplete(true)} />
       </div>
     )

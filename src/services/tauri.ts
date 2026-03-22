@@ -70,3 +70,29 @@ export async function completeTodoistTask(taskId: string): Promise<void> {
 export async function snoozeTodoistTask(taskId: string): Promise<void> {
   return invoke<void>('snooze_todoist_task', { taskId })
 }
+
+// ── Calendar ──
+export interface CalendarEventRow {
+  id: string
+  summary: string
+  description: string | null
+  location: string | null
+  start_time: string
+  end_time: string
+  all_day: boolean
+  meeting_url: string | null
+}
+
+export async function fetchCalendarEvents(): Promise<CalendarEventRow[]> {
+  return invoke<CalendarEventRow[]>('fetch_calendar_events')
+}
+
+// ── Quick Captures ──
+export interface QuickCapture {
+  timestamp: string | null
+  content: string
+}
+
+export async function readQuickCaptures(): Promise<QuickCapture[]> {
+  return invoke<QuickCapture[]>('read_quick_captures')
+}
