@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useAppStore } from '@/stores/appStore'
 import { readTodayMd, toggleObsidianCheckbox } from '@/services/tauri'
 import type { ParsedTodayMd } from '@/services/tauri'
 
@@ -6,18 +7,25 @@ export function useObsidian() {
   const [todayData, setTodayData] = useState<ParsedTodayMd | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const setObsidianToday = useAppStore((s) => s.setObsidianToday)
 
   const refresh = useCallback(async () => {
     try {
       setError(null)
       const data = await readTodayMd()
       setTodayData(data)
+      // Store summary for priorities hook
+      const summary = [
+        ...data.tasks.map((t) => `${t.checked ? '[x]' : '[ ]'} ${t.text}`),
+        ...data.habits_core.map((h) => `${h.checked ? '[x]' : '[ ]'} ${h.text}`),
+      ].join('\n')
+      setObsidianToday(summary)
     } catch (e) {
       setError(String(e))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [setObsidianToday])
 
   const toggleCheckbox = useCallback(
     async (lineNumber: number) => {

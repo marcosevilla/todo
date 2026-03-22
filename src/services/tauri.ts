@@ -96,3 +96,24 @@ export interface QuickCapture {
 export async function readQuickCaptures(): Promise<QuickCapture[]> {
   return invoke<QuickCapture[]>('read_quick_captures')
 }
+
+// ── Priorities ──
+export interface Priority {
+  title: string
+  source: string
+  reasoning: string
+}
+
+export async function generatePriorities(
+  energyLevel: string,
+  calendarSummary: string,
+  tasksSummary: string,
+  obsidianSummary: string,
+): Promise<Priority[]> {
+  return invoke<Priority[]>('generate_priorities', {
+    energyLevel,
+    calendarSummary,
+    tasksSummary,
+    obsidianSummary,
+  })
+}
