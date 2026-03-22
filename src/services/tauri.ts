@@ -44,3 +44,29 @@ export async function toggleObsidianCheckbox(
     lineNumber,
   })
 }
+
+// ── Todoist ──
+export interface TodoistTaskRow {
+  id: string
+  content: string
+  description: string | null
+  project_id: string | null
+  project_name: string | null
+  priority: number
+  due_date: string | null
+  due_is_recurring: number
+  is_completed: number
+  todoist_url: string | null
+}
+
+export async function fetchTodoistTasks(): Promise<TodoistTaskRow[]> {
+  return invoke<TodoistTaskRow[]>('fetch_todoist_tasks')
+}
+
+export async function completeTodoistTask(taskId: string): Promise<void> {
+  return invoke<void>('complete_todoist_task', { taskId })
+}
+
+export async function snoozeTodoistTask(taskId: string): Promise<void> {
+  return invoke<void>('snooze_todoist_task', { taskId })
+}

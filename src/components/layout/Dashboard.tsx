@@ -3,6 +3,7 @@ import { PrioritiesHero } from '@/components/priorities/PrioritiesHero'
 import { EnergySelector } from '@/components/priorities/EnergySelector'
 import { RefreshButton } from '@/components/shared/RefreshButton'
 import { TodayPanel } from '@/components/obsidian/TodayPanel'
+import { TodoistPanel } from '@/components/todoist/TodoistPanel'
 import { format } from 'date-fns'
 
 export function Dashboard() {
@@ -47,9 +48,7 @@ export function Dashboard() {
             </Panel>
 
             <Panel title="Tasks" icon="✓" className="min-h-[200px]">
-              <p className="text-sm text-muted-foreground">
-                Todoist tasks will appear here.
-              </p>
+              <TodoistPanel />
             </Panel>
           </div>
 
