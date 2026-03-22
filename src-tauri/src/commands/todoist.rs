@@ -1,9 +1,15 @@
-use chrono::{Local, NaiveDate};
+use chrono::Local;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tauri::{AppHandle, Manager};
 
-// ── API response types ──
+// ── Todoist API v1 response types ──
+
+#[derive(Debug, Deserialize)]
+struct ApiResponse {
+    results: Vec<ApiTask>,
+    next_cursor: Option<String>,
+}
 
 #[derive(Debug, Deserialize)]
 struct ApiTask {
@@ -11,10 +17,9 @@ struct ApiTask {
     content: String,
     description: Option<String>,
     project_id: Option<String>,
-    priority: i32,
+    priority: i32, // v1: 1=normal, 4=urgent (inverted from v2)
     due: Option<ApiDue>,
-    is_completed: bool,
-    url: Option<String>,
+    checked: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -51,46 +56,45 @@ async fn get_api_token(app: &AppHandle) -> Result<String, String> {
         .ok_or_else(|| "Todoist API token not configured".to_string())
 }
 
-/// Fetch tasks from Todoist API, filter to today + overdue, cache in SQLite
+/// Fetch tasks from Todoist API v1, using server-side filter for today + overdue
 #[tauri::command]
 pub async fn fetch_todoist_tasks(app: AppHandle) -> Result<Vec<TodoistTaskRow>, String> {
     let token = get_api_token(&app).await?;
     let pool = app.state::<SqlitePool>();
-    let today = Local::now().format("%Y-%m-%d").to_string();
 
-    // Fetch from API
     let client = reqwest::Client::new();
-    let tasks: Vec<ApiTask> = client
-        .get("https://api.todoist.com/rest/v2/tasks")
-        .header("Authorization", format!("Bearer {}", token))
-        .send()
-        .await
-        .map_err(|e| format!("Todoist API error: {}", e))?
-        .json()
-        .await
-        .map_err(|e| format!("Todoist parse error: {}", e))?;
+    let mut all_tasks: Vec<ApiTask> = Vec::new();
+    let mut cursor: Option<String> = None;
 
-    // Filter to today or overdue (tasks with no due date are excluded)
-    let today_date = NaiveDate::parse_from_str(&today, "%Y-%m-%d")
-        .map_err(|e| e.to_string())?;
+    // Paginate through results
+    loop {
+        let mut url = "https://api.todoist.com/api/v1/tasks?filter=today%7Coverdue".to_string();
+        if let Some(ref c) = cursor {
+            url.push_str(&format!("&cursor={}", c));
+        }
 
-    let filtered: Vec<&ApiTask> = tasks
+        let resp: ApiResponse = client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", token))
+            .send()
+            .await
+            .map_err(|e| format!("Todoist API error: {}", e))?
+            .json()
+            .await
+            .map_err(|e| format!("Todoist parse error: {}", e))?;
+
+        all_tasks.extend(resp.results);
+
+        match resp.next_cursor {
+            Some(c) if !c.is_empty() => cursor = Some(c),
+            _ => break,
+        }
+    }
+
+    // Filter out checked tasks
+    let active: Vec<&ApiTask> = all_tasks
         .iter()
-        .filter(|t| {
-            if t.is_completed {
-                return false;
-            }
-            if let Some(due) = &t.due {
-                if let Some(date_str) = &due.date {
-                    // Handle datetime (2026-03-22T10:00:00) and date-only (2026-03-22)
-                    let date_part = &date_str[..10.min(date_str.len())];
-                    if let Ok(due_date) = NaiveDate::parse_from_str(date_part, "%Y-%m-%d") {
-                        return due_date <= today_date;
-                    }
-                }
-            }
-            false
-        })
+        .filter(|t| !t.checked.unwrap_or(false))
         .collect();
 
     // Clear old cache and insert fresh data
@@ -99,13 +103,16 @@ pub async fn fetch_todoist_tasks(app: AppHandle) -> Result<Vec<TodoistTaskRow>, 
         .await
         .map_err(|e| e.to_string())?;
 
-    for task in &filtered {
+    for task in &active {
         let due_date = task.due.as_ref().and_then(|d| d.date.clone());
         let is_recurring = task
             .due
             .as_ref()
             .and_then(|d| d.is_recurring)
             .unwrap_or(false);
+
+        // Build Todoist app URL
+        let todoist_url = format!("https://app.todoist.com/app/task/{}", task.id);
 
         sqlx::query(
             "INSERT OR REPLACE INTO todoist_tasks
@@ -119,13 +126,13 @@ pub async fn fetch_todoist_tasks(app: AppHandle) -> Result<Vec<TodoistTaskRow>, 
         .bind(task.priority)
         .bind(&due_date)
         .bind(is_recurring as i32)
-        .bind(&task.url)
+        .bind(&todoist_url)
         .execute(pool.inner())
         .await
         .map_err(|e| e.to_string())?;
     }
 
-    // Return cached tasks sorted by priority (4=urgent in Todoist) then date
+    // Return cached tasks sorted by priority DESC (4=urgent in v1) then date
     let rows: Vec<TodoistTaskRow> = sqlx::query_as(
         "SELECT id, content, description, project_id, project_name, priority, due_date,
                 due_is_recurring, is_completed, todoist_url
@@ -139,17 +146,16 @@ pub async fn fetch_todoist_tasks(app: AppHandle) -> Result<Vec<TodoistTaskRow>, 
     Ok(rows)
 }
 
-/// Complete a task via Todoist API
+/// Complete a task via Todoist API v1
 #[tauri::command]
 pub async fn complete_todoist_task(app: AppHandle, task_id: String) -> Result<(), String> {
     let token = get_api_token(&app).await?;
     let pool = app.state::<SqlitePool>();
 
-    // Call Todoist API
     let client = reqwest::Client::new();
     let resp = client
         .post(format!(
-            "https://api.todoist.com/rest/v2/tasks/{}/close",
+            "https://api.todoist.com/api/v1/tasks/{}/close",
             task_id
         ))
         .header("Authorization", format!("Bearer {}", token))
@@ -158,7 +164,8 @@ pub async fn complete_todoist_task(app: AppHandle, task_id: String) -> Result<()
         .map_err(|e| format!("Todoist API error: {}", e))?;
 
     if !resp.status().is_success() {
-        return Err(format!("Todoist returned status {}", resp.status()));
+        let body = resp.text().await.unwrap_or_default();
+        return Err(format!("Todoist close failed: {}", body));
     }
 
     // Remove from local cache
@@ -181,7 +188,7 @@ pub async fn complete_todoist_task(app: AppHandle, task_id: String) -> Result<()
     Ok(())
 }
 
-/// Snooze a task to tomorrow via Todoist API
+/// Snooze a task to tomorrow via Todoist API v1
 #[tauri::command]
 pub async fn snooze_todoist_task(app: AppHandle, task_id: String) -> Result<(), String> {
     let token = get_api_token(&app).await?;
@@ -191,11 +198,10 @@ pub async fn snooze_todoist_task(app: AppHandle, task_id: String) -> Result<(), 
         .format("%Y-%m-%d")
         .to_string();
 
-    // Update due date via Todoist API
     let client = reqwest::Client::new();
     let resp = client
         .post(format!(
-            "https://api.todoist.com/rest/v2/tasks/{}",
+            "https://api.todoist.com/api/v1/tasks/{}",
             task_id
         ))
         .header("Authorization", format!("Bearer {}", token))
@@ -206,10 +212,11 @@ pub async fn snooze_todoist_task(app: AppHandle, task_id: String) -> Result<(), 
         .map_err(|e| format!("Todoist API error: {}", e))?;
 
     if !resp.status().is_success() {
-        return Err(format!("Todoist returned status {}", resp.status()));
+        let body = resp.text().await.unwrap_or_default();
+        return Err(format!("Todoist snooze failed: {}", body));
     }
 
-    // Remove from local cache (it's no longer due today)
+    // Remove from local cache
     sqlx::query("DELETE FROM todoist_tasks WHERE id = ?")
         .bind(&task_id)
         .execute(pool.inner())
