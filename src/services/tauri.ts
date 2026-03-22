@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { Setting } from './types'
 
-// Settings commands
+// ── Settings ──
 export async function checkSetupComplete(): Promise<boolean> {
   return invoke<boolean>('check_setup_complete')
 }
@@ -16,4 +16,31 @@ export async function setSetting(key: string, value: string): Promise<void> {
 
 export async function getAllSettings(): Promise<Setting[]> {
   return invoke<Setting[]>('get_all_settings')
+}
+
+// ── Obsidian ──
+export interface CheckboxItem {
+  line_number: number
+  checked: boolean
+  text: string
+}
+
+export interface ParsedTodayMd {
+  tasks: CheckboxItem[]
+  habits_core: CheckboxItem[]
+  habits_bonus: CheckboxItem[]
+}
+
+export async function readTodayMd(): Promise<ParsedTodayMd> {
+  return invoke<ParsedTodayMd>('read_today_md')
+}
+
+export async function toggleObsidianCheckbox(
+  fileName: string,
+  lineNumber: number,
+): Promise<ParsedTodayMd> {
+  return invoke<ParsedTodayMd>('toggle_obsidian_checkbox', {
+    fileName,
+    lineNumber,
+  })
 }

@@ -1,10 +1,11 @@
 mod commands;
 mod db;
+mod parsers;
 
 use sqlx::sqlite::SqlitePoolOptions;
 use tauri::Manager;
 
-use commands::settings;
+use commands::{obsidian, settings};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -57,6 +58,8 @@ pub fn run() {
             settings::get_setting,
             settings::set_setting,
             settings::get_all_settings,
+            obsidian::read_today_md,
+            obsidian::toggle_obsidian_checkbox,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

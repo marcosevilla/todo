@@ -2,6 +2,7 @@ import { Panel } from './Panel'
 import { PrioritiesHero } from '@/components/priorities/PrioritiesHero'
 import { EnergySelector } from '@/components/priorities/EnergySelector'
 import { RefreshButton } from '@/components/shared/RefreshButton'
+import { TodayPanel } from '@/components/obsidian/TodayPanel'
 import { format } from 'date-fns'
 
 export function Dashboard() {
@@ -55,9 +56,7 @@ export function Dashboard() {
           {/* Right column */}
           <div className="space-y-4">
             <Panel title="Today" icon="📝" className="min-h-[200px]">
-              <p className="text-sm text-muted-foreground">
-                Obsidian today.md will appear here.
-              </p>
+              <TodayPanel />
             </Panel>
 
             <Panel title="Quick Captures" icon="💡" className="min-h-[200px]">
