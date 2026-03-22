@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useAppStore } from '@/stores/appStore'
 import { checkSetupComplete } from '@/services/tauri'
 import { SetupDialog } from '@/components/setup/SetupDialog'
+import { Dashboard } from '@/components/layout/Dashboard'
 
 function App() {
   const setupComplete = useAppStore((s) => s.setupComplete)
@@ -20,31 +21,17 @@ function App() {
     )
   }
 
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <SetupDialog
-        open={!setupComplete}
-        onComplete={() => setSetupComplete(true)}
-      />
+  // Needs setup
+  if (!setupComplete) {
+    return (
+      <div className="min-h-screen bg-background">
+        <SetupDialog open onComplete={() => setSetupComplete(true)} />
+      </div>
+    )
+  }
 
-      <header className="flex items-center justify-between border-b px-6 py-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Daily Triage</h1>
-          <p className="text-sm text-muted-foreground">
-            {new Date().toLocaleDateString('en-US', {
-              weekday: 'long',
-              month: 'long',
-              day: 'numeric',
-            })}
-          </p>
-        </div>
-      </header>
-
-      <main className="p-6">
-        <p className="text-muted-foreground">Dashboard coming soon.</p>
-      </main>
-    </div>
-  )
+  // Main app
+  return <Dashboard />
 }
 
 export default App
