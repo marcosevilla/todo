@@ -29,30 +29,36 @@ function NavButton({
   expanded: boolean
   onClick: () => void
 }) {
-  const button = (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex h-9 items-center rounded-lg transition-all duration-150',
-        expanded ? 'w-full gap-2.5 px-2.5' : 'w-9 justify-center',
-        isActive
-          ? 'bg-accent/60 text-foreground'
-          : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',
-      )}
-    >
+  const buttonClasses = cn(
+    'flex h-9 items-center rounded-lg transition-all duration-150 cursor-pointer',
+    expanded ? 'w-full gap-2.5 px-2.5' : 'w-9 justify-center',
+    isActive
+      ? 'bg-accent/60 text-foreground'
+      : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',
+  )
+
+  const content = (
+    <>
       <Icon className="size-[18px] shrink-0" />
       {expanded && (
         <span className="text-sm font-medium truncate">{label}</span>
       )}
-    </button>
+    </>
   )
 
-  // Only show tooltip in collapsed mode
-  if (expanded) return button
+  if (expanded) {
+    return (
+      <div role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => e.key === 'Enter' && onClick()} className={buttonClasses}>
+        {content}
+      </div>
+    )
+  }
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipTrigger onClick={onClick} className={buttonClasses}>
+        {content}
+      </TooltipTrigger>
       <TooltipContent side="right">{label}</TooltipContent>
     </Tooltip>
   )
