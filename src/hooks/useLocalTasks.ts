@@ -19,7 +19,7 @@ import {
 import type { LocalTask, Project } from '@/services/tauri'
 import { toast } from 'sonner'
 
-export function useLocalTasks(opts?: { projectId?: string; dueDate?: string }) {
+export function useLocalTasks(opts?: { projectId?: string; dueDate?: string; includeCompleted?: boolean }) {
   const [tasks, setTasks] = useState<LocalTask[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -30,6 +30,7 @@ export function useLocalTasks(opts?: { projectId?: string; dueDate?: string }) {
       const data = await getLocalTasks({
         projectId: opts?.projectId,
         dueDate: opts?.dueDate,
+        includeCompleted: opts?.includeCompleted ?? true,
       })
       setTasks(data)
     } catch (e) {
@@ -37,7 +38,7 @@ export function useLocalTasks(opts?: { projectId?: string; dueDate?: string }) {
     } finally {
       setLoading(false)
     }
-  }, [opts?.projectId, opts?.dueDate])
+  }, [opts?.projectId, opts?.dueDate, opts?.includeCompleted])
 
   useEffect(() => {
     refresh()

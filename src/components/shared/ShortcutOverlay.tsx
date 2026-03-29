@@ -38,9 +38,16 @@ const SECTIONS: ShortcutSection[] = [
   {
     title: 'Focus',
     shortcuts: [
-      { key: 'Enter', action: 'Start focus / confirm' },
-      { key: '1-5', action: 'Set timer duration' },
-      { key: 'Escape', action: 'Minimize / cancel' },
+      { key: 'Space', action: 'Pause / resume timer' },
+      { key: 'Escape', action: 'Minimize / stop' },
+    ],
+  },
+  {
+    title: 'Command Bar',
+    shortcuts: [
+      { key: '\u2325C', action: 'Complete selected task' },
+      { key: '\u2325B', action: 'AI breakdown' },
+      { key: '\u2325M', action: 'Move to project' },
     ],
   },
   {

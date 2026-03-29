@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { ChevronRight, Trash2, Plus, Pencil } from 'lucide-react'
 import { useFocusStore } from '@/stores/focusStore'
+import { useDetailStore } from '@/stores/detailStore'
 import { FocusPlayMenu } from '@/components/focus/FocusPlayMenu'
 import { TaskItem } from './TaskItem'
 import { TaskEditor } from './TaskEditor'
@@ -95,13 +96,14 @@ export function LocalTaskRow({
             content: task.content,
             priority: task.priority,
             completed: task.completed,
+            status: task.status,
             dueDate: task.due_date,
             projectName: projectName,
             projectColor: projectColor,
             description: task.description,
             source: 'local',
           }}
-          onToggle={handleToggle}
+          onContentClick={() => useDetailStore.getState().openTask(task.id)}
           focused={focused}
           className="flex-1"
         />
@@ -176,10 +178,10 @@ export function LocalTaskRow({
                   content: sub.content,
                   priority: sub.priority,
                   completed: sub.completed,
+                  status: sub.status,
                   dueDate: sub.due_date,
                   source: 'local',
                 }}
-                onToggle={handleToggle}
               />
               <Button
                 variant="ghost"

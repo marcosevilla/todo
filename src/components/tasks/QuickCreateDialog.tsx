@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useProjects } from '@/hooks/useLocalTasks'
 import { createLocalTask } from '@/services/tauri'
 import { toast } from 'sonner'
+import { taskToast } from '@/lib/taskToast'
 import {
   Dialog,
   DialogContent,
@@ -53,14 +54,14 @@ export function QuickCreateDialog({ open, onClose, onCreated }: QuickCreateDialo
 
     setSubmitting(true)
     try {
-      await createLocalTask({
+      const task = await createLocalTask({
         content: text,
         projectId,
         priority,
         dueDate: dueDate || undefined,
         description: description.trim() || undefined,
       })
-      toast.success('Task created')
+      taskToast('Task created', task.id)
       onClose()
       onCreated?.()
     } catch (e) {

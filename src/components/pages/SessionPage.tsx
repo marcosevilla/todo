@@ -2,6 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { readSessionLog } from '@/services/tauri'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ActivityTimeline } from '@/components/activity/ActivityTimeline'
+
+// ── Tab system ──
+
+type Tab = 'timeline' | 'sessions'
+
+// ── Session log parsing (unchanged) ──
 
 interface SessionEntry {
   timeRange: string
@@ -12,42 +19,34 @@ interface SessionEntry {
   refs: string | null
 }
 
-/** Parse the session log markdown into structured entries */
 function parseSessionLog(content: string): SessionEntry[] {
   const entries: SessionEntry[] = []
   const blocks = content.split(/\n---\n/).filter((b) => b.trim())
 
   for (const block of blocks) {
     const lines = block.trim().split('\n')
-
-    // Find the ## heading line
     const headingIdx = lines.findIndex((l) => l.startsWith('## '))
     if (headingIdx === -1) continue
 
     const heading = lines[headingIdx].replace('## ', '')
-    // Parse "3:00 PM – 1:02 AM — Title"
     const dashMatch = heading.match(/^(.+?)\s*[—–-]\s*(.+)$/)
     const timeRange = dashMatch ? dashMatch[1].trim() : ''
     const title = dashMatch ? dashMatch[2].trim() : heading.trim()
 
-    // Parse tags (lines with backtick-wrapped tags)
     const tagLine = lines.find((l) => l.includes('`#'))
     const tags = tagLine
       ? [...tagLine.matchAll(/`#([^`]+)`/g)].map((m) => m[1])
       : []
 
-    // Parse bullet points
     const bullets = lines
       .filter((l) => l.startsWith('- '))
       .map((l) => l.replace(/^- /, ''))
 
-    // Parse energy callout
     const energyLine = lines.find((l) => l.includes('[!energy]'))
     const energy = energyLine
       ? energyLine.replace(/.*\[!energy\]\s*/, '').replace('Energy: ', '')
       : null
 
-    // Parse refs line
     const refsLine = lines.find((l) => l.startsWith('Refs:'))
     const refs = refsLine || null
 
@@ -58,6 +57,8 @@ function parseSessionLog(content: string): SessionEntry[] {
 
   return entries
 }
+
+// ── Session card ──
 
 function SessionCard({ entry }: { entry: SessionEntry }) {
   const [expanded, setExpanded] = useState(true)
@@ -116,7 +117,9 @@ function SessionCard({ entry }: { entry: SessionEntry }) {
   )
 }
 
-export function SessionPage() {
+// ── Sessions tab content ──
+
+function SessionsTab() {
   const [entries, setEntries] = useState<SessionEntry[]>([])
   const [raw, setRaw] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -164,7 +167,7 @@ export function SessionPage() {
   if (!raw) {
     return (
       <p className="text-sm text-muted-foreground">
-        No sessions yet today. They'll appear here as you work.
+        No sessions yet today. They'll appear here as you work with Claude Code.
       </p>
     )
   }
@@ -179,15 +182,48 @@ export function SessionPage() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-baseline gap-2 pb-1">
-        <h2 className="text-sm font-medium">Today's Sessions</h2>
-        <span className="text-xs text-muted-foreground">
-          {entries.length} session{entries.length !== 1 ? 's' : ''}
-        </span>
-      </div>
       {entries.map((entry, i) => (
         <SessionCard key={i} entry={entry} />
       ))}
+    </div>
+  )
+}
+
+// ── Main page ──
+
+export function SessionPage() {
+  const [tab, setTab] = useState<Tab>('timeline')
+
+  return (
+    <div className="space-y-4">
+      {/* Tab switcher */}
+      <div className="flex items-center gap-1 rounded-lg bg-muted/40 p-1 w-fit">
+        <button
+          onClick={() => setTab('timeline')}
+          className={cn(
+            'rounded-md px-3 py-1.5 text-sm font-medium transition-all',
+            tab === 'timeline'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          Timeline
+        </button>
+        <button
+          onClick={() => setTab('sessions')}
+          className={cn(
+            'rounded-md px-3 py-1.5 text-sm font-medium transition-all',
+            tab === 'sessions'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          Sessions
+        </button>
+      </div>
+
+      {/* Tab content */}
+      {tab === 'timeline' ? <ActivityTimeline /> : <SessionsTab />}
     </div>
   )
 }

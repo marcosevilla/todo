@@ -1,6 +1,7 @@
 pub mod activity;
 pub mod ai;
 pub mod calendar;
+pub mod captures;
 pub mod focus;
 pub mod local_tasks;
 pub mod obsidian;

@@ -163,6 +163,31 @@ CREATE INDEX IF NOT EXISTS idx_action_log_synced ON action_log(synced)
             ALTER TABLE daily_state ADD COLUMN focus_paused_at TEXT
         "#,
     },
+    Migration {
+        version: 7,
+        description: "Task status workflow",
+        sql: r#"
+            ALTER TABLE local_tasks ADD COLUMN status TEXT NOT NULL DEFAULT 'todo';
+            UPDATE local_tasks SET status = 'complete' WHERE completed = 1;
+            CREATE INDEX IF NOT EXISTS idx_local_tasks_status ON local_tasks(status)
+        "#,
+    },
+    Migration {
+        version: 8,
+        description: "Captures table",
+        sql: r#"
+            CREATE TABLE IF NOT EXISTS captures (
+                id TEXT PRIMARY KEY,
+                content TEXT NOT NULL,
+                source TEXT NOT NULL DEFAULT 'manual',
+                converted_to_task_id TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_captures_created ON captures(created_at);
+            CREATE INDEX IF NOT EXISTS idx_captures_converted ON captures(converted_to_task_id)
+        "#,
+    },
 ];
 
 pub async fn run_migrations(pool: &SqlitePool) -> Result<(), String> {

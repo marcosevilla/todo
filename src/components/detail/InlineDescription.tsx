@@ -1,0 +1,72 @@
+import { useState, useRef, useCallback, useEffect } from 'react'
+
+interface InlineDescriptionProps {
+  value: string | null
+  onSave: (value: string) => void
+}
+
+export function InlineDescription({ value, onSave }: InlineDescriptionProps) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value ?? '')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => { setDraft(value ?? '') }, [value])
+
+  const startEditing = useCallback(() => {
+    setEditing(true)
+    setDraft(value ?? '')
+    requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (el) {
+        el.focus()
+        el.style.height = 'auto'
+        el.style.height = el.scrollHeight + 'px'
+      }
+    })
+  }, [value])
+
+  const save = useCallback(() => {
+    setEditing(false)
+    const trimmed = draft.trim()
+    if (trimmed !== (value ?? '').trim()) onSave(trimmed)
+  }, [draft, value, onSave])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') { e.preventDefault(); setEditing(false); setDraft(value ?? '') }
+    if (e.key === 'Enter' && e.metaKey) { e.preventDefault(); save() }
+  }, [save, value])
+
+  const handleInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setDraft(e.target.value)
+    e.target.style.height = 'auto'
+    e.target.style.height = e.target.scrollHeight + 'px'
+  }, [])
+
+  if (editing) {
+    return (
+      <textarea
+        ref={textareaRef}
+        value={draft}
+        onChange={handleInput}
+        onBlur={save}
+        onKeyDown={handleKeyDown}
+        placeholder="Add a description..."
+        className="w-full resize-none bg-transparent text-sm text-foreground/80 leading-relaxed outline-none placeholder:text-muted-foreground/40"
+        rows={2}
+      />
+    )
+  }
+
+  return (
+    <p
+      onClick={startEditing}
+      className="text-sm leading-relaxed cursor-text hover:bg-accent/10 rounded-md -mx-1 px-1 transition-colors min-h-[24px]"
+    >
+      {value ? (
+        <span className="text-foreground/80">{value}</span>
+      ) : (
+        <span className="text-muted-foreground/40">Add a description...</span>
+      )}
+    </p>
+  )
+}

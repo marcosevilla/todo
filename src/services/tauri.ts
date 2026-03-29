@@ -197,6 +197,8 @@ export async function deleteProject(id: string): Promise<void> {
 }
 
 // ── Local Tasks ──
+export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'blocked' | 'complete'
+
 export interface LocalTask {
   id: string
   parent_id: string | null
@@ -207,6 +209,7 @@ export interface LocalTask {
   due_date: string | null
   completed: boolean
   completed_at: string | null
+  status: TaskStatus
   position: number
   created_at: string
   updated_at: string
@@ -252,6 +255,10 @@ export async function updateLocalTask(opts: {
   clearDueDate?: boolean
 }): Promise<LocalTask> {
   return invoke<LocalTask>('update_local_task', opts)
+}
+
+export async function updateTaskStatus(id: string, status: TaskStatus, note?: string): Promise<void> {
+  return invoke<void>('update_task_status', { id, status, note })
 }
 
 export async function completeLocalTask(id: string): Promise<void> {
@@ -333,18 +340,50 @@ export async function getActivityLog(opts: {
   fromDate: string
   toDate: string
   actionType?: string
+  targetId?: string
   limit?: number
 }): Promise<ActivityEntry[]> {
   return invoke<ActivityEntry[]>('get_activity_log', {
     fromDate: opts.fromDate,
     toDate: opts.toDate,
     actionType: opts.actionType,
+    targetId: opts.targetId,
     limit: opts.limit,
   })
 }
 
 export async function getActivitySummary(date: string): Promise<ActivitySummary[]> {
   return invoke<ActivitySummary[]>('get_activity_summary', { date })
+}
+
+// ── Captures ──
+
+export interface Capture {
+  id: string
+  content: string
+  source: string
+  converted_to_task_id: string | null
+  created_at: string
+}
+
+export async function getCaptures(limit?: number, includeConverted?: boolean): Promise<Capture[]> {
+  return invoke<Capture[]>('get_captures', { limit, includeConverted })
+}
+
+export async function createCapture(content: string, source?: string): Promise<Capture> {
+  return invoke<Capture>('create_capture', { content, source })
+}
+
+export async function convertCaptureToTask(captureId: string, projectId?: string): Promise<LocalTask> {
+  return invoke<LocalTask>('convert_capture_to_task', { captureId, projectId })
+}
+
+export async function deleteCapture(id: string): Promise<void> {
+  return invoke<void>('delete_capture', { id })
+}
+
+export async function importObsidianCaptures(): Promise<number> {
+  return invoke<number>('import_obsidian_captures')
 }
 
 // ── AI ──

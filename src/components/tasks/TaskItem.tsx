@@ -1,7 +1,6 @@
-import { useCallback, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Badge } from '@/components/ui/badge'
+import { StatusDropdown } from './StatusDropdown'
+import type { TaskStatus } from '@/services/tauri'
 import { format, parseISO, isToday, isTomorrow, isPast } from 'date-fns'
 
 // ── Priority Indicator ──
@@ -67,6 +66,7 @@ export interface TaskItemData {
   content: string
   priority: number
   completed: boolean
+  status?: TaskStatus
   dueDate?: string | null
   projectName?: string | null
   projectColor?: string | null
@@ -76,28 +76,17 @@ export interface TaskItemData {
 
 interface TaskItemProps {
   task: TaskItemData
-  onToggle: (id: string) => void
+  onContentClick?: () => void
   focused?: boolean
   className?: string
 }
 
-export function TaskItem({ task, onToggle, focused, className }: TaskItemProps) {
-  const [completing, setCompleting] = useState(false)
-
-  const handleToggle = useCallback(() => {
-    if (task.completed) {
-      onToggle(task.id)
-    } else {
-      setCompleting(true)
-      setTimeout(() => onToggle(task.id), 600)
-    }
-  }, [task.id, task.completed, onToggle])
+export function TaskItem({ task, onContentClick, focused, className }: TaskItemProps) {
 
   return (
     <div
       className={cn(
         'group flex items-center gap-2 h-9 px-2 rounded-md transition-all duration-150 hover:bg-accent/30',
-        completing && 'animate-task-complete',
         focused && 'ring-1 ring-accent-blue/40 bg-accent/10',
         className,
       )}
@@ -105,18 +94,20 @@ export function TaskItem({ task, onToggle, focused, className }: TaskItemProps) 
       {/* Priority */}
       <PriorityIndicator priority={task.priority} />
 
-      {/* Status checkbox */}
-      <Checkbox
-        checked={task.completed}
-        onCheckedChange={handleToggle}
-        className="shrink-0 border-muted-foreground/30"
-      />
+      {/* Status */}
+      {task.source === 'local' && task.status ? (
+        <StatusDropdown taskId={task.id} status={task.status} />
+      ) : (
+        <div className="w-4 shrink-0" />
+      )}
 
       {/* Task name */}
       <span
+        onClick={onContentClick}
         className={cn(
           'flex-1 min-w-0 truncate text-sm',
-          task.completed && 'text-muted-foreground line-through',
+          (task.completed || task.status === 'complete') && 'text-muted-foreground line-through',
+          onContentClick && 'cursor-pointer hover:text-foreground',
         )}
       >
         {task.content}

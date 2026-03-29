@@ -1,31 +1,33 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { useAppStore } from '@/stores/appStore'
 import { NavSidebar } from './NavSidebar'
 import { RightSidebar } from './RightSidebar'
-import { RefreshButton } from '@/components/shared/RefreshButton'
-import { SaveButton } from '@/components/shared/SaveButton'
 import { CommandBar } from '@/components/shared/CommandBar'
-import { ShortcutOverlay } from '@/components/shared/ShortcutOverlay'
+import { HelpPanel } from '@/components/shared/HelpPanel'
 import { QuickCreateDialog } from '@/components/tasks/QuickCreateDialog'
 import { TodayPage } from '@/components/pages/TodayPage'
 import { TasksPage } from '@/components/pages/TasksPage'
 import { InboxPage } from '@/components/pages/InboxPage'
 import { SessionPage } from '@/components/pages/SessionPage'
 import { SettingsPage } from '@/components/pages/SettingsPage'
-import { useRefresh } from '@/hooks/useRefresh'
+import { emitTasksChanged } from '@/hooks/useLocalTasks'
 import { useFocusTimer } from '@/hooks/useFocusTimer'
 import { useFocusStore } from '@/stores/focusStore'
 import { FocusView } from '@/components/focus/FocusView'
 import { FocusBanner } from '@/components/focus/FocusBanner'
 import { FocusCelebration } from '@/components/focus/FocusCelebration'
 import { FocusResumeDialog } from '@/components/focus/FocusResumeDialog'
+import { useDetailStore } from '@/stores/detailStore'
+import { TaskDetailPage } from '@/components/detail/TaskDetailPage'
+import { CaptureDetailPage } from '@/components/detail/CaptureDetailPage'
+import { DetailSidebar } from '@/components/detail/DetailSidebar'
 
 const PAGE_TITLES: Record<string, string> = {
   today: 'Today',
   tasks: 'Tasks',
   inbox: 'Inbox',
-  session: 'Session',
+  session: 'Activity',
   settings: 'Settings',
 }
 
@@ -51,21 +53,19 @@ function PageContent({ page }: { page: string }) {
 export function Dashboard() {
   const currentPage = useAppStore((s) => s.currentPage)
   const setCurrentPage = useAppStore((s) => s.setCurrentPage)
-  const commandBarRef = useRef<HTMLInputElement>(null)
-  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [quickCreateOpen, setQuickCreateOpen] = useState(false)
 
-  const refreshAll = useCallback(async () => {
-    // Individual panels manage their own data fetching via hooks.
-  }, [])
-
-  const { triggerRefresh } = useRefresh(refreshAll)
 
   // Focus mode
   useFocusTimer()
   const focusActive = useFocusStore((s) => s.isActive)
   const focusCompact = useFocusStore((s) => s.isCompact)
   const showCelebration = useFocusStore((s) => s.showCelebration)
+
+  // Detail view
+  const detailTarget = useDetailStore((s) => s.target)
+  const detailMode = useDetailStore((s) => s.mode)
+  const closeDetail = useDetailStore((s) => s.close)
 
   const setCaptureRequested = useAppStore((s) => s.setCaptureRequested)
 
@@ -88,17 +88,6 @@ export function Dashboard() {
         target.tagName === 'TEXTAREA' ||
         target.isContentEditable
 
-      // Cmd+K — focus command bar (always works)
-      if (meta && e.key === 'k') {
-        e.preventDefault()
-        if (document.activeElement === commandBarRef.current) {
-          commandBarRef.current?.blur()
-        } else {
-          commandBarRef.current?.focus()
-        }
-        return
-      }
-
       // Cmd+, — open settings
       if (meta && e.key === ',') {
         e.preventDefault()
@@ -106,10 +95,27 @@ export function Dashboard() {
         return
       }
 
-      // Cmd+R — refresh all
+      // Cmd+R — refresh all data
       if (meta && e.key === 'r') {
         e.preventDefault()
-        triggerRefresh()
+        emitTasksChanged()
+        return
+      }
+
+
+      // Escape — close detail view (when not in input)
+      if (e.key === 'Escape' && !isInput && detailTarget) {
+        e.preventDefault()
+        closeDetail()
+        return
+      }
+
+      // Space — pause/resume focus (only when focus active and not in input)
+      if (e.key === ' ' && !isInput && !meta && focusActive) {
+        e.preventDefault()
+        const store = useFocusStore.getState()
+        if (store.pausedAt) store.resumeFocus()
+        else store.pauseFocus()
         return
       }
 
@@ -117,13 +123,6 @@ export function Dashboard() {
       if (e.key === 'q' && !isInput && !meta) {
         e.preventDefault()
         setQuickCreateOpen(true)
-        return
-      }
-
-      // ? — toggle shortcuts overlay (only when not typing in an input)
-      if (e.key === '?' && !isInput && !meta) {
-        e.preventDefault()
-        setShortcutsOpen((prev) => !prev)
         return
       }
 
@@ -148,7 +147,7 @@ export function Dashboard() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [shortcutsOpen, setCurrentPage, triggerRefresh])
+  }, [setCurrentPage, detailTarget, closeDetail])
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
@@ -158,25 +157,25 @@ export function Dashboard() {
       {/* Center: Main content area */}
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-border/50 px-5 py-2" data-tauri-drag-region>
-          <div className="flex items-center gap-4">
-            <h1 className="text-base font-semibold tracking-tight">
-              {PAGE_TITLES[currentPage] ?? 'Daily Triage'}
-            </h1>
-          </div>
-          <div className="flex items-center gap-1">
-            <RefreshButton onRefresh={triggerRefresh} />
-            <SaveButton />
-          </div>
+        <header className="flex items-center border-b border-border/20 px-5 py-2" data-tauri-drag-region>
+          <h1 className="text-base font-semibold tracking-tight">
+            {PAGE_TITLES[currentPage] ?? 'Daily Triage'}
+          </h1>
         </header>
 
         {/* Focus banner (compact mode) */}
         {focusActive && focusCompact && <FocusBanner />}
 
-        {/* Page content / Focus view */}
+        {/* Page content / Focus view / Detail view */}
         <div className="flex flex-1 overflow-y-auto">
           {focusActive && !focusCompact ? (
             <FocusView />
+          ) : detailTarget && detailMode === 'body' ? (
+            <main key={`detail-${detailTarget.id}`} className="flex-1 p-6 animate-page-enter">
+              <div className="mx-auto w-full max-w-2xl">
+                {detailTarget.type === 'task' ? <TaskDetailPage /> : <CaptureDetailPage />}
+              </div>
+            </main>
           ) : (
             <main key={currentPage} className="flex-1 p-6 animate-page-enter">
               <div className="mx-auto w-full max-w-2xl">
@@ -185,12 +184,15 @@ export function Dashboard() {
             </main>
           )}
         </div>
-        <CommandBar inputRef={commandBarRef} />
       </div>
 
-      {/* Right: Sidebar (Schedule + Habits) — hidden on Settings/Session */}
+      {/* Right: Sidebar — detail view replaces Schedule/Habits when in sidebar mode */}
       {currentPage !== 'settings' && currentPage !== 'session' && (
-        <RightSidebar />
+        detailTarget && detailMode === 'sidebar' ? (
+          <DetailSidebar />
+        ) : (
+          <RightSidebar />
+        )
       )}
 
       {/* Quick create task dialog */}
@@ -199,11 +201,11 @@ export function Dashboard() {
         onClose={() => setQuickCreateOpen(false)}
       />
 
-      {/* Shortcuts overlay */}
-      <ShortcutOverlay
-        open={shortcutsOpen}
-        onClose={() => setShortcutsOpen(false)}
-      />
+      {/* Help panel (shortcuts + roadmap) */}
+      <HelpPanel />
+
+      {/* Command bar overlay */}
+      <CommandBar />
 
       {/* Focus mode overlays */}
       {showCelebration && <FocusCelebration />}

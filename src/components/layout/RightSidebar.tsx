@@ -76,7 +76,7 @@ export function RightSidebar() {
 
   return (
     <aside
-      className="relative flex flex-col border-l border-border/50 bg-muted/20 overflow-hidden"
+      className="relative flex flex-col border-l border-border/20 bg-muted/10 overflow-hidden"
       style={{ width }}
     >
       {/* Resize handle */}

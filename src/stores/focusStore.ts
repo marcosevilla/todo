@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { startFocusSession, endFocusSession, completeLocalTask } from '@/services/tauri'
+import { startFocusSession, endFocusSession, updateTaskStatus } from '@/services/tauri'
 import type { LocalTask } from '@/services/tauri'
 
 export type TimerMode = 'up' | 'down'
@@ -84,6 +84,7 @@ export const useFocusStore = create<FocusStore>((set, get) => ({
 
   startFocus: (task, config) => {
     startFocusSession(task.id, task.content).catch(() => {})
+    updateTaskStatus(task.id, 'in_progress').catch(() => {})
     set({
       isActive: true,
       isPendingSetup: false,
@@ -120,7 +121,7 @@ export const useFocusStore = create<FocusStore>((set, get) => ({
   completeFocus: (nextTask) => {
     const { taskId, elapsed } = get()
     if (taskId) {
-      completeLocalTask(taskId).catch(() => {})
+      updateTaskStatus(taskId, 'complete').catch(() => {})
       endFocusSession(taskId, 'focus_completed', elapsed).catch(() => {})
     }
     set({

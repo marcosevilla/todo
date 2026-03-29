@@ -1,17 +1,16 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Trash2, FolderInput } from 'lucide-react'
+import { StatusDropdown } from './StatusDropdown'
 import { FocusPlayMenu } from '@/components/focus/FocusPlayMenu'
+import { useDetailStore } from '@/stores/detailStore'
 import { useFocusStore } from '@/stores/focusStore'
 import type { LocalTask, Project } from '@/services/tauri'
 
 interface InboxTaskItemProps {
   task: LocalTask
   projects: Project[]
-  onComplete: (id: string) => void
-  onUncomplete: (id: string) => void
   onDelete: (id: string) => void
   onMove: (id: string, projectId: string) => void
 }
@@ -19,22 +18,10 @@ interface InboxTaskItemProps {
 export function InboxTaskItem({
   task,
   projects,
-  onComplete,
-  onUncomplete,
   onDelete,
   onMove,
 }: InboxTaskItemProps) {
   const [showMoveMenu, setShowMoveMenu] = useState(false)
-  const [completing, setCompleting] = useState(false)
-
-  const handleToggle = useCallback(() => {
-    if (task.completed) {
-      onUncomplete(task.id)
-    } else {
-      setCompleting(true)
-      setTimeout(() => onComplete(task.id), 400)
-    }
-  }, [task, onComplete, onUncomplete])
 
   const otherProjects = projects.filter((p) => p.id !== task.project_id)
 
@@ -42,20 +29,18 @@ export function InboxTaskItem({
     <div
       className={cn(
         'group flex items-center gap-3 rounded-lg border border-border/30 px-3 py-2 transition-all',
-        completing && 'opacity-50 scale-[0.98]',
         'hover:border-border/50 hover:bg-accent/10',
       )}
     >
-      <Checkbox
-        checked={task.completed}
-        onCheckedChange={handleToggle}
-        className="shrink-0"
-      />
+      <StatusDropdown taskId={task.id} status={task.status ?? 'todo'} />
 
-      <span className={cn(
-        'flex-1 min-w-0 truncate text-sm',
-        task.completed && 'text-muted-foreground line-through',
-      )}>
+      <span
+        onClick={() => useDetailStore.getState().openTask(task.id)}
+        className={cn(
+          'flex-1 min-w-0 truncate text-sm cursor-pointer hover:text-foreground',
+          task.completed && 'text-muted-foreground line-through',
+        )}
+      >
         {task.content}
       </span>
 

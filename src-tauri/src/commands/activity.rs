@@ -43,38 +43,30 @@ pub async fn get_activity_log(
     from_date: String,
     to_date: String,
     action_type: Option<String>,
+    target_id: Option<String>,
     limit: Option<i64>,
 ) -> Result<Vec<ActivityEntry>, String> {
     let pool = app.state::<SqlitePool>();
     let limit = limit.unwrap_or(200);
 
-    let rows: Vec<(String, String, Option<String>, Option<String>, String)> =
-        if let Some(ref action) = action_type {
-            sqlx::query_as(
-                "SELECT id, action_type, target_id, metadata, created_at FROM activity_log
-                 WHERE created_at >= ? AND created_at < date(?, '+1 day') AND action_type = ?
-                 ORDER BY created_at DESC LIMIT ?",
-            )
-            .bind(&from_date)
-            .bind(&to_date)
-            .bind(action)
-            .bind(limit)
-            .fetch_all(pool.inner())
-            .await
-            .map_err(|e| e.to_string())?
-        } else {
-            sqlx::query_as(
-                "SELECT id, action_type, target_id, metadata, created_at FROM activity_log
-                 WHERE created_at >= ? AND created_at < date(?, '+1 day')
-                 ORDER BY created_at DESC LIMIT ?",
-            )
-            .bind(&from_date)
-            .bind(&to_date)
-            .bind(limit)
-            .fetch_all(pool.inner())
-            .await
-            .map_err(|e| e.to_string())?
-        };
+    // Build query dynamically based on filters
+    let mut conditions = vec!["created_at >= ?", "created_at < date(?, '+1 day')"];
+    if action_type.is_some() { conditions.push("action_type = ?"); }
+    if target_id.is_some() { conditions.push("target_id = ?"); }
+
+    let sql = format!(
+        "SELECT id, action_type, target_id, metadata, created_at FROM activity_log WHERE {} ORDER BY created_at DESC LIMIT ?",
+        conditions.join(" AND ")
+    );
+
+    let mut query = sqlx::query_as::<_, (String, String, Option<String>, Option<String>, String)>(&sql)
+        .bind(&from_date)
+        .bind(&to_date);
+    if let Some(ref action) = action_type { query = query.bind(action); }
+    if let Some(ref tid) = target_id { query = query.bind(tid); }
+    query = query.bind(limit);
+
+    let rows = query.fetch_all(pool.inner()).await.map_err(|e| e.to_string())?;
 
     Ok(rows
         .into_iter()
