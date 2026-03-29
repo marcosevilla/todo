@@ -178,6 +178,18 @@ pub async fn write_quick_capture(app: AppHandle, content: String) -> Result<Quic
         .await
         .map_err(|e| format!("Failed to write Quick Captures.md: {}", e))?;
 
+    let pool = app.state::<SqlitePool>();
+    crate::db::activity::log_activity(
+        pool.inner(),
+        "item_captured",
+        None,
+        Some(serde_json::json!({
+            "content": content.trim(),
+            "source": "quick_capture",
+        })),
+    )
+    .await;
+
     Ok(QuickCapture {
         timestamp: Some(timestamp),
         content: content.trim().to_string(),

@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { useAppStore } from '@/stores/appStore'
 import { NavSidebar } from './NavSidebar'
 import { RightSidebar } from './RightSidebar'
 import { RefreshButton } from '@/components/shared/RefreshButton'
 import { SaveButton } from '@/components/shared/SaveButton'
-import { CommandPalette } from '@/components/shared/CommandPalette'
+import { CommandBar } from '@/components/shared/CommandBar'
 import { ShortcutOverlay } from '@/components/shared/ShortcutOverlay'
 import { QuickCreateDialog } from '@/components/tasks/QuickCreateDialog'
 import { TodayPage } from '@/components/pages/TodayPage'
@@ -14,10 +14,12 @@ import { InboxPage } from '@/components/pages/InboxPage'
 import { SessionPage } from '@/components/pages/SessionPage'
 import { SettingsPage } from '@/components/pages/SettingsPage'
 import { useRefresh } from '@/hooks/useRefresh'
-import { useSave } from '@/hooks/useSave'
-import { useTheme } from '@/hooks/useTheme'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Button } from '@/components/ui/button'
+import { useFocusTimer } from '@/hooks/useFocusTimer'
+import { useFocusStore } from '@/stores/focusStore'
+import { FocusView } from '@/components/focus/FocusView'
+import { FocusBanner } from '@/components/focus/FocusBanner'
+import { FocusCelebration } from '@/components/focus/FocusCelebration'
+import { FocusResumeDialog } from '@/components/focus/FocusResumeDialog'
 
 const PAGE_TITLES: Record<string, string> = {
   today: 'Today',
@@ -49,7 +51,7 @@ function PageContent({ page }: { page: string }) {
 export function Dashboard() {
   const currentPage = useAppStore((s) => s.currentPage)
   const setCurrentPage = useAppStore((s) => s.setCurrentPage)
-  const [paletteOpen, setPaletteOpen] = useState(false)
+  const commandBarRef = useRef<HTMLInputElement>(null)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [quickCreateOpen, setQuickCreateOpen] = useState(false)
 
@@ -58,8 +60,12 @@ export function Dashboard() {
   }, [])
 
   const { triggerRefresh } = useRefresh(refreshAll)
-  const { save } = useSave()
-  const { setTheme } = useTheme()
+
+  // Focus mode
+  useFocusTimer()
+  const focusActive = useFocusStore((s) => s.isActive)
+  const focusCompact = useFocusStore((s) => s.isCompact)
+  const showCelebration = useFocusStore((s) => s.showCelebration)
 
   const setCaptureRequested = useAppStore((s) => s.setCaptureRequested)
 
@@ -82,10 +88,14 @@ export function Dashboard() {
         target.tagName === 'TEXTAREA' ||
         target.isContentEditable
 
-      // Cmd+K — toggle command palette (always works)
+      // Cmd+K — focus command bar (always works)
       if (meta && e.key === 'k') {
         e.preventDefault()
-        setPaletteOpen((prev) => !prev)
+        if (document.activeElement === commandBarRef.current) {
+          commandBarRef.current?.blur()
+        } else {
+          commandBarRef.current?.focus()
+        }
         return
       }
 
@@ -103,15 +113,6 @@ export function Dashboard() {
         return
       }
 
-      // Escape — close palette (dialog components handle their own Escape)
-      if (e.key === 'Escape') {
-        if (paletteOpen) {
-          e.preventDefault()
-          setPaletteOpen(false)
-          return
-        }
-      }
-
       // Q — open quick create dialog (only when not typing in an input)
       if (e.key === 'q' && !isInput && !meta) {
         e.preventDefault()
@@ -127,7 +128,7 @@ export function Dashboard() {
       }
 
       // Number keys for navigation (only when not typing in an input)
-      if (!isInput && !paletteOpen) {
+      if (!isInput) {
         const num = parseInt(e.key, 10)
         if (num >= 1 && num <= 4) {
           e.preventDefault()
@@ -147,15 +148,15 @@ export function Dashboard() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [paletteOpen, shortcutsOpen, setCurrentPage, triggerRefresh])
+  }, [shortcutsOpen, setCurrentPage, triggerRefresh])
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
+    <div className="flex h-screen overflow-hidden bg-background text-foreground">
       {/* Left: Nav sidebar */}
       <NavSidebar />
 
       {/* Center: Main content area */}
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         {/* Header */}
         <header className="flex items-center justify-between border-b border-border/50 px-5 py-2" data-tauri-drag-region>
           <div className="flex items-center gap-4">
@@ -164,40 +165,33 @@ export function Dashboard() {
             </h1>
           </div>
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setPaletteOpen(true)}
-              className="hidden sm:inline-flex gap-1.5 text-muted-foreground/50"
-            >
-              <kbd className="text-[10px] font-mono">{'\u2318'}K</kbd>
-            </Button>
             <RefreshButton onRefresh={triggerRefresh} />
             <SaveButton />
           </div>
         </header>
 
-        {/* Page content */}
-        <ScrollArea className="flex-1">
-          <main key={currentPage} className="p-6 animate-page-enter">
-            <PageContent page={currentPage} />
-          </main>
-        </ScrollArea>
+        {/* Focus banner (compact mode) */}
+        {focusActive && focusCompact && <FocusBanner />}
+
+        {/* Page content / Focus view */}
+        <div className="flex flex-1 overflow-y-auto">
+          {focusActive && !focusCompact ? (
+            <FocusView />
+          ) : (
+            <main key={currentPage} className="flex-1 p-6 animate-page-enter">
+              <div className="mx-auto w-full max-w-2xl">
+                <PageContent page={currentPage} />
+              </div>
+            </main>
+          )}
+        </div>
+        <CommandBar inputRef={commandBarRef} />
       </div>
 
       {/* Right: Sidebar (Schedule + Habits) — hidden on Settings/Session */}
       {currentPage !== 'settings' && currentPage !== 'session' && (
         <RightSidebar />
       )}
-
-      {/* Command Palette overlay */}
-      <CommandPalette
-        open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-        onRefresh={triggerRefresh}
-        onSave={save}
-        onSetTheme={setTheme}
-      />
 
       {/* Quick create task dialog */}
       <QuickCreateDialog
@@ -211,13 +205,9 @@ export function Dashboard() {
         onClose={() => setShortcutsOpen(false)}
       />
 
-      {/* Shortcut hint button */}
-      <button
-        onClick={() => setShortcutsOpen(true)}
-        className="fixed bottom-3 right-3 flex h-6 w-6 items-center justify-center rounded-full border border-border/30 text-xs text-muted-foreground/30 transition-colors hover:text-muted-foreground/60"
-      >
-        ?
-      </button>
+      {/* Focus mode overlays */}
+      {showCelebration && <FocusCelebration />}
+      <FocusResumeDialog />
     </div>
   )
 }

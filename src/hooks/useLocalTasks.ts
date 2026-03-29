@@ -1,7 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+
+// Simple event bus so all useLocalTasks instances refetch on any mutation
+const TASKS_CHANGED = 'tasks-changed'
+export function emitTasksChanged() {
+  window.dispatchEvent(new Event(TASKS_CHANGED))
+}
 import {
   getLocalTasks,
   createLocalTask,
+  updateLocalTask,
   completeLocalTask,
   uncompleteLocalTask,
   deleteLocalTask,
@@ -36,6 +43,13 @@ export function useLocalTasks(opts?: { projectId?: string; dueDate?: string }) {
     refresh()
   }, [refresh])
 
+  // Re-fetch when any useLocalTasks instance mutates
+  useEffect(() => {
+    const handler = () => refresh()
+    window.addEventListener(TASKS_CHANGED, handler)
+    return () => window.removeEventListener(TASKS_CHANGED, handler)
+  }, [refresh])
+
   const addTask = useCallback(
     async (content: string, extra?: { parentId?: string; projectId?: string; priority?: number; dueDate?: string; description?: string }) => {
       try {
@@ -48,6 +62,7 @@ export function useLocalTasks(opts?: { projectId?: string; dueDate?: string }) {
           description: extra?.description,
         })
         setTasks((prev) => [...prev, task])
+        emitTasksChanged()
         return task
       } catch (e) {
         toast.error(`Failed to create task: ${e}`)
@@ -68,6 +83,7 @@ export function useLocalTasks(opts?: { projectId?: string; dueDate?: string }) {
     )
     try {
       await completeLocalTask(id)
+      emitTasksChanged()
     } catch (e) {
       toast.error(`Failed to complete task: ${e}`)
       refresh()
@@ -82,6 +98,7 @@ export function useLocalTasks(opts?: { projectId?: string; dueDate?: string }) {
     )
     try {
       await uncompleteLocalTask(id)
+      emitTasksChanged()
     } catch (e) {
       toast.error(`Failed to uncomplete task: ${e}`)
       refresh()
@@ -92,13 +109,27 @@ export function useLocalTasks(opts?: { projectId?: string; dueDate?: string }) {
     setTasks((prev) => prev.filter((t) => t.id !== id && t.parent_id !== id))
     try {
       await deleteLocalTask(id)
+      emitTasksChanged()
     } catch (e) {
       toast.error(`Failed to delete task: ${e}`)
       refresh()
     }
   }, [refresh])
 
-  return { tasks, loading, error, refresh, addTask, complete, uncomplete, remove }
+  const update = useCallback(async (id: string, opts: { projectId?: string; content?: string; priority?: number; dueDate?: string }) => {
+    try {
+      const updated = await updateLocalTask({ id, projectId: opts.projectId, content: opts.content, priority: opts.priority, dueDate: opts.dueDate })
+      setTasks((prev) => prev.map((t) => t.id === id ? updated : t))
+      emitTasksChanged()
+      return updated
+    } catch (e) {
+      toast.error(`Failed to update task: ${e}`)
+      refresh()
+      return null
+    }
+  }, [refresh])
+
+  return { tasks, loading, error, refresh, addTask, update, complete, uncomplete, remove }
 }
 
 export function useProjects() {

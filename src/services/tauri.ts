@@ -305,3 +305,70 @@ export async function saveProgress(
     tasksDeferred,
   })
 }
+
+// ── Activity Log ──
+
+export interface ActivityEntry {
+  id: string
+  action_type: string
+  target_id: string | null
+  metadata: Record<string, unknown> | null
+  created_at: string
+}
+
+export interface ActivitySummary {
+  action_type: string
+  count: number
+}
+
+export async function logActivity(
+  actionType: string,
+  targetId?: string,
+  metadata?: Record<string, unknown>,
+): Promise<void> {
+  return invoke<void>('log_activity', { actionType, targetId, metadata })
+}
+
+export async function getActivityLog(opts: {
+  fromDate: string
+  toDate: string
+  actionType?: string
+  limit?: number
+}): Promise<ActivityEntry[]> {
+  return invoke<ActivityEntry[]>('get_activity_log', {
+    fromDate: opts.fromDate,
+    toDate: opts.toDate,
+    actionType: opts.actionType,
+    limit: opts.limit,
+  })
+}
+
+export async function getActivitySummary(date: string): Promise<ActivitySummary[]> {
+  return invoke<ActivitySummary[]>('get_activity_summary', { date })
+}
+
+// ── AI ──
+
+export async function breakDownTask(taskContent: string, taskDescription?: string): Promise<string[]> {
+  return invoke<string[]>('break_down_task', { taskContent, taskDescription })
+}
+
+// ── Focus Mode ──
+
+export interface FocusState {
+  task_id: string | null
+  started_at: string | null
+  paused_at: string | null
+}
+
+export async function startFocusSession(taskId: string, taskContent: string): Promise<void> {
+  return invoke<void>('start_focus_session', { taskId, taskContent })
+}
+
+export async function endFocusSession(taskId: string, outcome: string, durationSecs: number): Promise<void> {
+  return invoke<void>('end_focus_session', { taskId, outcome, durationSecs: Math.floor(durationSecs) })
+}
+
+export async function getActiveFocus(): Promise<FocusState> {
+  return invoke<FocusState>('get_active_focus')
+}

@@ -137,6 +137,32 @@ CREATE INDEX IF NOT EXISTS idx_action_log_synced ON action_log(synced)
             CREATE INDEX IF NOT EXISTS idx_local_tasks_completed ON local_tasks(completed)
         "#,
     },
+    Migration {
+        version: 4,
+        description: "Activity log",
+        sql: r#"
+            CREATE TABLE IF NOT EXISTS activity_log (
+                id TEXT PRIMARY KEY,
+                action_type TEXT NOT NULL,
+                target_id TEXT,
+                metadata TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at);
+            CREATE INDEX IF NOT EXISTS idx_activity_log_action_type ON activity_log(action_type);
+            CREATE INDEX IF NOT EXISTS idx_activity_log_target ON activity_log(target_id)
+        "#,
+    },
+    Migration {
+        version: 5,
+        description: "Focus mode state",
+        sql: r#"
+            ALTER TABLE daily_state ADD COLUMN focus_task_id TEXT;
+            ALTER TABLE daily_state ADD COLUMN focus_started_at TEXT;
+            ALTER TABLE daily_state ADD COLUMN focus_paused_at TEXT
+        "#,
+    },
 ];
 
 pub async fn run_migrations(pool: &SqlitePool) -> Result<(), String> {

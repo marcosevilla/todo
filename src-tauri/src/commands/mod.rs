@@ -1,4 +1,7 @@
+pub mod activity;
+pub mod ai;
 pub mod calendar;
+pub mod focus;
 pub mod local_tasks;
 pub mod obsidian;
 pub mod open_url;

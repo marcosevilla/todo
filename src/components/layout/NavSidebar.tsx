@@ -29,7 +29,7 @@ function NavButton({
         className={cn(
           'flex w-10 h-10 items-center justify-center rounded-lg transition-all duration-150',
           isActive
-            ? 'border-l-2 border-foreground/70 text-foreground'
+            ? 'bg-accent/60 text-foreground'
             : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',
         )}
       >

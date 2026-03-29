@@ -57,6 +57,14 @@ pub async fn create_project(
         .await
         .map_err(|e| e.to_string())?;
 
+    crate::db::activity::log_activity(
+        pool.inner(),
+        "project_created",
+        Some(&id),
+        Some(serde_json::json!({ "name": &name })),
+    )
+    .await;
+
     Ok(Project {
         id,
         name,
@@ -112,6 +120,14 @@ pub async fn delete_project(app: AppHandle, id: String) -> Result<(), String> {
         .execute(pool.inner())
         .await
         .map_err(|e| e.to_string())?;
+
+    crate::db::activity::log_activity(
+        pool.inner(),
+        "project_deleted",
+        Some(&id),
+        None,
+    )
+    .await;
 
     Ok(())
 }

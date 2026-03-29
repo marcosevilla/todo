@@ -21,7 +21,7 @@ const SECTIONS: ShortcutSection[] = [
     title: 'Navigation',
     shortcuts: [
       { key: '1-4', action: 'Jump to page' },
-      { key: '\u2318K', action: 'Command palette' },
+      { key: '\u2318K', action: 'Focus command bar' },
       { key: '\u2318,', action: 'Settings' },
     ],
   },
@@ -33,6 +33,14 @@ const SECTIONS: ShortcutSection[] = [
       { key: 'x / Space', action: 'Complete task' },
       { key: 's', action: 'Snooze task' },
       { key: 'Enter', action: 'Open in Todoist' },
+    ],
+  },
+  {
+    title: 'Focus',
+    shortcuts: [
+      { key: 'Enter', action: 'Start focus / confirm' },
+      { key: '1-5', action: 'Set timer duration' },
+      { key: 'Escape', action: 'Minimize / cancel' },
     ],
   },
   {

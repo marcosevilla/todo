@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { ChevronRight, Trash2, Plus, Pencil } from 'lucide-react'
+import { useFocusStore } from '@/stores/focusStore'
+import { FocusPlayMenu } from '@/components/focus/FocusPlayMenu'
 import { TaskItem } from './TaskItem'
 import { TaskEditor } from './TaskEditor'
 import type { LocalTask, Project } from '@/services/tauri'
@@ -38,6 +40,7 @@ export function LocalTaskRow({
   const [editing, setEditing] = useState(false)
   const [showSubInput, setShowSubInput] = useState(false)
   const [subInput, setSubInput] = useState('')
+  const [focusMenuOpen, setFocusMenuOpen] = useState(false)
 
   const hasSubtasks = subtasks.length > 0
 
@@ -70,7 +73,7 @@ export function LocalTaskRow({
   return (
     <div>
       {/* Main task row */}
-      <div className="group relative flex items-center">
+      <div className={cn('group relative flex min-w-0 items-center', focusMenuOpen && 'bg-accent/10 rounded-md')}>
         {/* Expand toggle */}
         {hasSubtasks && (
           <button
@@ -104,7 +107,10 @@ export function LocalTaskRow({
         />
 
         {/* Hover actions */}
-        <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className={cn('flex shrink-0 items-center gap-0.5 transition-opacity', focusMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}>
+          {!task.completed && !useFocusStore.getState().isActive && (
+            <FocusPlayMenu task={task} onOpenChange={setFocusMenuOpen} />
+          )}
           <Button
             variant="ghost"
             size="icon-xs"
@@ -163,7 +169,7 @@ export function LocalTaskRow({
       {expanded && subtasks.length > 0 && (
         <div className="ml-7 border-l border-border/40 pl-2 space-y-0">
           {subtasks.map((sub) => (
-            <div key={sub.id} className="group/sub relative flex items-center">
+            <div key={sub.id} className="group/sub relative flex min-w-0 items-center">
               <TaskItem
                 task={{
                   id: sub.id,

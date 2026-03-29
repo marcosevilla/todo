@@ -9,9 +9,10 @@ import type { QuickCapture } from '@/services/tauri'
 
 interface CapturesPanelProps {
   autoFocus?: boolean
+  onConvertToTask?: (content: string) => void
 }
 
-export function CapturesPanel({ autoFocus }: CapturesPanelProps) {
+export function CapturesPanel({ autoFocus, onConvertToTask }: CapturesPanelProps) {
   const [captures, setCaptures] = useState<QuickCapture[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -115,13 +116,25 @@ export function CapturesPanel({ autoFocus }: CapturesPanelProps) {
       ) : (
         <div className="space-y-3">
           {captures.map((capture, i) => (
-            <div key={i} className="space-y-0.5">
-              {capture.timestamp && (
-                <p className="text-[10px] text-muted-foreground">
-                  {capture.timestamp}
-                </p>
+            <div key={i} className="group/capture flex items-start gap-2">
+              <div className="flex-1 space-y-0.5">
+                {capture.timestamp && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {capture.timestamp}
+                  </p>
+                )}
+                <p className="text-sm leading-snug">{capture.content}</p>
+              </div>
+              {onConvertToTask && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 shrink-0 px-1.5 text-[10px] opacity-0 transition-opacity group-hover/capture:opacity-100"
+                  onClick={() => onConvertToTask(capture.content)}
+                >
+                  Make task
+                </Button>
               )}
-              <p className="text-sm leading-snug">{capture.content}</p>
             </div>
           ))}
           <Button

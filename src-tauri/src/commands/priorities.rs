@@ -171,5 +171,16 @@ Respond with ONLY the JSON array, no other text."#
     .await
     .map_err(|e| e.to_string())?;
 
+    crate::db::activity::log_activity(
+        pool.inner(),
+        "priorities_generated",
+        None,
+        Some(serde_json::json!({
+            "energy_level": &energy_level,
+            "count": priorities.len(),
+        })),
+    )
+    .await;
+
     Ok(priorities)
 }

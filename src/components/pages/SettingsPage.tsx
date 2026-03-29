@@ -64,7 +64,17 @@ const OBSIDIAN_FIELDS: SettingField[] = [
   },
 ]
 
-const ALL_FIELDS = [...INTEGRATIONS_FIELDS, ...OBSIDIAN_FIELDS]
+const FOCUS_FIELDS: SettingField[] = [
+  {
+    key: 'focus_break_minutes',
+    label: 'Break Duration (minutes)',
+    placeholder: '5',
+    help: 'Default break length between Pomodoro rounds (e.g., 5, 10, 15)',
+    type: 'text',
+  },
+]
+
+const ALL_FIELDS = [...INTEGRATIONS_FIELDS, ...OBSIDIAN_FIELDS, ...FOCUS_FIELDS]
 
 // ── Components ──
 
@@ -484,6 +494,27 @@ export function SettingsPage() {
         />
         <div className="space-y-5">
           {INTEGRATIONS_FIELDS.map((field) => (
+            <SettingFieldRow
+              key={field.key}
+              field={field}
+              state={fields[field.key]}
+              onChange={(v) => updateFieldValue(field.key, v)}
+              onSave={() => saveField(field.key)}
+            />
+          ))}
+        </div>
+      </section>
+
+      <Separator />
+
+      {/* Focus Mode */}
+      <section className="space-y-4">
+        <SectionHeader
+          title="Focus Mode"
+          description="Configure your default Pomodoro break length."
+        />
+        <div className="space-y-5">
+          {FOCUS_FIELDS.map((field) => (
             <SettingFieldRow
               key={field.key}
               field={field}

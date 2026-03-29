@@ -64,6 +64,15 @@ pub async fn reorder_local_tasks(app: AppHandle, task_ids: Vec<String>) -> Resul
             .await
             .map_err(|e| e.to_string())?;
     }
+
+    crate::db::activity::log_activity(
+        pool.inner(),
+        "task_reordered",
+        None,
+        Some(serde_json::json!({ "count": task_ids.len() })),
+    )
+    .await;
+
     Ok(())
 }
 
@@ -197,6 +206,18 @@ pub async fn create_local_task(
     .await
     .map_err(|e| e.to_string())?;
 
+    // Log activity
+    crate::db::activity::log_activity(
+        pool.inner(),
+        "task_created",
+        Some(&id),
+        Some(serde_json::json!({
+            "content": &content,
+            "project_id": &project_id,
+        })),
+    )
+    .await;
+
     // Fetch and return the created task
     let row: (
         String,
@@ -281,6 +302,23 @@ pub async fn update_local_task(
             .map_err(|e| e.to_string())?;
     }
 
+    // Log activity with changed fields
+    let mut fields_changed = Vec::new();
+    if content.is_some() { fields_changed.push("content"); }
+    if description.is_some() { fields_changed.push("description"); }
+    if project_id.is_some() { fields_changed.push("project_id"); }
+    if priority.is_some() { fields_changed.push("priority"); }
+    if due_date.is_some() || clear_due_date.unwrap_or(false) { fields_changed.push("due_date"); }
+    if !fields_changed.is_empty() {
+        crate::db::activity::log_activity(
+            pool.inner(),
+            "task_updated",
+            Some(&id),
+            Some(serde_json::json!({ "fields_changed": fields_changed })),
+        )
+        .await;
+    }
+
     let row: (
         String,
         Option<String>,
@@ -324,6 +362,14 @@ pub async fn complete_local_task(app: AppHandle, id: String) -> Result<(), Strin
     .await
     .map_err(|e| e.to_string())?;
 
+    crate::db::activity::log_activity(
+        pool.inner(),
+        "task_completed",
+        Some(&id),
+        None,
+    )
+    .await;
+
     Ok(())
 }
 
@@ -338,6 +384,14 @@ pub async fn uncomplete_local_task(app: AppHandle, id: String) -> Result<(), Str
     .execute(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
+
+    crate::db::activity::log_activity(
+        pool.inner(),
+        "task_uncompleted",
+        Some(&id),
+        None,
+    )
+    .await;
 
     Ok(())
 }
@@ -358,6 +412,14 @@ pub async fn delete_local_task(app: AppHandle, id: String) -> Result<(), String>
         .execute(pool.inner())
         .await
         .map_err(|e| e.to_string())?;
+
+    crate::db::activity::log_activity(
+        pool.inner(),
+        "task_deleted",
+        Some(&id),
+        None,
+    )
+    .await;
 
     Ok(())
 }

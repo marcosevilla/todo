@@ -1,0 +1,69 @@
+import { useFocusStore } from '@/stores/focusStore'
+import { cn } from '@/lib/utils'
+import { Pause, Play, Square, Maximize2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+
+function formatTime(seconds: number): string {
+  const m = Math.floor(Math.abs(seconds) / 60)
+  const s = Math.abs(seconds) % 60
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+}
+
+export function FocusBanner() {
+  const task = useFocusStore((s) => s.task)
+  const config = useFocusStore((s) => s.config)
+  const elapsed = useFocusStore((s) => s.elapsed)
+  const pausedAt = useFocusStore((s) => s.pausedAt)
+  const isOnBreak = useFocusStore((s) => s.isOnBreak)
+  const pauseFocus = useFocusStore((s) => s.pauseFocus)
+  const resumeFocus = useFocusStore((s) => s.resumeFocus)
+  const abandonFocus = useFocusStore((s) => s.abandonFocus)
+  const setCompact = useFocusStore((s) => s.setCompact)
+
+  if (!task) return null
+
+  const isPaused = pausedAt !== null
+  const isCountdown = config.timerMode === 'down'
+  const remaining = isCountdown ? Math.max(config.targetMinutes * 60 - elapsed, 0) : 0
+  const displayTime = isCountdown ? remaining : elapsed
+
+  return (
+    <div className="flex h-10 items-center gap-3 border-b border-border/50 bg-accent-blue/5 px-4 animate-in slide-in-from-top duration-200">
+      {/* Timer */}
+      <span className={cn(
+        'font-mono text-sm tabular-nums font-medium',
+        isPaused && 'animate-pulse text-muted-foreground',
+        isOnBreak && 'text-orange-500',
+      )}>
+        {formatTime(displayTime)}
+      </span>
+
+      {/* Task name */}
+      <button
+        onClick={() => setCompact(false)}
+        className="flex-1 min-w-0 truncate text-left text-sm hover:text-foreground transition-colors"
+      >
+        {isOnBreak ? 'Break' : task.content}
+      </button>
+
+      {/* Controls */}
+      <div className="flex items-center gap-1">
+        {isPaused ? (
+          <Button variant="ghost" size="icon-xs" onClick={resumeFocus}>
+            <Play className="size-3" />
+          </Button>
+        ) : (
+          <Button variant="ghost" size="icon-xs" onClick={pauseFocus}>
+            <Pause className="size-3" />
+          </Button>
+        )}
+        <Button variant="ghost" size="icon-xs" onClick={abandonFocus}>
+          <Square className="size-3" />
+        </Button>
+        <Button variant="ghost" size="icon-xs" onClick={() => setCompact(false)}>
+          <Maximize2 className="size-3" />
+        </Button>
+      </div>
+    </div>
+  )
+}

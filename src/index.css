@@ -161,6 +161,43 @@
   animation: progress-enter 300ms ease-out;
 }
 
+/* Command bar default state */
+.command-bar:hover {
+  background-color: oklch(from var(--muted) l c h / 0.4);
+}
+
+/* Focus mode: confetti burst */
+@keyframes confetti-burst {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--confetti-x), var(--confetti-y)) scale(0.5);
+  }
+}
+
+/* Focus mode: checkmark draw */
+.checkmark-draw {
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+  animation: checkmark-draw 600ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes checkmark-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Focus mode: timer glow on completion */
+.timer-glow {
+  animation: timer-glow 1.5s ease-in-out;
+}
+@keyframes timer-glow {
+  0% { background-color: transparent; box-shadow: none; }
+  30% { background-color: oklch(0.85 0.1 145 / 15%); box-shadow: 0 0 30px oklch(0.85 0.1 145 / 20%); }
+  100% { background-color: transparent; box-shadow: none; }
+}
+
 /* Count update pulse */
 @keyframes count-pulse {
   0%, 100% { transform: scale(1); }

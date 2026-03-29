@@ -359,10 +359,6 @@ function DashboardMode({ cachedPriorities }: { cachedPriorities: Priority[] | nu
 
       {completed > 0 && <ProgressBar completed={completed} total={total} />}
 
-      <CollapsibleSection title="Today" count={undefined} defaultOpen={true}>
-        <TodayPanel />
-      </CollapsibleSection>
-
       {!localLoading && topLevelLocal.length > 0 && (
         <CollapsibleSection title="Tasks" count={topLevelLocal.filter((t) => !t.completed).length} defaultOpen={true}>
           <div className="space-y-0.5">
