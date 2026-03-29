@@ -61,7 +61,7 @@ export function HabitsPanel() {
   const bonusChecked = habits_bonus.filter((h) => h.checked).length
 
   if (habits_core.length === 0 && habits_bonus.length === 0) {
-    return <p className="text-xs text-muted-foreground">No habits defined</p>
+    return <p className="text-xs text-muted-foreground">No habits defined yet.</p>
   }
 
   return (

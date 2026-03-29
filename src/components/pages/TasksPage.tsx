@@ -1,15 +1,14 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useLocalTasks, useProjects } from '@/hooks/useLocalTasks'
 import { useTodoist } from '@/hooks/useTodoist'
-import { LocalTaskRow } from '@/components/tasks/LocalTaskRow'
+import { SortableTaskList } from '@/components/tasks/SortableTaskList'
 import { TaskRow } from '@/components/todoist/TaskRow'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { Plus, FolderPlus } from 'lucide-react'
-import { openUrl } from '@/services/tauri'
+import { Plus, FolderPlus, Pencil, Trash2, Check, X } from 'lucide-react'
 
 const PROJECT_COLORS = [
   '#6366f1', '#ec4899', '#22c55e', '#f59e0b', '#06b6d4', '#f43f5e', '#8b5cf6', '#14b8a6',
@@ -112,6 +111,110 @@ function NewProjectInput({ onAdd }: { onAdd: (name: string, color: string) => vo
   )
 }
 
+// ── Project Actions ──
+
+function ProjectActions({
+  projectId,
+  projectName,
+  projectColor,
+  onRename,
+  onUpdateColor,
+  onDelete,
+}: {
+  projectId: string
+  projectName: string
+  projectColor: string
+  onRename: (name: string) => void
+  onUpdateColor: (color: string) => void
+  onDelete: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [editName, setEditName] = useState(projectName)
+  const [showColors, setShowColors] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const isInbox = projectId === 'inbox'
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1 mr-2" onClick={(e) => e.stopPropagation()}>
+        <Input
+          value={editName}
+          onChange={(e) => setEditName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && editName.trim()) {
+              onRename(editName.trim())
+              setEditing(false)
+            }
+            if (e.key === 'Escape') setEditing(false)
+          }}
+          className="h-7 w-36 text-xs"
+          autoFocus
+        />
+        <Button variant="ghost" size="icon-xs" onClick={() => { if (editName.trim()) { onRename(editName.trim()); setEditing(false) } }}>
+          <Check className="size-3" />
+        </Button>
+        <Button variant="ghost" size="icon-xs" onClick={() => setEditing(false)}>
+          <X className="size-3" />
+        </Button>
+      </div>
+    )
+  }
+
+  if (showColors) {
+    return (
+      <div className="flex items-center gap-1 mr-2" onClick={(e) => e.stopPropagation()}>
+        {PROJECT_COLORS.map((c) => (
+          <button
+            key={c}
+            className={cn(
+              'size-5 rounded-full border-2 transition-all',
+              projectColor === c ? 'border-foreground scale-110' : 'border-transparent hover:border-muted-foreground/50',
+            )}
+            style={{ backgroundColor: c }}
+            onClick={() => { onUpdateColor(c); setShowColors(false) }}
+          />
+        ))}
+        <Button variant="ghost" size="icon-xs" onClick={() => setShowColors(false)}>
+          <X className="size-3" />
+        </Button>
+      </div>
+    )
+  }
+
+  if (confirmDelete) {
+    return (
+      <div className="flex items-center gap-1 mr-2" onClick={(e) => e.stopPropagation()}>
+        <span className="text-[10px] text-destructive">Delete?</span>
+        <Button variant="ghost" size="icon-xs" className="text-destructive" onClick={() => { onDelete(); setConfirmDelete(false) }}>
+          <Check className="size-3" />
+        </Button>
+        <Button variant="ghost" size="icon-xs" onClick={() => setConfirmDelete(false)}>
+          <X className="size-3" />
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-0.5 mr-2" onClick={(e) => e.stopPropagation()}>
+      <Button variant="ghost" size="icon-xs" onClick={() => { setEditName(projectName); setEditing(true) }}>
+        <Pencil className="size-3" />
+      </Button>
+      <button
+        className="size-5 rounded-full border border-muted-foreground/20 hover:border-muted-foreground/50 transition-colors"
+        style={{ backgroundColor: projectColor }}
+        onClick={() => setShowColors(true)}
+        title="Change color"
+      />
+      {!isInbox && (
+        <Button variant="ghost" size="icon-xs" className="text-destructive/60 hover:text-destructive" onClick={() => setConfirmDelete(true)}>
+          <Trash2 className="size-3" />
+        </Button>
+      )}
+    </div>
+  )
+}
+
 // ── Project Section ──
 
 function ProjectSection({
@@ -139,22 +242,13 @@ function ProjectSection({
   onDelete: (id: string) => void
   onAddSubtask: (parentId: string, content: string) => void
   onDeleteProject?: () => void
+  onRenameProject?: (name: string) => void
+  onUpdateProjectColor?: (color: string) => void
   onUpdated?: () => void
   allProjects: import('@/services/tauri').Project[]
   defaultOpen: boolean
 }) {
-  // Separate top-level tasks and subtasks
   const topLevel = tasks.filter((t: any) => !t.parent_id)
-  const subtaskMap = useMemo(() => {
-    const map: Record<string, any[]> = {}
-    for (const t of tasks) {
-      if (t.parent_id) {
-        if (!map[t.parent_id]) map[t.parent_id] = []
-        map[t.parent_id].push(t)
-      }
-    }
-    return map
-  }, [tasks])
 
   return (
     <CollapsibleSection
@@ -168,23 +262,30 @@ function ProjectSection({
           style={{ backgroundColor: projectColor }}
         />
       }
+      action={
+        <ProjectActions
+          projectId={projectId}
+          projectName={projectName}
+          projectColor={projectColor}
+          onRename={(name) => onRenameProject?.(name)}
+          onUpdateColor={(color) => onUpdateProjectColor?.(color)}
+          onDelete={() => onDeleteProject?.()}
+        />
+      }
     >
-      <div className="space-y-0.5">
-        {topLevel.map((task: any) => (
-          <LocalTaskRow
-            key={task.id}
-            task={task}
-            subtasks={subtaskMap[task.id] || []}
-            projects={allProjects}
-            projectName={projectName}
-            projectColor={projectColor}
-            onComplete={onComplete}
-            onUncomplete={onUncomplete}
-            onDelete={onDelete}
-            onAddSubtask={onAddSubtask}
-            onUpdated={onUpdated ? () => onUpdated() : undefined}
-          />
-        ))}
+      <div>
+        <SortableTaskList
+          tasks={tasks}
+          allTasks={tasks}
+          projects={allProjects}
+          projectName={projectName}
+          projectColor={projectColor}
+          onComplete={onComplete}
+          onUncomplete={onUncomplete}
+          onDelete={onDelete}
+          onAddSubtask={onAddSubtask}
+          onUpdated={onUpdated}
+        />
         <TaskCreator projectId={projectId} onAdd={onAddTask} />
       </div>
     </CollapsibleSection>
@@ -194,7 +295,7 @@ function ProjectSection({
 // ── Tasks Page ──
 
 export function TasksPage() {
-  const { projects, loading: projectsLoading, addProject, removeProject } = useProjects()
+  const { projects, loading: projectsLoading, addProject, renameProject, updateProjectColor, removeProject } = useProjects()
   const { tasks, loading: tasksLoading, addTask, complete, uncomplete, remove, refresh } = useLocalTasks()
   const { tasks: todoistTasks, loading: todoistLoading, completeTask: completeTodoist, snoozeTask: snoozeTodoist } = useTodoist()
 
@@ -260,6 +361,8 @@ export function TasksPage() {
           onDelete={remove}
           onAddSubtask={handleAddSubtask}
           onDeleteProject={project.id !== 'inbox' ? () => removeProject(project.id) : undefined}
+          onRenameProject={(name) => renameProject(project.id, name)}
+          onUpdateProjectColor={(color) => updateProjectColor(project.id, color)}
           onUpdated={refresh}
           allProjects={projects}
           defaultOpen={true}

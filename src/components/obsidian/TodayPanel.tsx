@@ -57,13 +57,13 @@ export function TodayPanel() {
   }
 
   if (!todayData) {
-    return <p className="text-sm text-muted-foreground">No data</p>
+    return <p className="text-sm text-muted-foreground">No today.md found</p>
   }
 
   const { tasks } = todayData
 
   if (tasks.length === 0) {
-    return <p className="text-sm text-muted-foreground">Nothing in today.md yet</p>
+    return <p className="text-sm text-muted-foreground">Nothing in today.md yet — all clear.</p>
   }
 
   return (

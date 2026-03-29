@@ -33,7 +33,7 @@ export function TodoistPanel() {
   if (tasks.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Nothing due today. Nice.
+        All clear from Todoist.
       </p>
     )
   }

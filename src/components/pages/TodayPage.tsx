@@ -232,7 +232,7 @@ function ReviewMode({ onComplete }: { onComplete: (priorities: Priority[]) => vo
     <div className="max-w-lg mx-auto space-y-4">
       {/* Greeting */}
       <div className="text-center space-y-1 py-4">
-        <h2 className="text-xl font-semibold tracking-tight">{getGreeting()}</h2>
+        <h2 className="text-lg font-semibold tracking-tight">{getGreeting()}</h2>
         <div className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
           <Calendar className="size-3.5" />
           <span>{dateStr}</span>
@@ -252,7 +252,7 @@ function ReviewMode({ onComplete }: { onComplete: (priorities: Priority[]) => vo
 
       {/* Step 2: Energy + Priorities */}
       <ReviewStep step={2} title="Set your energy & get priorities" active={step === 2} completed={step > 2}>
-        <PrioritiesSection onGenerated={handlePrioritiesGenerated} />
+        <PrioritiesSection onGenerated={handlePrioritiesGenerated} compact />
       </ReviewStep>
 
       {/* Step 3: Triage */}
@@ -388,19 +388,8 @@ function DashboardMode({ cachedPriorities }: { cachedPriorities: Priority[] | nu
       {todoistTasks.length > 0 && (
         <CollapsibleSection title="Todoist" count={todoistTasks.length} defaultOpen={false}>
           <div className="space-y-0.5">
-            {urgencyGroups.map((group) => (
-              <CollapsibleSection
-                key={group.key}
-                title={group.title}
-                count={group.tasks.length}
-                defaultOpen={group.defaultOpen}
-                variant="nested"
-                icon={urgencyIcon(group.key)}
-              >
-                {group.tasks.map((task, i) => (
-                  <TaskRow key={task.id} task={task} onComplete={completeTask} onSnooze={snoozeTask} />
-                ))}
-              </CollapsibleSection>
+            {todoistTasks.map((task) => (
+              <TaskRow key={task.id} task={task} onComplete={completeTask} onSnooze={snoozeTask} />
             ))}
           </div>
         </CollapsibleSection>

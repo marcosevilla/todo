@@ -70,9 +70,10 @@ function PriorityCard({ priority, index }: { priority: Priority; index: number }
 interface PrioritiesSectionProps {
   onGenerated?: (priorities: Priority[]) => void
   initialPriorities?: Priority[] | null
+  compact?: boolean // skip card wrapper (used inside ReviewStep)
 }
 
-export function PrioritiesSection({ onGenerated, initialPriorities }: PrioritiesSectionProps) {
+export function PrioritiesSection({ onGenerated, initialPriorities, compact }: PrioritiesSectionProps) {
   const calendarEvents = useAppStore((s) => s.calendarEvents)
   const todoistTasks = useAppStore((s) => s.todoistTasks)
   const obsidianToday = useAppStore((s) => s.obsidianToday)
@@ -190,8 +191,8 @@ export function PrioritiesSection({ onGenerated, initialPriorities }: Priorities
   }
 
   // Priorities display
-  return (
-    <div className="rounded-lg border bg-card p-4 space-y-2">
+  const content = (
+    <>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className="size-4 text-accent-blue" />
@@ -213,7 +214,6 @@ export function PrioritiesSection({ onGenerated, initialPriorities }: Priorities
         ))}
       </div>
 
-      {/* Energy indicator */}
       <div className="flex items-center gap-2 pt-1">
         <span className="text-[10px] text-muted-foreground">
           Energy: {energy ?? 'set'}
@@ -225,6 +225,16 @@ export function PrioritiesSection({ onGenerated, initialPriorities }: Priorities
           Change
         </button>
       </div>
+    </>
+  )
+
+  if (compact) {
+    return <div className="space-y-2">{content}</div>
+  }
+
+  return (
+    <div className="rounded-lg border bg-card p-4 space-y-2">
+      {content}
     </div>
   )
 }

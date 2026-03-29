@@ -131,6 +131,24 @@ export function useProjects() {
     }
   }, [])
 
+  const renameProject = useCallback(async (id: string, name: string) => {
+    try {
+      await import('@/services/tauri').then((m) => m.updateProject(id, name))
+      setProjects((prev) => prev.map((p) => p.id === id ? { ...p, name } : p))
+    } catch (e) {
+      toast.error(`Failed to rename project: ${e}`)
+    }
+  }, [])
+
+  const updateProjectColor = useCallback(async (id: string, color: string) => {
+    try {
+      await import('@/services/tauri').then((m) => m.updateProject(id, undefined, color))
+      setProjects((prev) => prev.map((p) => p.id === id ? { ...p, color } : p))
+    } catch (e) {
+      toast.error(`Failed to update color: ${e}`)
+    }
+  }, [])
+
   const removeProject = useCallback(async (id: string) => {
     try {
       await deleteProject(id)
@@ -140,5 +158,5 @@ export function useProjects() {
     }
   }, [])
 
-  return { projects, loading, refresh, addProject, removeProject }
+  return { projects, loading, refresh, addProject, renameProject, updateProjectColor, removeProject }
 }

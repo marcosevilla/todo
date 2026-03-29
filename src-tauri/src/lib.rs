@@ -205,6 +205,7 @@ pub fn run() {
             local_tasks::complete_local_task,
             local_tasks::uncomplete_local_task,
             local_tasks::delete_local_task,
+            local_tasks::reorder_local_tasks,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

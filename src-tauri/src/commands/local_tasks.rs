@@ -51,6 +51,22 @@ fn row_to_task(
     }
 }
 
+/// Reorder tasks within a project — receives ordered list of task IDs
+#[tauri::command]
+pub async fn reorder_local_tasks(app: AppHandle, task_ids: Vec<String>) -> Result<(), String> {
+    let pool = app.state::<SqlitePool>();
+
+    for (i, id) in task_ids.iter().enumerate() {
+        sqlx::query("UPDATE local_tasks SET position = ?, updated_at = datetime('now') WHERE id = ?")
+            .bind(i as i64)
+            .bind(id)
+            .execute(pool.inner())
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 const SELECT_COLS: &str = "id, parent_id, content, description, project_id, priority, due_date, completed, completed_at, position, created_at, updated_at";
 
 #[tauri::command]

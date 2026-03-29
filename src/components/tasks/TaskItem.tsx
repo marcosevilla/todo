@@ -4,23 +4,22 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { format, parseISO, isToday, isTomorrow, isPast } from 'date-fns'
 
-// ── Priority Icon (Linear-style signal bars) ──
+// ── Priority Indicator ──
 
-const PRIORITY_CONFIG: Record<number, { icon: string; color: string; label: string }> = {
-  4: { icon: '!!!', color: 'text-red-500', label: 'Urgent' },
-  3: { icon: '!!', color: 'text-orange-500', label: 'High' },
-  2: { icon: '!', color: 'text-accent-blue', label: 'Medium' },
-  1: { icon: '', color: 'text-muted-foreground/30', label: 'Normal' },
+const PRIORITY_COLORS: Record<number, string> = {
+  4: 'bg-red-500',
+  3: 'bg-orange-500',
+  2: 'bg-accent-blue',
+  1: 'bg-transparent',
 }
 
 function PriorityIndicator({ priority }: { priority: number }) {
-  const config = PRIORITY_CONFIG[priority] ?? PRIORITY_CONFIG[1]
-  if (priority <= 1) return <div className="w-5" /> // spacer for alignment
+  if (priority <= 1) return <div className="w-3 shrink-0" />
 
   return (
-    <span className={cn('w-5 shrink-0 text-center text-[10px] font-bold', config.color)}>
-      {config.icon}
-    </span>
+    <div className="flex w-3 shrink-0 items-center justify-center">
+      <span className={cn('size-2 rounded-full', PRIORITY_COLORS[priority] ?? 'bg-transparent')} />
+    </div>
   )
 }
 

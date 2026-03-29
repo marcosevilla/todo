@@ -266,6 +266,10 @@ export async function deleteLocalTask(id: string): Promise<void> {
   return invoke<void>('delete_local_task', { id })
 }
 
+export async function reorderLocalTasks(taskIds: string[]): Promise<void> {
+  return invoke<void>('reorder_local_tasks', { taskIds })
+}
+
 // ── Open URL ──
 export async function openUrl(url: string): Promise<void> {
   return invoke<void>('open_url', { url })
