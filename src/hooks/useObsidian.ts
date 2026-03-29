@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAppStore } from '@/stores/appStore'
 import { readTodayMd, toggleObsidianCheckbox } from '@/services/tauri'
 import type { ParsedTodayMd } from '@/services/tauri'
+import { friendlyError } from '@/lib/errors'
+import { toast } from 'sonner'
 
 export function useObsidian() {
   const [todayData, setTodayData] = useState<ParsedTodayMd | null>(null)
@@ -14,14 +16,15 @@ export function useObsidian() {
       setError(null)
       const data = await readTodayMd()
       setTodayData(data)
-      // Store summary for priorities hook
       const summary = [
         ...data.tasks.map((t) => `${t.checked ? '[x]' : '[ ]'} ${t.text}`),
         ...data.habits_core.map((h) => `${h.checked ? '[x]' : '[ ]'} ${h.text}`),
       ].join('\n')
       setObsidianToday(summary)
     } catch (e) {
-      setError(String(e))
+      const msg = friendlyError(e)
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -33,7 +36,9 @@ export function useObsidian() {
         const updated = await toggleObsidianCheckbox('today.md', lineNumber)
         setTodayData(updated)
       } catch (e) {
-        setError(String(e))
+        const msg = friendlyError(e)
+        setError(msg)
+        toast.error(msg)
       }
     },
     [],

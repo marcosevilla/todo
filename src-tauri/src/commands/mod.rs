@@ -1,6 +1,10 @@
 pub mod calendar;
+pub mod local_tasks;
 pub mod obsidian;
+pub mod open_url;
 pub mod priorities;
 pub mod progress;
+pub mod projects;
 pub mod settings;
 pub mod todoist;
+pub mod updater;

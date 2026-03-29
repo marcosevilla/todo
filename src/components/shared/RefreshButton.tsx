@@ -1,5 +1,7 @@
 import { useAppStore } from '@/stores/appStore'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+import { RefreshCw } from 'lucide-react'
 import { format } from 'date-fns'
 
 export function RefreshButton({ onRefresh }: { onRefresh: () => void }) {
@@ -7,21 +9,24 @@ export function RefreshButton({ onRefresh }: { onRefresh: () => void }) {
   const lastRefreshedAt = useAppStore((s) => s.lastRefreshedAt)
 
   return (
-    <div className="flex items-center gap-2">
-      {lastRefreshedAt && (
-        <span className="text-[11px] text-muted-foreground">
-          Updated {format(new Date(lastRefreshedAt), 'h:mm a')}
-        </span>
-      )}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onRefresh}
-        disabled={isRefreshing}
-        className="h-7 px-2 text-xs"
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+          />
+        }
       >
-        {isRefreshing ? 'Refreshing...' : 'Refresh'}
-      </Button>
-    </div>
+        <RefreshCw className={isRefreshing ? 'animate-spin' : ''} />
+      </TooltipTrigger>
+      <TooltipContent>
+        {lastRefreshedAt
+          ? `Last updated ${format(new Date(lastRefreshedAt), 'h:mm a')}`
+          : 'Refresh all'}
+      </TooltipContent>
+    </Tooltip>
   )
 }

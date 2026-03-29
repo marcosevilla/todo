@@ -7,15 +7,12 @@ export function useSave() {
   const [lastSaved, setLastSaved] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const energyLevel = useAppStore((s) => s.energyLevel)
   const todoistTasks = useAppStore((s) => s.todoistTasks)
-  const priorities = useAppStore((s) => s.priorities)
 
   const save = useCallback(async () => {
     setSaving(true)
     setError(null)
     try {
-      // Separate completed vs open tasks
       const completed = todoistTasks
         .filter((t) => t.is_completed)
         .map((t) => t.content)
@@ -24,11 +21,9 @@ export function useSave() {
         .map((t) => t.content)
 
       const result = await saveProgress(
-        energyLevel,
         JSON.stringify(completed),
         JSON.stringify(open),
-        JSON.stringify([]), // deferred — tracked via action_log
-        JSON.stringify(priorities),
+        JSON.stringify([]),
       )
 
       setLastSaved(new Date().toISOString())
@@ -39,7 +34,7 @@ export function useSave() {
     } finally {
       setSaving(false)
     }
-  }, [energyLevel, todoistTasks, priorities])
+  }, [todoistTasks])
 
   return { save, saving, lastSaved, error }
 }

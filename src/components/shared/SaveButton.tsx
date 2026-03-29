@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { useSave } from '@/hooks/useSave'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+import { Save } from 'lucide-react'
 import { format } from 'date-fns'
 
 export function SaveButton() {
@@ -18,27 +20,27 @@ export function SaveButton() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [save])
 
+  const tooltipText = error
+    ? `Save failed: ${error}`
+    : lastSaved
+      ? `Saved ${format(new Date(lastSaved), 'h:mm a')}`
+      : 'Save progress'
+
   return (
-    <div className="flex items-center gap-2">
-      {lastSaved && (
-        <span className="text-[11px] text-muted-foreground">
-          Saved {format(new Date(lastSaved), 'h:mm a')}
-        </span>
-      )}
-      {error && (
-        <span className="text-[11px] text-destructive" title={error}>
-          Save failed
-        </span>
-      )}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={save}
-        disabled={saving}
-        className="h-7 px-2.5 text-xs"
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={save}
+            disabled={saving}
+          />
+        }
       >
-        {saving ? 'Saving...' : 'Save'}
-      </Button>
-    </div>
+        <Save className={error ? 'text-destructive' : ''} />
+      </TooltipTrigger>
+      <TooltipContent>{tooltipText}</TooltipContent>
+    </Tooltip>
   )
 }

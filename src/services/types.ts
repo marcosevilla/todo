@@ -14,6 +14,8 @@ export interface CalendarEvent {
   end_time: string
   all_day: boolean
   meeting_url: string | null
+  feed_label: string | null
+  feed_color: string | null
 }
 
 export interface TodoistTask {
@@ -31,14 +33,7 @@ export interface TodoistTask {
 
 export interface DailyState {
   date: string
-  energy_level: 'high' | 'medium' | 'low'
   top_priorities: string | null
   first_opened_at: string | null
   last_saved_at: string | null
-}
-
-export interface Priority {
-  title: string
-  source: string
-  reasoning: string
 }

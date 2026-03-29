@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAppStore } from '@/stores/appStore'
 import { fetchCalendarEvents } from '@/services/tauri'
 import type { CalendarEventRow } from '@/services/tauri'
+import { friendlyError } from '@/lib/errors'
+import { toast } from 'sonner'
 
 export function useCalendar() {
   const [events, setEvents] = useState<CalendarEventRow[]>([])
@@ -14,7 +16,6 @@ export function useCalendar() {
       setError(null)
       const data = await fetchCalendarEvents()
       setEvents(data)
-      // Store in Zustand for priorities hook
       setCalendarEvents(data.map((e) => ({
         id: e.id,
         summary: e.summary,
@@ -24,9 +25,13 @@ export function useCalendar() {
         end_time: e.end_time,
         all_day: e.all_day,
         meeting_url: e.meeting_url,
+        feed_label: e.feed_label,
+        feed_color: e.feed_color,
       })))
     } catch (e) {
-      setError(String(e))
+      const msg = friendlyError(e)
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }

@@ -2,18 +2,18 @@ import { create } from 'zustand'
 import type {
   CalendarEvent,
   TodoistTask,
-  DailyState,
-  Priority,
 } from '@/services/types'
+
+type Page = 'today' | 'tasks' | 'inbox' | 'session' | 'settings'
 
 interface AppState {
   // Setup
   setupComplete: boolean | null // null = not checked yet
   setSetupComplete: (v: boolean) => void
 
-  // Energy
-  energyLevel: 'high' | 'medium' | 'low'
-  setEnergyLevel: (level: 'high' | 'medium' | 'low') => void
+  // Navigation
+  currentPage: Page
+  setCurrentPage: (page: Page) => void
 
   // Data
   calendarEvents: CalendarEvent[]
@@ -28,8 +28,9 @@ interface AppState {
   quickCaptures: string | null
   setQuickCaptures: (content: string | null) => void
 
-  priorities: Priority[]
-  setPriorities: (priorities: Priority[]) => void
+  // Quick capture trigger (from tray)
+  captureRequested: boolean
+  setCaptureRequested: (v: boolean) => void
 
   // Refresh state
   lastRefreshedAt: string | null
@@ -42,8 +43,8 @@ export const useAppStore = create<AppState>((set) => ({
   setupComplete: null,
   setSetupComplete: (v) => set({ setupComplete: v }),
 
-  energyLevel: 'medium',
-  setEnergyLevel: (level) => set({ energyLevel: level }),
+  currentPage: 'today',
+  setCurrentPage: (page) => set({ currentPage: page }),
 
   calendarEvents: [],
   setCalendarEvents: (events) => set({ calendarEvents: events }),
@@ -57,8 +58,8 @@ export const useAppStore = create<AppState>((set) => ({
   quickCaptures: null,
   setQuickCaptures: (content) => set({ quickCaptures: content }),
 
-  priorities: [],
-  setPriorities: (priorities) => set({ priorities }),
+  captureRequested: false,
+  setCaptureRequested: (v) => set({ captureRequested: v }),
 
   lastRefreshedAt: null,
   setLastRefreshedAt: (at) => set({ lastRefreshedAt: at }),

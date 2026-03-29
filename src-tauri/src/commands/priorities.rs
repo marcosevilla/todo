@@ -19,6 +19,49 @@ struct ClaudeContent {
     text: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DailyStateResponse {
+    pub date: String,
+    pub energy_level: Option<String>,
+    pub priorities: Option<Vec<Priority>>,
+    pub review_complete: bool,
+}
+
+/// Check if today's daily review has been completed
+#[tauri::command]
+pub async fn get_daily_state(app: AppHandle) -> Result<DailyStateResponse, String> {
+    let pool = app.state::<SqlitePool>();
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+
+    let row: Option<(String, Option<String>, Option<String>)> = sqlx::query_as(
+        "SELECT date, energy_level, top_priorities FROM daily_state WHERE date = ?",
+    )
+    .bind(&today)
+    .fetch_optional(pool.inner())
+    .await
+    .map_err(|e| e.to_string())?;
+
+    match row {
+        Some((date, energy, priorities_json)) => {
+            let priorities: Option<Vec<Priority>> = priorities_json
+                .and_then(|json| serde_json::from_str(&json).ok());
+            let review_complete = energy.is_some() && priorities.is_some();
+            Ok(DailyStateResponse {
+                date,
+                energy_level: energy,
+                priorities,
+                review_complete,
+            })
+        }
+        None => Ok(DailyStateResponse {
+            date: today,
+            energy_level: None,
+            priorities: None,
+            review_complete: false,
+        }),
+    }
+}
+
 /// Generate top 3 priorities using Claude API
 #[tauri::command]
 pub async fn generate_priorities(

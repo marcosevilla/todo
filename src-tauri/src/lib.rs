@@ -3,9 +3,38 @@ mod db;
 mod parsers;
 
 use sqlx::sqlite::SqlitePoolOptions;
-use tauri::Manager;
+use tauri::{
+    image::Image,
+    menu::{MenuBuilder, MenuItemBuilder},
+    tray::TrayIconBuilder,
+    Emitter, Manager, WindowEvent,
+};
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt as AutostartManagerExt};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-use commands::{calendar, obsidian, priorities, progress, settings, todoist};
+use commands::{calendar, local_tasks, obsidian, open_url, priorities, progress, projects, settings, todoist, updater};
+
+/// Show and focus the main window
+fn show_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
+/// Toggle main window visibility
+fn toggle_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        if window.is_visible().unwrap_or(false) {
+            let _ = window.hide();
+        } else {
+            let _ = window.show();
+            let _ = window.unminimize();
+            let _ = window.set_focus();
+        }
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -13,6 +42,22 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| {
+                    if event.state() == ShortcutState::Pressed {
+                        let cmd_shift_t = Shortcut::new(
+                            Some(Modifiers::SUPER | Modifiers::SHIFT),
+                            Code::KeyT,
+                        );
+                        if shortcut == &cmd_shift_t {
+                            toggle_window(app);
+                        }
+                    }
+                })
+                .build(),
+        )
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -21,6 +66,72 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            // --- Register global shortcut: Cmd+Shift+T ---
+            let cmd_shift_t = Shortcut::new(
+                Some(Modifiers::SUPER | Modifiers::SHIFT),
+                Code::KeyT,
+            );
+            app.global_shortcut().on_shortcut(cmd_shift_t, |_app, _shortcut, _event| {
+                // Handled by the plugin-level handler above
+            }).unwrap_or_else(|e| {
+                log::warn!("Failed to register global shortcut: {}", e);
+            });
+
+            // --- Auto-launch on login (enable by default) ---
+            let autostart = app.autolaunch();
+            if !autostart.is_enabled().unwrap_or(false) {
+                let _ = autostart.enable();
+                log::info!("Auto-launch enabled");
+            }
+
+            // --- System tray ---
+            let show_item = MenuItemBuilder::with_id("show", "Show Daily Triage")
+                .build(app)?;
+            let capture_item = MenuItemBuilder::with_id("capture", "Quick Capture...")
+                .build(app)?;
+            let quit_item = MenuItemBuilder::with_id("quit", "Quit")
+                .build(app)?;
+
+            let tray_menu = MenuBuilder::new(app)
+                .item(&show_item)
+                .item(&capture_item)
+                .separator()
+                .item(&quit_item)
+                .build()?;
+
+            let tray_icon = Image::from_path("icons/tray.png")
+                .unwrap_or_else(|_| Image::from_bytes(include_bytes!("../icons/tray.png")).expect("failed to load tray icon"));
+
+            TrayIconBuilder::new()
+                .icon(tray_icon)
+                .menu(&tray_menu)
+                .tooltip("Daily Triage")
+                .on_menu_event(|app, event| {
+                    match event.id().as_ref() {
+                        "show" => {
+                            show_window(app);
+                        }
+                        "capture" => {
+                            // Show window and navigate to inbox for quick capture
+                            show_window(app);
+                            // Emit event to frontend to open capture mode
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.emit("open-quick-capture", ());
+                            }
+                        }
+                        "quit" => {
+                            app.exit(0);
+                        }
+                        _ => {}
+                    }
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let tauri::tray::TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, .. } = event {
+                        toggle_window(tray.app_handle());
+                    }
+                })
+                .build(app)?;
 
             // Initialize SQLite database
             let app_handle = app.handle().clone();
@@ -41,8 +152,7 @@ pub fn run() {
                     .expect("failed to connect to database");
 
                 // Run migrations
-                sqlx::query(db::migrations::MIGRATION_001)
-                    .execute(&pool)
+                db::migrations::run_migrations(&pool)
                     .await
                     .expect("failed to run migrations");
 
@@ -54,20 +164,47 @@ pub fn run() {
 
             Ok(())
         })
+        .on_window_event(|window, event| {
+            // Hide on close instead of quitting — tray icon keeps the app alive
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             settings::check_setup_complete,
             settings::get_setting,
             settings::set_setting,
             settings::get_all_settings,
+            settings::clear_all_settings,
             obsidian::read_today_md,
             obsidian::toggle_obsidian_checkbox,
             todoist::fetch_todoist_tasks,
+            todoist::refresh_todoist_tasks,
             todoist::complete_todoist_task,
             todoist::snooze_todoist_task,
             calendar::fetch_calendar_events,
+            calendar::get_calendar_feeds,
+            calendar::add_calendar_feed,
+            calendar::remove_calendar_feed,
             obsidian::read_quick_captures,
-            priorities::generate_priorities,
+            obsidian::write_quick_capture,
+            obsidian::read_session_log,
             progress::save_progress,
+            updater::check_for_updates,
+            open_url::open_url,
+            priorities::get_daily_state,
+            priorities::generate_priorities,
+            projects::get_projects,
+            projects::create_project,
+            projects::update_project,
+            projects::delete_project,
+            local_tasks::get_local_tasks,
+            local_tasks::create_local_task,
+            local_tasks::update_local_task,
+            local_tasks::complete_local_task,
+            local_tasks::uncomplete_local_task,
+            local_tasks::delete_local_task,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

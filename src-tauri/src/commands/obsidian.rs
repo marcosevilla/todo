@@ -1,3 +1,4 @@
+use chrono::Local;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tauri::{AppHandle, Manager};
@@ -129,6 +130,58 @@ pub async fn read_quick_captures(app: AppHandle) -> Result<Vec<QuickCapture>, St
         .map_err(|e| format!("Failed to read Quick Captures.md: {}", e))?;
 
     Ok(parse_quick_captures(&content))
+}
+
+/// Read today's session log from journal/sessions/
+#[tauri::command]
+pub async fn read_session_log(app: AppHandle) -> Result<Option<String>, String> {
+    let vault_path = get_vault_path(&app).await?;
+    let today = Local::now().format("%Y-%m-%d").to_string();
+    let file_path = format!("{}/journal/sessions/Session {}.md", vault_path, today);
+
+    match tokio::fs::read_to_string(&file_path).await {
+        Ok(content) => Ok(Some(content)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(format!("Failed to read session log: {}", e)),
+    }
+}
+
+/// Write a quick capture to Quick Captures.md
+#[tauri::command]
+pub async fn write_quick_capture(app: AppHandle, content: String) -> Result<QuickCapture, String> {
+    let vault_path = get_vault_path(&app).await?;
+    let file_path = format!("{}/inbox/Quick Captures.md", vault_path);
+
+    // Ensure the inbox directory exists
+    let inbox_dir = format!("{}/inbox", vault_path);
+    tokio::fs::create_dir_all(&inbox_dir)
+        .await
+        .map_err(|e| format!("Failed to create inbox dir: {}", e))?;
+
+    // Format the new entry
+    let timestamp = Local::now().format("%B %d, %Y at %I:%M %p").to_string();
+    let new_entry = format!("\n---\n\n{}\n{}\n", timestamp, content.trim());
+
+    // Read existing content or create with frontmatter
+    let existing = match tokio::fs::read_to_string(&file_path).await {
+        Ok(c) => c,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            // Create the file with frontmatter
+            "---\ntags: inbox\n---\n".to_string()
+        }
+        Err(e) => return Err(format!("Failed to read Quick Captures.md: {}", e)),
+    };
+
+    // Append the new entry
+    let updated = format!("{}{}", existing.trim_end(), new_entry);
+    tokio::fs::write(&file_path, &updated)
+        .await
+        .map_err(|e| format!("Failed to write Quick Captures.md: {}", e))?;
+
+    Ok(QuickCapture {
+        timestamp: Some(timestamp),
+        content: content.trim().to_string(),
+    })
 }
 
 /// Toggle a checkbox in a vault file at a specific line

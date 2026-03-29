@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Background: dark slate rounded rectangle (macOS style ~22% corner radius) -->
+  <rect x="0" y="0" width="1024" height="1024" rx="225" ry="225" fill="#1a1a2e"/>
+
+  <!-- Outer circle (crosshair ring) -->
+  <circle cx="512" cy="512" r="260" fill="none" stroke="#6366f1" stroke-width="40"/>
+
+  <!-- Crosshair lines — extending ~60% of circle diameter (312px each direction from center) -->
+  <!-- Horizontal line -->
+  <line x1="200" y1="512" x2="824" y2="512" stroke="#6366f1" stroke-width="20" stroke-linecap="round"/>
+  <!-- Vertical line -->
+  <line x1="512" y1="200" x2="512" y2="824" stroke="#6366f1" stroke-width="20" stroke-linecap="round"/>
+
+  <!-- Center dot -->
+  <circle cx="512" cy="512" r="30" fill="#6366f1"/>
+</svg>

@@ -1,13 +1,23 @@
-import { useCallback, useEffect, useState } from 'react'
-import { readQuickCaptures } from '@/services/tauri'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { readQuickCaptures, writeQuickCapture } from '@/services/tauri'
 import { Button } from '@/components/ui/button'
-import { open } from '@tauri-apps/plugin-shell'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import { openUrl } from '@/services/tauri'
+import { toast } from 'sonner'
 import type { QuickCapture } from '@/services/tauri'
 
-export function CapturesPanel() {
+interface CapturesPanelProps {
+  autoFocus?: boolean
+}
+
+export function CapturesPanel({ autoFocus }: CapturesPanelProps) {
   const [captures, setCaptures] = useState<QuickCapture[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [inputValue, setInputValue] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -25,52 +35,107 @@ export function CapturesPanel() {
     refresh()
   }, [refresh])
 
-  if (loading) {
-    return (
-      <div className="space-y-2">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="h-5 w-3/4 animate-pulse rounded bg-muted" />
-        ))}
-      </div>
-    )
-  }
+  // Auto-focus when requested (e.g. from tray capture)
+  useEffect(() => {
+    if (autoFocus && inputRef.current) {
+      requestAnimationFrame(() => inputRef.current?.focus())
+    }
+  }, [autoFocus])
 
-  if (error) {
-    return (
-      <p className="text-sm text-destructive">
-        Could not load captures: {error}
-      </p>
-    )
-  }
+  const handleSubmit = useCallback(async () => {
+    const text = inputValue.trim()
+    if (!text || submitting) return
 
-  if (captures.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">No recent captures.</p>
-    )
-  }
+    setSubmitting(true)
+    try {
+      const capture = await writeQuickCapture(text)
+      // Prepend to list immediately
+      setCaptures((prev) => [capture, ...prev].slice(0, 10))
+      setInputValue('')
+      toast.success('Captured')
+    } catch (e) {
+      toast.error(`Capture failed: ${e}`)
+    } finally {
+      setSubmitting(false)
+      // Refocus input for rapid capture
+      inputRef.current?.focus()
+    }
+  }, [inputValue, submitting])
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        handleSubmit()
+      }
+    },
+    [handleSubmit],
+  )
 
   return (
-    <div className="space-y-3">
-      {captures.map((capture, i) => (
-        <div key={i} className="space-y-0.5">
-          {capture.timestamp && (
-            <p className="text-[10px] text-muted-foreground">
-              {capture.timestamp}
-            </p>
-          )}
-          <p className="text-sm leading-snug">{capture.content}</p>
+    <div className="space-y-4">
+      {/* Capture input */}
+      <div className="flex items-center gap-2">
+        <Input
+          ref={inputRef}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Capture a thought..."
+          disabled={submitting}
+          className="flex-1"
+        />
+        <Button
+          size="sm"
+          onClick={handleSubmit}
+          disabled={!inputValue.trim() || submitting}
+        >
+          {submitting ? '...' : 'Capture'}
+        </Button>
+      </div>
+
+      {/* Captures list */}
+      {loading ? (
+        <div className="space-y-2">
+          {[...Array(3)].map((_, i) => (
+            <Skeleton key={i} className="h-5 w-3/4" />
+          ))}
         </div>
-      ))}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-7 px-2 text-xs"
-        onClick={() =>
-          open('obsidian://open?vault=marcowits&file=inbox/Quick Captures')
-        }
-      >
-        Open in Obsidian
-      </Button>
+      ) : error ? (
+        <div className="space-y-2">
+          <p className="text-sm text-destructive">Could not load captures</p>
+          <Button variant="ghost" size="sm" onClick={refresh} className="text-xs">
+            Retry
+          </Button>
+        </div>
+      ) : captures.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No captures yet — type something above or use {'\u2318'}K
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {captures.map((capture, i) => (
+            <div key={i} className="space-y-0.5">
+              {capture.timestamp && (
+                <p className="text-[10px] text-muted-foreground">
+                  {capture.timestamp}
+                </p>
+              )}
+              <p className="text-sm leading-snug">{capture.content}</p>
+            </div>
+          ))}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={() =>
+              openUrl('obsidian://open?vault=marcowits&file=inbox/Quick Captures')
+            }
+          >
+            Open in Obsidian
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

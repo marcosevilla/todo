@@ -3,8 +3,13 @@ import { useAppStore } from '@/stores/appStore'
 import { checkSetupComplete } from '@/services/tauri'
 import { SetupDialog } from '@/components/setup/SetupDialog'
 import { Dashboard } from '@/components/layout/Dashboard'
+import { Toaster } from '@/components/ui/sonner'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { useTheme } from '@/hooks/useTheme'
 
 function App() {
+  useTheme() // Initialize theme system
+
   const setupComplete = useAppStore((s) => s.setupComplete)
   const setSetupComplete = useAppStore((s) => s.setSetupComplete)
 
@@ -31,7 +36,12 @@ function App() {
   }
 
   // Main app
-  return <Dashboard />
+  return (
+    <TooltipProvider>
+      <Dashboard />
+      <Toaster position="bottom-right" />
+    </TooltipProvider>
+  )
 }
 
 export default App

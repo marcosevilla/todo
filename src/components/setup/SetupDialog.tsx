@@ -84,7 +84,7 @@ export function SetupDialog({ open, onComplete }: SetupDialogProps) {
     <Dialog open={open}>
       <DialogContent
         className="sm:max-w-lg"
-        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e: Event) => e.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle className="text-lg">Welcome to Daily Triage</DialogTitle>

@@ -39,6 +39,7 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
+    --color-accent-blue: var(--accent-blue);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -49,24 +50,25 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
+    --background: oklch(0.995 0.003 75);
+    --foreground: oklch(0.15 0.01 60);
     --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
+    --card-foreground: oklch(0.15 0.01 60);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.15 0.01 60);
+    --primary: oklch(0.205 0.01 60);
     --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.965 0.005 75);
+    --secondary-foreground: oklch(0.205 0.01 60);
+    --muted: oklch(0.965 0.005 75);
+    --muted-foreground: oklch(0.48 0.01 60);
+    --accent: oklch(0.96 0.005 75);
+    --accent-foreground: oklch(0.205 0.01 60);
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+    --border: oklch(0.915 0.005 75);
+    --input: oklch(0.915 0.005 75);
+    --ring: oklch(0.708 0.01 60);
+    --accent-blue: oklch(0.65 0.15 250);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
@@ -84,24 +86,25 @@
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
+    --background: oklch(0.14 0.008 60);
+    --foreground: oklch(0.93 0.005 75);
+    --card: oklch(0.19 0.008 60);
+    --card-foreground: oklch(0.93 0.005 75);
+    --popover: oklch(0.19 0.008 60);
+    --popover-foreground: oklch(0.93 0.005 75);
+    --primary: oklch(0.922 0.005 75);
+    --primary-foreground: oklch(0.205 0.01 60);
+    --secondary: oklch(0.22 0.008 60);
+    --secondary-foreground: oklch(0.93 0.005 75);
+    --muted: oklch(0.22 0.008 60);
+    --muted-foreground: oklch(0.58 0.01 60);
+    --accent: oklch(0.22 0.008 60);
+    --accent-foreground: oklch(0.93 0.005 75);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(1 0 0 / 8%);
+    --input: oklch(1 0 0 / 12%);
+    --ring: oklch(0.55 0.01 60);
+    --accent-blue: oklch(0.65 0.15 250);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
@@ -127,4 +130,42 @@
   html {
     @apply font-sans;
     }
+}
+
+/* Page transition */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-page-enter {
+  animation: page-enter 200ms ease-out;
+}
+
+/* Task complete animation — checkmark flash + slide out */
+@keyframes task-complete-exit {
+  0% { opacity: 1; transform: translateX(0); background-color: transparent; }
+  20% { background-color: oklch(0.85 0.1 145 / 20%); } /* brief green flash */
+  50% { opacity: 0.5; }
+  100% { opacity: 0; transform: translateX(8px); }
+}
+.animate-task-complete {
+  animation: task-complete-exit 600ms ease-out forwards;
+}
+
+/* Progress bar entrance */
+@keyframes progress-enter {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-progress-enter {
+  animation: progress-enter 300ms ease-out;
+}
+
+/* Count update pulse */
+@keyframes count-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+.animate-count-pulse {
+  animation: count-pulse 300ms ease-out;
 }

@@ -13,25 +13,21 @@ pub struct SaveResult {
 #[tauri::command]
 pub async fn save_progress(
     app: AppHandle,
-    energy_level: String,
     tasks_completed: String,
     tasks_open: String,
     tasks_deferred: String,
-    priorities: String,
 ) -> Result<SaveResult, String> {
     let pool = app.state::<SqlitePool>();
     let now = Local::now();
 
     // 1. Save snapshot to SQLite
     let result = sqlx::query(
-        "INSERT INTO progress_snapshots (energy_level, tasks_completed, tasks_open, tasks_deferred, priorities, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO progress_snapshots (tasks_completed, tasks_open, tasks_deferred, created_at)
+         VALUES (?, ?, ?, ?)",
     )
-    .bind(&energy_level)
     .bind(&tasks_completed)
     .bind(&tasks_open)
     .bind(&tasks_deferred)
-    .bind(&priorities)
     .bind(now.format("%Y-%m-%d %H:%M:%S").to_string())
     .execute(pool.inner())
     .await
@@ -42,12 +38,11 @@ pub async fn save_progress(
     // 2. Update daily_state
     let today = now.format("%Y-%m-%d").to_string();
     sqlx::query(
-        "INSERT INTO daily_state (date, energy_level, last_saved_at)
-         VALUES (?, ?, datetime('now'))
-         ON CONFLICT(date) DO UPDATE SET last_saved_at = datetime('now'), energy_level = excluded.energy_level",
+        "INSERT INTO daily_state (date, last_saved_at)
+         VALUES (?, datetime('now'))
+         ON CONFLICT(date) DO UPDATE SET last_saved_at = datetime('now')",
     )
     .bind(&today)
-    .bind(&energy_level)
     .execute(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
@@ -103,10 +98,7 @@ pub async fn save_progress(
         entry.push('\n');
     }
 
-    entry.push_str(&format!(
-        "> [!energy] Energy: {}\n> Logged from Daily Triage app\n",
-        energy_level
-    ));
+    entry.push_str("> Logged from Daily Triage app\n");
 
     // Append to file
     let mut existing = if file_exists {

@@ -1,6 +1,7 @@
 import { useObsidian } from '@/hooks/useObsidian'
+import { cn } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Separator } from '@/components/ui/separator'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { CheckboxItem } from '@/services/tauri'
 
 function CheckboxRow({
@@ -18,11 +19,12 @@ function CheckboxRow({
         className="mt-0.5"
       />
       <span
-        className={`text-sm leading-snug transition-colors ${
+        className={cn(
+          'text-sm leading-snug transition-colors',
           item.checked
             ? 'text-muted-foreground line-through'
-            : 'text-foreground group-hover:text-foreground'
-        }`}
+            : 'text-foreground group-hover:text-foreground',
+        )}
       >
         {item.text}
       </span>
@@ -35,9 +37,12 @@ export function TodayPanel() {
 
   if (loading) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-5 w-3/4 animate-pulse rounded bg-muted" />
+          <div key={i} className="flex items-center gap-2.5 py-1">
+            <Skeleton className="size-4 rounded" />
+            <Skeleton className="h-4 flex-1 max-w-[200px]" />
+          </div>
         ))}
       </div>
     )
@@ -55,77 +60,21 @@ export function TodayPanel() {
     return <p className="text-sm text-muted-foreground">No data</p>
   }
 
-  const { tasks, habits_core, habits_bonus } = todayData
-  const coreChecked = habits_core.filter((h) => h.checked).length
-  const bonusChecked = habits_bonus.filter((h) => h.checked).length
+  const { tasks } = todayData
+
+  if (tasks.length === 0) {
+    return <p className="text-sm text-muted-foreground">Nothing in today.md yet</p>
+  }
 
   return (
-    <div className="space-y-4">
-      {/* Tasks section */}
-      {tasks.length > 0 && (
-        <div>
-          <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Tasks
-          </h3>
-          <div className="space-y-0.5">
-            {tasks.map((item) => (
-              <CheckboxRow
-                key={item.line_number}
-                item={item}
-                onToggle={toggleCheckbox}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Core habits */}
-      {habits_core.length > 0 && (
-        <>
-          <Separator />
-          <div>
-            <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Core Habits
-              <span className="ml-2 text-[10px] font-normal text-muted-foreground">
-                {coreChecked}/{habits_core.length}
-              </span>
-            </h3>
-            <div className="space-y-0.5">
-              {habits_core.map((item) => (
-                <CheckboxRow
-                  key={item.line_number}
-                  item={item}
-                  onToggle={toggleCheckbox}
-                />
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Bonus habits */}
-      {habits_bonus.length > 0 && (
-        <>
-          <Separator />
-          <div>
-            <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Bonus Habits
-              <span className="ml-2 text-[10px] font-normal text-muted-foreground">
-                {bonusChecked}/{habits_bonus.length}
-              </span>
-            </h3>
-            <div className="space-y-0.5">
-              {habits_bonus.map((item) => (
-                <CheckboxRow
-                  key={item.line_number}
-                  item={item}
-                  onToggle={toggleCheckbox}
-                />
-              ))}
-            </div>
-          </div>
-        </>
-      )}
+    <div className="space-y-0.5">
+      {tasks.map((item) => (
+        <CheckboxRow
+          key={item.line_number}
+          item={item}
+          onToggle={toggleCheckbox}
+        />
+      ))}
     </div>
   )
 }

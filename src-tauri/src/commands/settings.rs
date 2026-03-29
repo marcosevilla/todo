@@ -82,3 +82,16 @@ pub async fn get_all_settings(app: AppHandle) -> Result<Vec<SettingRow>, String>
 
     Ok(rows)
 }
+
+/// Delete all settings (used for reset)
+#[tauri::command]
+pub async fn clear_all_settings(app: AppHandle) -> Result<(), String> {
+    let pool = app.state::<SqlitePool>();
+
+    sqlx::query("DELETE FROM settings")
+        .execute(pool.inner())
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
