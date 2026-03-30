@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/stores/appStore'
+import { useLayoutStore } from '@/stores/layoutStore'
 import { NavSidebar } from './NavSidebar'
 import { RightSidebar } from './RightSidebar'
 import { CommandBar } from '@/components/shared/CommandBar'
@@ -38,7 +39,7 @@ const PAGE_TITLES: Record<string, string> = {
   settings: 'Settings',
 }
 
-const PAGES = ['today', 'tasks', 'inbox', 'docs', 'goals', 'session'] as const
+// PAGES is no longer hardcoded — keyboard shortcuts read from layoutStore.navOrder
 
 function PageContent({ page }: { page: string }) {
   switch (page) {
@@ -66,6 +67,11 @@ export function Dashboard() {
   const setCurrentPage = useAppStore((s) => s.setCurrentPage)
   const [quickCreateOpen, setQuickCreateOpen] = useState(false)
 
+  // Load nav order from SQLite on mount
+  const loadNavOrder = useLayoutStore((s) => s.loadNavOrder)
+  useEffect(() => {
+    loadNavOrder()
+  }, [loadNavOrder])
 
   // Focus mode
   useFocusTimer()
@@ -172,21 +178,22 @@ export function Dashboard() {
         return
       }
 
-      // Number keys for navigation (only when not typing in an input)
+      // Number keys for navigation — follows user's custom nav order
+      const pages = useLayoutStore.getState().navOrder
       if (!isInput) {
         const num = parseInt(e.key, 10)
-        if (num >= 1 && num <= PAGES.length) {
+        if (num >= 1 && num <= pages.length) {
           e.preventDefault()
-          setCurrentPage(PAGES[num - 1])
+          setCurrentPage(pages[num - 1] as typeof currentPage)
           return
         }
       }
 
       // Cmd+1-6 for navigation (works even in inputs)
-      if (meta && e.key >= '1' && e.key <= String(PAGES.length)) {
+      if (meta && e.key >= '1' && e.key <= String(pages.length)) {
         e.preventDefault()
         const idx = parseInt(e.key, 10) - 1
-        if (idx < PAGES.length) setCurrentPage(PAGES[idx])
+        if (idx < pages.length) setCurrentPage(pages[idx] as typeof currentPage)
         return
       }
     }
@@ -226,8 +233,8 @@ export function Dashboard() {
               </div>
             </main>
           ) : (
-            <main key={currentPage} className={cn('flex-1 animate-page-enter', currentPage === 'docs' ? 'flex' : 'p-6')}>
-              {currentPage === 'docs' ? (
+            <main key={currentPage} className={cn('flex-1 animate-page-enter', (currentPage === 'docs' || currentPage === 'tasks') ? 'flex' : 'p-6')}>
+              {(currentPage === 'docs' || currentPage === 'tasks') ? (
                 <PageContent page={currentPage} />
               ) : (
                 <div className={cn('mx-auto w-full', contentMaxW)}>

@@ -6,19 +6,45 @@ import { cn } from '@/lib/utils'
 import { Sun, CheckSquare, Inbox, FileText, Target, BookOpen, Settings, Command } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 const MIN_WIDTH = 48
 const MAX_WIDTH = 200
 const COLLAPSE_THRESHOLD = 80 // below this = icon-only mode
 
-const NAV_ITEMS: { id: 'today' | 'tasks' | 'inbox' | 'docs' | 'goals' | 'session'; label: string; icon: LucideIcon }[] = [
-  { id: 'today', label: 'Today', icon: Sun },
-  { id: 'tasks', label: 'Tasks', icon: CheckSquare },
-  { id: 'inbox', label: 'Inbox', icon: Inbox },
-  { id: 'docs', label: 'Docs', icon: FileText },
-  { id: 'goals', label: 'Goals', icon: Target },
-  { id: 'session', label: 'Activity', icon: BookOpen },
-]
+// Icon map for nav items — lookup by page ID
+const NAV_ICONS: Record<string, LucideIcon> = {
+  today: Sun,
+  tasks: CheckSquare,
+  inbox: Inbox,
+  docs: FileText,
+  goals: Target,
+  session: BookOpen,
+}
+
+const NAV_LABELS: Record<string, string> = {
+  today: 'Today',
+  tasks: 'Tasks',
+  inbox: 'Inbox',
+  docs: 'Docs',
+  goals: 'Goals',
+  session: 'Activity',
+}
 
 function NavButton({
   label,
@@ -68,12 +94,98 @@ function NavButton({
   )
 }
 
+function SortableNavItem({
+  id,
+  isActive,
+  expanded,
+  onClick,
+}: {
+  id: string
+  isActive: boolean
+  expanded: boolean
+  onClick: () => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  const icon = NAV_ICONS[id]
+  const label = NAV_LABELS[id]
+  if (!icon || !label) return null
+
+  const buttonClasses = cn(
+    'flex h-9 items-center rounded-lg transition-all duration-150 cursor-pointer touch-none',
+    expanded ? 'w-full gap-2.5 px-2.5' : 'w-9 justify-center',
+    isActive
+      ? 'bg-accent/60 text-foreground'
+      : 'text-muted-foreground hover:text-foreground hover:bg-accent/20',
+    isDragging && 'opacity-60 shadow-md z-10',
+  )
+
+  const Icon = icon
+
+  const content = (
+    <>
+      <Icon className="size-4 shrink-0" strokeWidth={1.75} />
+      {expanded && (
+        <span className="text-sm font-medium truncate">{label}</span>
+      )}
+    </>
+  )
+
+  if (expanded) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(e) => e.key === 'Enter' && onClick()}
+        className={buttonClasses}
+      >
+        {content}
+      </div>
+    )
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        onClick={onClick}
+        className={buttonClasses}
+      >
+        {content}
+      </TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
 export function NavSidebar() {
   const currentPage = useAppStore((s) => s.currentPage)
   const setCurrentPage = useAppStore((s) => s.setCurrentPage)
 
   const width = useLayoutStore((s) => s.navWidth)
   const setNavWidth = useLayoutStore((s) => s.setNavWidth)
+  const navOrder = useLayoutStore((s) => s.navOrder)
+  const saveNavOrder = useLayoutStore((s) => s.saveNavOrder)
 
   const [dragging, setDragging] = useState(false)
   const startX = useRef(0)
@@ -81,6 +193,7 @@ export function NavSidebar() {
 
   const expanded = width >= COLLAPSE_THRESHOLD
 
+  // Resize handle logic
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     setDragging(true)
@@ -127,26 +240,53 @@ export function NavSidebar() {
     }
   }, [currentPage, setCurrentPage])
 
+  // dnd-kit sensors — distance: 5 differentiates click from drag
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event
+      if (!over || active.id === over.id) return
+
+      const oldIndex = navOrder.indexOf(active.id as string)
+      const newIndex = navOrder.indexOf(over.id as string)
+      if (oldIndex === -1 || newIndex === -1) return
+
+      const newOrder = [...navOrder]
+      newOrder.splice(oldIndex, 1)
+      newOrder.splice(newIndex, 0, active.id as string)
+
+      await saveNavOrder(newOrder)
+    },
+    [navOrder, saveNavOrder],
+  )
+
   return (
     <nav
       className="relative flex flex-col border-r border-border/20 bg-muted/30 py-3"
       style={{ width }}
     >
-      {/* Nav items */}
-      <div className={cn('flex flex-1 flex-col gap-1', expanded ? 'px-2' : 'items-center')}>
-        {NAV_ITEMS.map((item) => (
-          <NavButton
-            key={item.id}
-            label={item.label}
-            icon={item.icon}
-            isActive={currentPage === item.id}
-            expanded={expanded}
-            onClick={() => handleNavClick(item.id)}
-          />
-        ))}
-      </div>
+      {/* Sortable nav items */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={navOrder} strategy={verticalListSortingStrategy}>
+          <div className={cn('flex flex-1 flex-col gap-1', expanded ? 'px-2' : 'items-center')}>
+            {navOrder.map((id) => (
+              <SortableNavItem
+                key={id}
+                id={id}
+                isActive={currentPage === id}
+                expanded={expanded}
+                onClick={() => handleNavClick(id as typeof currentPage)}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
 
-      {/* Bottom items */}
+      {/* Bottom items — pinned, not sortable */}
       <div className={cn('mt-auto flex flex-col gap-1', expanded ? 'px-2' : 'items-center')}>
         <NavButton
           label="Command"
