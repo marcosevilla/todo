@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useDetailStore } from '@/stores/detailStore'
 import { useTaskDetail } from '@/hooks/useTaskDetail'
 import { useProjects } from '@/hooks/useLocalTasks'
-import { updateLocalTask, createLocalTask, breakDownTask, logActivity, searchDocuments, getDocument, getDocuments } from '@/services/tauri'
+import { updateLocalTask, createLocalTask, breakDownTask, logActivity, getDocument, getDocuments } from '@/services/tauri'
 import type { LocalTask as LocalTaskType, Document } from '@/services/tauri'
 import { useDocsStore } from '@/stores/docsStore'
 import { useAppStore } from '@/stores/appStore'
@@ -21,12 +21,7 @@ import { PanelRight, MoreHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import { format, parseISO } from 'date-fns'
 
-const PRIORITY_LABELS: Record<number, { label: string; color: string }> = {
-  1: { label: 'Normal', color: 'bg-transparent' },
-  2: { label: 'Medium', color: 'bg-accent-blue' },
-  3: { label: 'High', color: 'bg-orange-500' },
-  4: { label: 'Urgent', color: 'bg-red-500' },
-}
+import { PRIORITY_LABELS } from '@/lib/priorities'
 
 export function TaskDetailPage() {
   const target = useDetailStore((s) => s.target)
@@ -127,8 +122,6 @@ export function TaskDetailPage() {
     )
   }
 
-  const completedSubs = subtasks.filter((s) => s.completed).length
-
   return (
     <div className="space-y-6">
       {/* Header: breadcrumbs + actions */}
@@ -147,7 +140,7 @@ export function TaskDetailPage() {
               <MoreHorizontal className="size-4" />
             </PopoverTrigger>
             <PopoverContent side="bottom" align="end" sideOffset={4} className="w-44 gap-0 p-1">
-              <TaskActionBar task={task} projects={projects} onDeleted={close} variant="menu" />
+              <TaskActionBar task={task} projects={projects} onDeleted={close} />
             </PopoverContent>
           </Popover>
         </div>

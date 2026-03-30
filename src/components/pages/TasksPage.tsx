@@ -152,10 +152,10 @@ function ProjectActions({
           className="h-7 w-36 text-xs"
           autoFocus
         />
-        <Button variant="ghost" size="icon-xs" onClick={() => { if (editName.trim()) { onRename(editName.trim()); setEditing(false) } }}>
+        <Button variant="ghost" size="icon-xs" onClick={() => { if (editName.trim()) { onRename(editName.trim()); setEditing(false) } }} aria-label="Confirm rename">
           <Check className="size-3" />
         </Button>
-        <Button variant="ghost" size="icon-xs" onClick={() => setEditing(false)}>
+        <Button variant="ghost" size="icon-xs" onClick={() => setEditing(false)} aria-label="Cancel">
           <X className="size-3" />
         </Button>
       </div>
@@ -176,7 +176,7 @@ function ProjectActions({
             onClick={() => { onUpdateColor(c); setShowColors(false) }}
           />
         ))}
-        <Button variant="ghost" size="icon-xs" onClick={() => setShowColors(false)}>
+        <Button variant="ghost" size="icon-xs" onClick={() => setShowColors(false)} aria-label="Cancel">
           <X className="size-3" />
         </Button>
       </div>
@@ -187,10 +187,10 @@ function ProjectActions({
     return (
       <div className="flex items-center gap-1 mr-2" onClick={(e) => e.stopPropagation()}>
         <span className="text-[10px] text-destructive">Delete?</span>
-        <Button variant="ghost" size="icon-xs" className="text-destructive" onClick={() => { onDelete(); setConfirmDelete(false) }}>
+        <Button variant="ghost" size="icon-xs" className="text-destructive" onClick={() => { onDelete(); setConfirmDelete(false) }} aria-label="Confirm delete">
           <Check className="size-3" />
         </Button>
-        <Button variant="ghost" size="icon-xs" onClick={() => setConfirmDelete(false)}>
+        <Button variant="ghost" size="icon-xs" onClick={() => setConfirmDelete(false)} aria-label="Cancel">
           <X className="size-3" />
         </Button>
       </div>
@@ -199,7 +199,7 @@ function ProjectActions({
 
   return (
     <div className="flex items-center gap-0.5 mr-2" onClick={(e) => e.stopPropagation()}>
-      <Button variant="ghost" size="icon-xs" onClick={() => { setEditName(projectName); setEditing(true) }}>
+      <Button variant="ghost" size="icon-xs" onClick={() => { setEditName(projectName); setEditing(true) }} aria-label="Rename project">
         <Pencil className="size-3" />
       </Button>
       <button
@@ -209,7 +209,7 @@ function ProjectActions({
         title="Change color"
       />
       {!isInbox && (
-        <Button variant="ghost" size="icon-xs" className="text-destructive/60 hover:text-destructive" onClick={() => setConfirmDelete(true)}>
+        <Button variant="ghost" size="icon-xs" className="text-destructive/60 hover:text-destructive" onClick={() => setConfirmDelete(true)} aria-label="Delete project">
           <Trash2 className="size-3" />
         </Button>
       )}
@@ -353,6 +353,22 @@ export function TasksPage() {
     tasksByProject[task.project_id].push(task)
   }
 
+  // Default-expand only the project with most in-progress tasks (or Inbox as fallback)
+  const bestProject = useMemo(() => {
+    let best = 'inbox'
+    let bestCount = -1
+    for (const project of projects) {
+      const inProgress = (tasksByProject[project.id] || []).filter(
+        (t) => t.status === 'in_progress'
+      ).length
+      if (inProgress > bestCount) {
+        bestCount = inProgress
+        best = project.id
+      }
+    }
+    return best
+  }, [projects, tasksByProject])
+
   return (
     <div className="space-y-3">
       {/* Header + Filter */}
@@ -404,26 +420,32 @@ export function TasksPage() {
       </div>
 
       {/* Project sections */}
-      {projects.map((project) => (
-        <ProjectSection
-          key={project.id}
-          projectName={project.name}
-          projectColor={project.color}
-          projectId={project.id}
-          tasks={tasksByProject[project.id] || []}
-          onAddTask={handleAddTask}
-          onComplete={complete}
-          onUncomplete={uncomplete}
-          onDelete={remove}
-          onAddSubtask={handleAddSubtask}
-          onDeleteProject={project.id !== 'inbox' ? () => removeProject(project.id) : undefined}
-          onRenameProject={(name) => renameProject(project.id, name)}
-          onUpdateProjectColor={(color) => updateProjectColor(project.id, color)}
-          onUpdated={refresh}
-          allProjects={projects}
-          defaultOpen={true}
-        />
-      ))}
+      {filteredTasks.length === 0 && statusFilter === 'all' ? (
+        <p className="text-sm text-muted-foreground text-center py-8">
+          No tasks yet. Press <kbd className="rounded border border-border/40 px-1.5 py-0.5 text-xs font-mono">Q</kbd> to create one.
+        </p>
+      ) : (
+        projects.map((project) => (
+          <ProjectSection
+            key={project.id}
+            projectName={project.name}
+            projectColor={project.color}
+            projectId={project.id}
+            tasks={tasksByProject[project.id] || []}
+            onAddTask={handleAddTask}
+            onComplete={complete}
+            onUncomplete={uncomplete}
+            onDelete={remove}
+            onAddSubtask={handleAddSubtask}
+            onDeleteProject={project.id !== 'inbox' ? () => removeProject(project.id) : undefined}
+            onRenameProject={(name) => renameProject(project.id, name)}
+            onUpdateProjectColor={(color) => updateProjectColor(project.id, color)}
+            onUpdated={refresh}
+            allProjects={projects}
+            defaultOpen={project.id === bestProject}
+          />
+        ))
+      )}
 
       {/* New project */}
       <div className="pt-2">

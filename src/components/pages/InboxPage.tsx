@@ -15,7 +15,6 @@ import {
   createDocNote,
   deleteCapture,
 } from '@/services/tauri'
-import { useDocsStore } from '@/stores/docsStore'
 import { cn } from '@/lib/utils'
 import { StatusDropdown } from '@/components/tasks/StatusDropdown'
 import { FocusPlayMenu } from '@/components/focus/FocusPlayMenu'
@@ -249,6 +248,7 @@ function InboxTaskRow({
   const [showMoveMenu, setShowMoveMenu] = useState(false)
   const isSelected = useSelectionStore((s) => s.selectedIds.has(task.id))
   const hasSelection = useSelectionStore((s) => s.hasSelection)
+  const focusActive = useFocusStore((s) => s.isActive)
   const otherProjects = projects.filter((p) => p.id !== task.project_id)
 
   return (
@@ -286,13 +286,14 @@ function InboxTaskRow({
 
       {/* Actions */}
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-        {!task.completed && !useFocusStore.getState().isActive && (
+        {!task.completed && !focusActive && (
           <FocusPlayMenu task={task} />
         )}
         <div className="relative">
           <button
             onClick={() => setShowMoveMenu(!showMoveMenu)}
             className="flex size-6 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+            aria-label="Move to project"
           >
             <FolderInput className="size-3" />
           </button>
@@ -316,6 +317,7 @@ function InboxTaskRow({
         <button
           onClick={() => onDelete(task.id)}
           className="flex size-6 items-center justify-center rounded-md text-destructive/40 hover:text-destructive hover:bg-accent/20 transition-colors"
+          aria-label="Delete task"
         >
           <Trash2 className="size-3" />
         </button>

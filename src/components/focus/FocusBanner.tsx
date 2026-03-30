@@ -49,18 +49,18 @@ export function FocusBanner() {
       {/* Controls */}
       <div className="flex items-center gap-1">
         {isPaused ? (
-          <Button variant="ghost" size="icon-xs" onClick={resumeFocus}>
+          <Button variant="ghost" size="icon-xs" onClick={resumeFocus} aria-label="Resume focus">
             <Play className="size-3" />
           </Button>
         ) : (
-          <Button variant="ghost" size="icon-xs" onClick={pauseFocus}>
+          <Button variant="ghost" size="icon-xs" onClick={pauseFocus} aria-label="Pause focus">
             <Pause className="size-3" />
           </Button>
         )}
-        <Button variant="ghost" size="icon-xs" onClick={abandonFocus}>
+        <Button variant="ghost" size="icon-xs" onClick={abandonFocus} aria-label="Stop focus">
           <Square className="size-3" />
         </Button>
-        <Button variant="ghost" size="icon-xs" onClick={() => setCompact(false)}>
+        <Button variant="ghost" size="icon-xs" onClick={() => setCompact(false)} aria-label="Expand focus view">
           <Maximize2 className="size-3" />
         </Button>
       </div>

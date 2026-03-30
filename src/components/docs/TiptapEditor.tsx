@@ -3,10 +3,9 @@ import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import Mention from '@tiptap/extension-mention'
-import { useCallback, useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react'
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react'
 import { getLocalTasks, searchDocuments } from '@/services/tauri'
 import { cn } from '@/lib/utils'
-import type { LocalTask, Document } from '@/services/tauri'
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion'
 import tippy, { type Instance } from 'tippy.js'
 import { CheckSquare, FileText } from 'lucide-react'
@@ -84,7 +83,7 @@ MentionList.displayName = 'MentionList'
 // ── Main editor ──
 
 export function TiptapEditor({ content, onChange, placeholder = 'Start writing...' }: TiptapEditorProps) {
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const editor = useEditor({
     extensions: [
@@ -184,7 +183,7 @@ export function TiptapEditor({ content, onChange, placeholder = 'Start writing..
 
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content, false)
+      editor.commands.setContent(content, { emitUpdate: false })
     }
   }, [content, editor])
 

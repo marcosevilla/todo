@@ -1,7 +1,11 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { Setting } from './types'
 
 // ── Settings ──
+export interface Setting {
+  key: string
+  value: string
+}
+
 export async function checkSetupComplete(): Promise<boolean> {
   return invoke<boolean>('check_setup_complete')
 }
@@ -50,6 +54,22 @@ export async function toggleObsidianCheckbox(
 }
 
 // ── Todoist ──
+
+/** Store-ready type with boolean conversions (from TodoistTaskRow) */
+export interface TodoistTask {
+  id: string
+  content: string
+  description: string | null
+  project_id: string | null
+  project_name: string | null
+  priority: number
+  due_date: string | null
+  due_is_recurring: boolean
+  is_completed: boolean
+  todoist_url: string | null
+}
+
+/** Raw row type from SQLite/Rust (integers for booleans) */
 export interface TodoistTaskRow {
   id: string
   content: string
@@ -80,7 +100,7 @@ export async function snoozeTodoistTask(taskId: string): Promise<void> {
 }
 
 // ── Calendar ──
-export interface CalendarEventRow {
+export interface CalendarEvent {
   id: string
   summary: string
   description: string | null
@@ -101,8 +121,8 @@ export interface CalendarFeed {
   enabled: number
 }
 
-export async function fetchCalendarEvents(): Promise<CalendarEventRow[]> {
-  return invoke<CalendarEventRow[]>('fetch_calendar_events')
+export async function fetchCalendarEvents(): Promise<CalendarEvent[]> {
+  return invoke<CalendarEvent[]>('fetch_calendar_events')
 }
 
 export async function getCalendarFeeds(): Promise<CalendarFeed[]> {

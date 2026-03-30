@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { PRIORITY_COLORS } from '@/lib/priorities'
 import { Check } from 'lucide-react'
 import { StatusDropdown } from './StatusDropdown'
 import { useSelectionStore } from '@/stores/selectionStore'
@@ -6,13 +7,6 @@ import type { TaskStatus } from '@/services/tauri'
 import { format, parseISO, isToday, isTomorrow, isPast } from 'date-fns'
 
 // ── Priority Indicator ──
-
-const PRIORITY_COLORS: Record<number, string> = {
-  4: 'bg-red-500',
-  3: 'bg-orange-500',
-  2: 'bg-accent-blue',
-  1: 'bg-transparent',
-}
 
 function PriorityIndicator({ priority }: { priority: number }) {
   if (priority <= 1) return <div className="w-3 shrink-0" />

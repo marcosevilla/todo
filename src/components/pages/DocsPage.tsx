@@ -7,7 +7,6 @@ import { PanelLeftOpen } from 'lucide-react'
 export function DocsPage() {
   const folderTreeCollapsed = useDocsStore((s) => s.folderTreeCollapsed)
   const setFolderTreeCollapsed = useDocsStore((s) => s.setFolderTreeCollapsed)
-  const selectedDocId = useDocsStore((s) => s.selectedDocId)
   const refresh = useDocsStore((s) => s.refresh)
 
   // Load data on mount

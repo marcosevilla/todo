@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useDocsStore } from '@/stores/docsStore'
-import { createDocFolder, renameDocFolder, deleteDocFolder, createDocument, deleteDocument } from '@/services/tauri'
+import { createDocFolder, deleteDocFolder, createDocument, deleteDocument } from '@/services/tauri'
 import { cn } from '@/lib/utils'
-import { ChevronRight, Plus, FolderOpen, FileText, Trash2, Pencil, PanelLeftClose } from 'lucide-react'
+import { ChevronRight, Plus, FolderOpen, FileText, Trash2, PanelLeftClose } from 'lucide-react'
 import { toast } from 'sonner'
-import type { DocFolder, Document } from '@/services/tauri'
+import type { Document } from '@/services/tauri'
 
 export function FolderTree() {
   const folders = useDocsStore((s) => s.folders)
@@ -12,7 +12,6 @@ export function FolderTree() {
   const selectedDocId = useDocsStore((s) => s.selectedDocId)
   const selectedFolderId = useDocsStore((s) => s.selectedFolderId)
   const selectDoc = useDocsStore((s) => s.selectDoc)
-  const selectFolder = useDocsStore((s) => s.selectFolder)
   const setFolderTreeCollapsed = useDocsStore((s) => s.setFolderTreeCollapsed)
   const folderTreeWidth = useDocsStore((s) => s.folderTreeWidth)
   const setFolderTreeWidth = useDocsStore((s) => s.setFolderTreeWidth)

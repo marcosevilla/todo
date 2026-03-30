@@ -42,6 +42,7 @@ export function LocalTaskRow({
   const [showSubInput, setShowSubInput] = useState(false)
   const [subInput, setSubInput] = useState('')
   const [focusMenuOpen, setFocusMenuOpen] = useState(false)
+  const focusActive = useFocusStore((s) => s.isActive)
 
   const hasSubtasks = subtasks.length > 0
 
@@ -100,13 +101,14 @@ export function LocalTaskRow({
 
         {/* Hover actions */}
         <div className={cn('flex shrink-0 items-center gap-0.5 transition-opacity', focusMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}>
-          {!task.completed && !useFocusStore.getState().isActive && (
+          {!task.completed && !focusActive && (
             <FocusPlayMenu task={task} onOpenChange={setFocusMenuOpen} />
           )}
           <Button
             variant="ghost"
             size="icon-xs"
             onClick={() => setEditing(!editing)}
+            aria-label="Edit task"
           >
             <Pencil className="size-3" />
           </Button>
@@ -114,6 +116,7 @@ export function LocalTaskRow({
             variant="ghost"
             size="icon-xs"
             onClick={() => setShowSubInput(!showSubInput)}
+            aria-label="Add subtask"
           >
             <Plus className="size-3" />
           </Button>
@@ -122,6 +125,7 @@ export function LocalTaskRow({
             size="icon-xs"
             onClick={() => onDelete(task.id)}
             className="text-destructive/60 hover:text-destructive"
+            aria-label="Delete task"
           >
             <Trash2 className="size-3" />
           </Button>

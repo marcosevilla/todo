@@ -1,16 +1,10 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { PRIORITY_COLORS } from '@/lib/priorities'
 import { Check, Plus, PenLine, FolderInput, Sparkles, FileText, X, Loader2 } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { FocusPlayMenu } from '@/components/focus/FocusPlayMenu'
 import type { LocalTask, Project, Document } from '@/services/tauri'
-
-const PRIORITY_COLORS: Record<number, string> = {
-  4: 'bg-red-500',
-  3: 'bg-orange-500',
-  2: 'bg-accent-blue',
-  1: 'bg-transparent',
-}
 
 export type BarMode = 'search' | 'task' | 'capture' | 'breakdown' | 'doc'
 

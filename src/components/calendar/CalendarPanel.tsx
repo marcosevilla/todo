@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { openUrl } from '@/services/tauri'
-import type { CalendarEventRow } from '@/services/tauri'
+import type { CalendarEvent } from '@/services/tauri'
 
 function formatTime(time: string): string {
   // Convert HH:MM to 12-hour format
@@ -14,7 +14,7 @@ function formatTime(time: string): string {
   return `${hour}:${String(m).padStart(2, '0')} ${ampm}`
 }
 
-function isCurrentEvent(event: CalendarEventRow): boolean {
+function isCurrentEvent(event: CalendarEvent): boolean {
   if (event.all_day) return false
   const now = new Date()
   const [sh, sm] = event.start_time.split(':').map(Number)
@@ -23,14 +23,14 @@ function isCurrentEvent(event: CalendarEventRow): boolean {
   return currentMinutes >= sh * 60 + sm && currentMinutes < eh * 60 + em
 }
 
-function isPastEvent(event: CalendarEventRow): boolean {
+function isPastEvent(event: CalendarEvent): boolean {
   if (event.all_day) return false
   const now = new Date()
   const [eh, em] = event.end_time.split(':').map(Number)
   return now.getHours() * 60 + now.getMinutes() > eh * 60 + em
 }
 
-function EventRow({ event }: { event: CalendarEventRow }) {
+function EventRow({ event }: { event: CalendarEvent }) {
   const current = isCurrentEvent(event)
   const past = isPastEvent(event)
 

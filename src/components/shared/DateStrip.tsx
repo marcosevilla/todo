@@ -52,6 +52,7 @@ export function DateStrip({ briefDates, selected, onSelect }: DateStripProps) {
       <button
         onClick={() => scroll(-1)}
         className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/30 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+        aria-label="Scroll dates left"
       >
         <ChevronLeft className="size-3.5" />
       </button>
@@ -93,6 +94,7 @@ export function DateStrip({ briefDates, selected, onSelect }: DateStripProps) {
       <button
         onClick={() => scroll(1)}
         className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/30 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+        aria-label="Scroll dates right"
       >
         <ChevronRight className="size-3.5" />
       </button>

@@ -12,12 +12,12 @@ interface TaskActionBarProps {
   task: LocalTask
   projects: Project[]
   onDeleted: () => void
-  variant?: 'bar' | 'menu'
 }
 
-export function TaskActionBar({ task, projects, onDeleted, variant = 'bar' }: TaskActionBarProps) {
+export function TaskActionBar({ task, projects, onDeleted }: TaskActionBarProps) {
   const [showMoveSubmenu, setShowMoveSubmenu] = useState(false)
   const [breaking, setBreaking] = useState(false)
+  const focusActive = useFocusStore((s) => s.isActive)
 
   const otherProjects = projects.filter((p) => p.id !== task.project_id)
 
@@ -73,7 +73,7 @@ export function TaskActionBar({ task, projects, onDeleted, variant = 'bar' }: Ta
   return (
     <div className="flex flex-col">
       {/* Focus */}
-      {!task.completed && !useFocusStore.getState().isActive && (
+      {!task.completed && !focusActive && (
         <MenuItem icon={Play} label="Start focus" onClick={handleFocus} />
       )}
 

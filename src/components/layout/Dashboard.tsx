@@ -167,7 +167,7 @@ export function Dashboard() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [setCurrentPage, detailTarget, closeDetail])
+  }, [setCurrentPage, detailTarget, closeDetail, focusActive])
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">

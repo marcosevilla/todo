@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAppStore } from '@/stores/appStore'
 import { fetchCalendarEvents } from '@/services/tauri'
-import type { CalendarEventRow } from '@/services/tauri'
+import type { CalendarEvent } from '@/services/tauri'
 import { friendlyError } from '@/lib/errors'
 import { toast } from 'sonner'
 
 export function useCalendar() {
-  const [events, setEvents] = useState<CalendarEventRow[]>([])
+  const [events, setEvents] = useState<CalendarEvent[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const setCalendarEvents = useAppStore((s) => s.setCalendarEvents)

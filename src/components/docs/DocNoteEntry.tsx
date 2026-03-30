@@ -1,4 +1,3 @@
-import { cn } from '@/lib/utils'
 import { Trash2 } from 'lucide-react'
 import type { DocNote } from '@/services/tauri'
 
