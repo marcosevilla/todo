@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { useGoalsStore } from '@/stores/goalsStore'
 import { logHabit, unlogHabit, getHabitHeatmap } from '@/services/tauri'
@@ -67,23 +67,86 @@ function HabitCircle({
   onToggle: () => void
 }) {
   const displayIcon = renderHabitIcon(icon, name, category)
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [holding, setHolding] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const HOLD_DURATION = 500 // ms to hold for completion
+
+  const startHold = useCallback(() => {
+    if (completed) {
+      // If already completed, single click to uncomplete
+      onToggle()
+      return
+    }
+    setHolding(true)
+    setProgress(0)
+
+    // Animate the progress ring
+    const startTime = Date.now()
+    progressInterval.current = setInterval(() => {
+      const elapsed = Date.now() - startTime
+      setProgress(Math.min(elapsed / HOLD_DURATION, 1))
+    }, 16)
+
+    holdTimer.current = setTimeout(() => {
+      setHolding(false)
+      setProgress(0)
+      if (progressInterval.current) clearInterval(progressInterval.current)
+      onToggle()
+    }, HOLD_DURATION)
+  }, [completed, onToggle])
+
+  const cancelHold = useCallback(() => {
+    if (holdTimer.current) {
+      clearTimeout(holdTimer.current)
+      holdTimer.current = null
+    }
+    if (progressInterval.current) {
+      clearInterval(progressInterval.current)
+      progressInterval.current = null
+    }
+    setHolding(false)
+    setProgress(0)
+  }, [])
+
   return (
     <div className="flex flex-col items-center gap-1.5">
       <Tooltip>
         <TooltipTrigger
           className={cn(
-            'relative size-10 rounded-full flex items-center justify-center text-lg transition-all duration-200 cursor-pointer',
+            'relative size-10 rounded-full flex items-center justify-center text-lg transition-all duration-200 cursor-pointer select-none',
             completed
               ? 'ring-2 scale-105'
               : 'ring-1 ring-border/30 hover:ring-border/60 opacity-50 hover:opacity-80',
+            holding && 'scale-95',
           )}
           style={{
             backgroundColor: completed ? `${color}20` : 'transparent',
             outlineColor: completed ? color : undefined,
           }}
-          onClick={onToggle}
-          aria-label={`${completed ? 'Unmark' : 'Mark'} ${name} as done`}
+          onMouseDown={startHold}
+          onMouseUp={cancelHold}
+          onMouseLeave={cancelHold}
+          onTouchStart={startHold}
+          onTouchEnd={cancelHold}
+          aria-label={`${completed ? 'Click to unmark' : 'Hold to complete'} ${name}`}
         >
+          {/* Hold progress ring */}
+          {holding && !completed && (
+            <svg className="absolute inset-0 size-10 -rotate-90 pointer-events-none" viewBox="0 0 40 40">
+              <circle
+                cx="20" cy="20" r="18"
+                fill="none"
+                stroke={color}
+                strokeWidth="2.5"
+                strokeDasharray={`${progress * 113} 113`}
+                strokeLinecap="round"
+                className="transition-none"
+              />
+            </svg>
+          )}
           <span className="select-none">{displayIcon}</span>
           {completed && (
             <span
@@ -261,7 +324,9 @@ export function HabitsSection() {
       await loadHabits()
       // Refresh heatmap
       getHabitHeatmap(undefined, 365).then(setHeatmapData).catch(() => {})
-    } catch { /* silently fail */ }
+    } catch (e) {
+      console.error('Habit toggle failed:', e)
+    }
   }, [loadHabits])
 
   const activeHabits = habits.filter((h) => h.active)
