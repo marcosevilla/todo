@@ -6,6 +6,7 @@ import {
   importGoalsFromVault,
 } from '@/services/tauri'
 import type { GoalWithProgress, GoalStatus, LifeArea } from '@/services/tauri'
+import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -193,7 +194,9 @@ function GoalCreateDialog({
       onCreated()
       handleReset()
       onClose()
-    } catch { /* silently fail */ }
+    } catch (e) {
+      toast.error(`Failed to create goal: ${e}`)
+    }
     setSaving(false)
   }
 
@@ -401,9 +404,12 @@ export function GoalsPage() {
   const handleImport = useCallback(async () => {
     setImporting(true)
     try {
-      await importGoalsFromVault()
+      const result = await importGoalsFromVault()
+      toast.success(`Imported ${result.goals_created} goals and ${result.habits_created} habits`)
       await refresh()
-    } catch { /* silently fail */ }
+    } catch (e) {
+      toast.error(`Import failed: ${e}`)
+    }
     setImporting(false)
   }, [refresh])
 
