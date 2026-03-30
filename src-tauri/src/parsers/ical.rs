@@ -17,8 +17,13 @@ pub struct CalendarEvent {
 }
 
 /// Parse an iCal feed string into calendar events for today
+#[allow(dead_code)]
 pub fn parse_ical_for_today(ical_content: &str) -> Vec<CalendarEvent> {
-    let today = Local::now().date_naive();
+    parse_ical_for_date(ical_content, Local::now().date_naive())
+}
+
+/// Parse an iCal feed string into calendar events for a specific date
+pub fn parse_ical_for_date(ical_content: &str, target_date: NaiveDate) -> Vec<CalendarEvent> {
     let reader = BufReader::new(ical_content.as_bytes());
     let parser = IcalParser::new(reader);
 
@@ -56,20 +61,20 @@ pub fn parse_ical_for_today(ical_content: &str) -> Vec<CalendarEvent> {
             // Determine if this is an all-day event (date only, no time component)
             let all_day = start_raw.len() <= 10 || !start_raw.contains('T');
 
-            // Check if event is today
-            let is_today = if all_day {
+            // Check if event matches target date
+            let matches_date = if all_day {
                 // All-day: compare date part
                 parse_ical_date(&start_raw)
-                    .map(|d| d == today)
+                    .map(|d| d == target_date)
                     .unwrap_or(false)
             } else {
-                // Timed: check if the event's date matches today
+                // Timed: check if the event's date matches target
                 parse_ical_datetime(&start_raw)
-                    .map(|dt| dt.date() == today)
+                    .map(|dt| dt.date() == target_date)
                     .unwrap_or(false)
             };
 
-            if !is_today {
+            if !matches_date {
                 continue;
             }
 

@@ -109,6 +109,7 @@ export interface CalendarEvent {
   end_time: string
   all_day: boolean
   meeting_url: string | null
+  date: string | null
   feed_label: string | null
   feed_color: string | null
 }
@@ -121,8 +122,12 @@ export interface CalendarFeed {
   enabled: number
 }
 
-export async function fetchCalendarEvents(): Promise<CalendarEvent[]> {
-  return invoke<CalendarEvent[]>('fetch_calendar_events')
+export async function fetchCalendarEvents(date?: string): Promise<CalendarEvent[]> {
+  return invoke<CalendarEvent[]>('fetch_calendar_events', { date })
+}
+
+export async function getCachedCalendarEvents(date: string): Promise<CalendarEvent[]> {
+  return invoke<CalendarEvent[]>('get_cached_calendar_events', { date })
 }
 
 export async function getCalendarFeeds(): Promise<CalendarFeed[]> {

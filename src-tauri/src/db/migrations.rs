@@ -340,6 +340,16 @@ CREATE INDEX IF NOT EXISTS idx_action_log_synced ON action_log(synced)
             )
         "#,
     },
+    Migration {
+        version: 13,
+        description: "Calendar events: add date column and feed metadata",
+        sql: r#"
+            ALTER TABLE calendar_events ADD COLUMN date TEXT;
+            ALTER TABLE calendar_events ADD COLUMN feed_label TEXT;
+            ALTER TABLE calendar_events ADD COLUMN feed_color TEXT;
+            CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(date)
+        "#,
+    },
 ];
 
 pub async fn run_migrations(pool: &SqlitePool) -> Result<(), String> {

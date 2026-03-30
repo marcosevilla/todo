@@ -1,33 +1,57 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAppStore } from '@/stores/appStore'
-import { fetchCalendarEvents } from '@/services/tauri'
+import { fetchCalendarEvents, getCachedCalendarEvents } from '@/services/tauri'
 import type { CalendarEvent } from '@/services/tauri'
 import { friendlyError } from '@/lib/errors'
 import { toast } from 'sonner'
+
+function todayString(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function offsetDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T12:00:00') // noon to avoid DST issues
+  d.setDate(d.getDate() + days)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 export function useCalendar() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [selectedDate, setSelectedDate] = useState(todayString())
   const setCalendarEvents = useAppStore((s) => s.setCalendarEvents)
 
-  const refresh = useCallback(async () => {
+  const isToday = selectedDate === todayString()
+
+  const loadEventsForDate = useCallback(async (date: string, forceRefresh = false) => {
     try {
       setError(null)
-      const data = await fetchCalendarEvents()
+      setLoading(true)
+
+      let data: CalendarEvent[]
+
+      if (!forceRefresh) {
+        // Try cache first for fast navigation
+        data = await getCachedCalendarEvents(date)
+        if (data.length > 0) {
+          setEvents(data)
+          setLoading(false)
+          // If this is today, also update the app store
+          if (date === todayString()) {
+            setCalendarEvents(data)
+          }
+          return
+        }
+      }
+
+      // Fall back to network fetch (which caches a 7-day window)
+      data = await fetchCalendarEvents(date)
       setEvents(data)
-      setCalendarEvents(data.map((e) => ({
-        id: e.id,
-        summary: e.summary,
-        description: e.description,
-        location: e.location,
-        start_time: e.start_time,
-        end_time: e.end_time,
-        all_day: e.all_day,
-        meeting_url: e.meeting_url,
-        feed_label: e.feed_label,
-        feed_color: e.feed_color,
-      })))
+      if (date === todayString()) {
+        setCalendarEvents(data)
+      }
     } catch (e) {
       const msg = friendlyError(e)
       setError(msg)
@@ -37,9 +61,41 @@ export function useCalendar() {
     }
   }, [setCalendarEvents])
 
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const setDate = useCallback((date: string) => {
+    setSelectedDate(date)
+  }, [])
 
-  return { events, error, loading, refresh }
+  const goToToday = useCallback(() => {
+    setSelectedDate(todayString())
+  }, [])
+
+  const goNext = useCallback(() => {
+    setSelectedDate((prev) => offsetDate(prev, 1))
+  }, [])
+
+  const goPrev = useCallback(() => {
+    setSelectedDate((prev) => offsetDate(prev, -1))
+  }, [])
+
+  const refresh = useCallback(async () => {
+    await loadEventsForDate(selectedDate, true)
+  }, [selectedDate, loadEventsForDate])
+
+  // Reload when selected date changes
+  useEffect(() => {
+    loadEventsForDate(selectedDate)
+  }, [selectedDate, loadEventsForDate])
+
+  return {
+    events,
+    error,
+    loading,
+    selectedDate,
+    isToday,
+    setDate,
+    goToToday,
+    goNext,
+    goPrev,
+    refresh,
+  }
 }

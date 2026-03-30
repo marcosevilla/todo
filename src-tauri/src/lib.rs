@@ -184,6 +184,7 @@ pub fn run() {
             todoist::complete_todoist_task,
             todoist::snooze_todoist_task,
             calendar::fetch_calendar_events,
+            calendar::get_cached_calendar_events,
             calendar::get_calendar_feeds,
             calendar::add_calendar_feed,
             calendar::remove_calendar_feed,

@@ -1,3 +1,4 @@
+use chrono::{Local, TimeDelta};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tauri::{AppHandle, Manager};
@@ -73,6 +74,7 @@ pub async fn remove_calendar_feed(app: AppHandle, feed_id: String) -> Result<(),
 pub struct CalendarEventWithFeed {
     #[serde(flatten)]
     pub event: CalendarEvent,
+    pub date: Option<String>,
     pub feed_label: Option<String>,
     pub feed_color: Option<String>,
 }
@@ -88,8 +90,30 @@ async fn get_ical_url(app: &AppHandle) -> Result<Option<String>, String> {
     Ok(row.map(|r| r.0))
 }
 
-/// Fetch a single iCal feed and return parsed events tagged with feed metadata
-async fn fetch_single_feed(
+/// Build the list of feed sources (url, label, color) from DB or legacy setting
+async fn get_feed_sources(app: &AppHandle) -> Result<Vec<(String, String, String)>, String> {
+    let pool = app.state::<SqlitePool>();
+    let feeds: Vec<CalendarFeed> =
+        sqlx::query_as("SELECT id, label, url, color, enabled FROM calendar_feeds WHERE enabled = 1")
+            .fetch_all(pool.inner())
+            .await
+            .map_err(|e| e.to_string())?;
+
+    if feeds.is_empty() {
+        match get_ical_url(app).await? {
+            Some(url) => Ok(vec![(url, "Calendar".to_string(), "#6366f1".to_string())]),
+            None => Err("No calendar feeds configured".to_string()),
+        }
+    } else {
+        Ok(feeds
+            .iter()
+            .map(|f| (f.url.clone(), f.label.clone(), f.color.clone()))
+            .collect())
+    }
+}
+
+/// Fetch a single iCal feed for a 7-day window (3 days back, today, 3 days forward)
+async fn fetch_single_feed_7day(
     client: &reqwest::Client,
     url: &str,
     feed_label: &str,
@@ -111,69 +135,98 @@ async fn fetch_single_feed(
         }
     };
 
-    let events = ical::parse_ical_for_today(&ical_content);
-    events
-        .into_iter()
-        .map(|event| CalendarEventWithFeed {
-            event,
-            feed_label: Some(feed_label.to_string()),
-            feed_color: Some(feed_color.to_string()),
-        })
-        .collect()
+    let today = Local::now().date_naive();
+    let mut all_events = Vec::new();
+
+    for offset in -3..=3i64 {
+        let target = today + TimeDelta::days(offset);
+        let date_str = target.format("%Y-%m-%d").to_string();
+        let events = ical::parse_ical_for_date(&ical_content, target);
+        for event in events {
+            all_events.push(CalendarEventWithFeed {
+                event,
+                date: Some(date_str.clone()),
+                feed_label: Some(feed_label.to_string()),
+                feed_color: Some(feed_color.to_string()),
+            });
+        }
+    }
+
+    all_events
 }
 
-/// Fetch calendar events from all enabled feeds, filter to today, cache in SQLite
-#[tauri::command]
-pub async fn fetch_calendar_events(
-    app: AppHandle,
-) -> Result<Vec<CalendarEventWithFeed>, String> {
-    let pool = app.state::<SqlitePool>();
-    let client = reqwest::Client::new();
+/// Check if we have a fresh cache for the given date (fetched within last 15 minutes)
+async fn has_fresh_cache(pool: &SqlitePool, date: &str) -> bool {
+    let result: Option<(i32,)> = sqlx::query_as(
+        "SELECT COUNT(*) FROM calendar_events WHERE date = ? AND fetched_at > datetime('now', '-15 minutes')"
+    )
+    .bind(date)
+    .fetch_optional(pool)
+    .await
+    .unwrap_or(None);
 
-    // 1. Get enabled feeds from calendar_feeds table
-    let feeds: Vec<CalendarFeed> =
-        sqlx::query_as("SELECT id, label, url, color, enabled FROM calendar_feeds WHERE enabled = 1")
-            .fetch_all(pool.inner())
-            .await
-            .map_err(|e| e.to_string())?;
+    matches!(result, Some((count,)) if count > 0)
+}
 
-    // 2. Build list of (url, label, color) — fall back to legacy setting if no feeds
-    let feed_sources: Vec<(String, String, String)> = if feeds.is_empty() {
-        match get_ical_url(&app).await? {
-            Some(url) => vec![(url, "Calendar".to_string(), "#6366f1".to_string())],
-            None => return Err("No calendar feeds configured".to_string()),
-        }
-    } else {
-        feeds
-            .iter()
-            .map(|f| (f.url.clone(), f.label.clone(), f.color.clone()))
-            .collect()
-    };
-
-    // 3. Fetch all feeds concurrently
-    let futures: Vec<_> = feed_sources
-        .iter()
-        .map(|(url, label, color)| fetch_single_feed(&client, url, label, color))
-        .collect();
-
-    let results = futures::future::join_all(futures).await;
-
-    // 4. Aggregate and sort
-    let mut all_events: Vec<CalendarEventWithFeed> =
-        results.into_iter().flatten().collect();
-    all_events.sort_by(|a, b| a.event.start_time.cmp(&b.event.start_time));
-
-    // 5. Cache in SQLite (clear old, insert fresh)
-    sqlx::query("DELETE FROM calendar_events")
-        .execute(pool.inner())
+/// Read cached events for a date from SQLite
+async fn read_cached_events(pool: &SqlitePool, date: &str) -> Result<Vec<CalendarEventWithFeed>, String> {
+    let rows: Vec<(String, String, Option<String>, Option<String>, String, String, bool, Option<String>, Option<String>, Option<String>, Option<String>)> =
+        sqlx::query_as(
+            "SELECT id, summary, description, location, start_time, end_time, all_day, meeting_url, date, feed_label, feed_color
+             FROM calendar_events WHERE date = ? ORDER BY start_time ASC"
+        )
+        .bind(date)
+        .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
 
-    for item in &all_events {
+    Ok(rows
+        .into_iter()
+        .map(|(id, summary, description, location, start_time, end_time, all_day, meeting_url, date, feed_label, feed_color)| {
+            CalendarEventWithFeed {
+                event: CalendarEvent {
+                    id,
+                    summary,
+                    description,
+                    location,
+                    start_time,
+                    end_time,
+                    all_day,
+                    meeting_url,
+                },
+                date,
+                feed_label,
+                feed_color,
+            }
+        })
+        .collect())
+}
+
+/// Cache events to SQLite for a set of dates
+async fn cache_events(pool: &SqlitePool, events: &[CalendarEventWithFeed]) -> Result<(), String> {
+    // Collect unique dates from events to clear
+    let mut dates_to_clear: Vec<String> = events
+        .iter()
+        .filter_map(|e| e.date.clone())
+        .collect();
+    dates_to_clear.sort();
+    dates_to_clear.dedup();
+
+    // Delete old cached events for these dates
+    for date in &dates_to_clear {
+        sqlx::query("DELETE FROM calendar_events WHERE date = ?")
+            .bind(date)
+            .execute(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+
+    // Insert fresh events
+    for item in events {
         sqlx::query(
             "INSERT OR REPLACE INTO calendar_events
-             (id, summary, description, location, start_time, end_time, all_day, meeting_url, fetched_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+             (id, summary, description, location, start_time, end_time, all_day, meeting_url, date, feed_label, feed_color, fetched_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
         )
         .bind(&item.event.id)
         .bind(&item.event.summary)
@@ -183,10 +236,63 @@ pub async fn fetch_calendar_events(
         .bind(&item.event.end_time)
         .bind(item.event.all_day)
         .bind(&item.event.meeting_url)
-        .execute(pool.inner())
+        .bind(&item.date)
+        .bind(&item.feed_label)
+        .bind(&item.feed_color)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
     }
 
-    Ok(all_events)
+    Ok(())
+}
+
+/// Fetch calendar events from all enabled feeds.
+/// Accepts optional `date` parameter (YYYY-MM-DD). Defaults to today.
+/// Fetches a 7-day window and caches all events, returns only the requested date.
+/// Uses 15-minute cache to avoid redundant network calls.
+#[tauri::command]
+pub async fn fetch_calendar_events(
+    app: AppHandle,
+    date: Option<String>,
+) -> Result<Vec<CalendarEventWithFeed>, String> {
+    let pool = app.state::<SqlitePool>();
+    let today = Local::now().date_naive();
+
+    let target_date_str = date.unwrap_or_else(|| today.format("%Y-%m-%d").to_string());
+
+    // Check if we have fresh cached data for this date
+    if has_fresh_cache(pool.inner(), &target_date_str).await {
+        return read_cached_events(pool.inner(), &target_date_str).await;
+    }
+
+    let client = reqwest::Client::new();
+    let feed_sources = get_feed_sources(&app).await?;
+
+    // Fetch all feeds concurrently for a 7-day window
+    let futures: Vec<_> = feed_sources
+        .iter()
+        .map(|(url, label, color)| fetch_single_feed_7day(&client, url, label, color))
+        .collect();
+
+    let results = futures::future::join_all(futures).await;
+
+    // Aggregate all events from all feeds
+    let all_events: Vec<CalendarEventWithFeed> = results.into_iter().flatten().collect();
+
+    // Cache everything
+    cache_events(pool.inner(), &all_events).await?;
+
+    // Return only events for the requested date
+    read_cached_events(pool.inner(), &target_date_str).await
+}
+
+/// Get cached calendar events for a date (no network). Used for quick day navigation.
+#[tauri::command]
+pub async fn get_cached_calendar_events(
+    app: AppHandle,
+    date: String,
+) -> Result<Vec<CalendarEventWithFeed>, String> {
+    let pool = app.state::<SqlitePool>();
+    read_cached_events(pool.inner(), &date).await
 }

@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { CalendarPanel } from '@/components/calendar/CalendarPanel'
-import { useCalendar } from '@/hooks/useCalendar'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { Calendar, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -24,18 +23,7 @@ function SectionHeader({
   )
 }
 
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-6 text-center">
-      <p className="text-xs text-muted-foreground/60">{message}</p>
-    </div>
-  )
-}
-
 export function RightSidebar() {
-  const { events, loading } = useCalendar()
-  const hasEvents = loading || events.length > 0
-
   const collapsed = useLayoutStore((s) => s.rightCollapsed)
   const setCollapsed = useLayoutStore((s) => s.setRightCollapsed)
   const width = useLayoutStore((s) => s.rightWidth)
@@ -119,16 +107,12 @@ export function RightSidebar() {
         </>
       )}
 
-      {!collapsed && <div className="flex-1 overflow-y-auto">
-        <div className="flex flex-col">
+      {!collapsed && <div className="flex-1 overflow-y-auto flex flex-col min-h-0">
+        <div className="flex flex-col flex-1 min-h-0">
           {/* Schedule section */}
-          <div className="p-4 pt-2">
+          <div className="p-4 pt-2 flex flex-col flex-1 min-h-0">
             <SectionHeader icon={Calendar} label="Schedule" />
-            {hasEvents ? (
-              <CalendarPanel />
-            ) : (
-              <EmptyState message="No meetings today — deep work time." />
-            )}
+            <CalendarPanel />
           </div>
         </div>
       </div>}
