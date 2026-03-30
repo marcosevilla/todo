@@ -55,7 +55,7 @@ A personal daily triage and briefing macOS app built with Tauri 2.0.
 - Versioned migration system in `src-tauri/src/db/migrations.rs`
 - Each migration has a version number, description, and SQL string
 - Migrations run automatically on app startup — append new ones to the `MIGRATIONS` array
-- Current version: **8** (initial schema → calendar feeds → tasks/projects → activity log → focus state → captures → task status)
+- Current version: **10** (initial schema → calendar feeds → tasks/projects → activity log → focus state → captures → task status → docs → capture routes)
 - `schema_version` table tracks what's been applied
 
 ## Key Tables
@@ -64,6 +64,7 @@ A personal daily triage and briefing macOS app built with Tauri 2.0.
 - `local_tasks` — native tasks with subtask support (parent_id), priority, due dates, descriptions, status workflow
 - `captures` — native captures (migrated from Obsidian Quick Captures.md)
 - `activity_log` — timestamped activity events (action_type, target_id, metadata JSON)
+- `capture_routes` — user-configurable prefix routing for captures (prefix, target_type, doc_id, label, color, icon)
 - `daily_state` — per-day energy level, cached AI priorities, focus session state
 - `todoist_tasks` — cached Todoist tasks
 - `calendar_events` / `calendar_feeds` — cached calendar data

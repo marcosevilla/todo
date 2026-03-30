@@ -14,7 +14,11 @@ import {
   getDocuments,
   createDocNote,
   deleteCapture,
+  getCaptureRoutes,
+  routeCapture,
 } from '@/services/tauri'
+import type { CaptureRoute } from '@/services/tauri'
+import { parseRoutePrefix } from '@/lib/captureRoutes'
 import { cn } from '@/lib/utils'
 import { StatusDropdown } from '@/components/tasks/StatusDropdown'
 import { FocusPlayMenu } from '@/components/focus/FocusPlayMenu'
@@ -29,8 +33,22 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
-import { Check, PenLine, ArrowRight, FileText, FolderInput, Trash2, Download, Search } from 'lucide-react'
+import { Check, PenLine, ArrowRight, FileText, FolderInput, Trash2, Download, Search, Lightbulb, Quote, CheckSquare } from 'lucide-react'
 import type { LocalTask, Capture, Project, DocFolder, Document } from '@/services/tauri'
+
+// ── Route icon map ──
+
+const ROUTE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Lightbulb,
+  Quote,
+  CheckSquare,
+  FileText,
+}
+
+function RouteIcon({ name, className }: { name: string; className?: string }) {
+  const Icon = ROUTE_ICONS[name] ?? FileText
+  return <Icon className={className} />
+}
 
 // ── Unified inbox item type ──
 
@@ -54,6 +72,18 @@ export function InboxPage() {
   const [submitting, setSubmitting] = useState(false)
   const [importing, setImporting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [routes, setRoutes] = useState<CaptureRoute[]>([])
+
+  // Fetch capture routes
+  useEffect(() => {
+    getCaptureRoutes().then(setRoutes).catch(() => {})
+  }, [])
+
+  // Real-time route detection
+  const parsedRoute = useMemo(
+    () => parseRoutePrefix(inputValue, routes),
+    [inputValue, routes],
+  )
 
   const loading = tasksLoading || capturesLoading
 
@@ -101,17 +131,30 @@ export function InboxPage() {
     if (!text || submitting) return
     setSubmitting(true)
     try {
-      const capture = await createCapture(text, 'inbox')
-      setCaptures((prev) => [capture, ...prev])
-      setInputValue('')
-      toast.success('Note saved')
+      const { route, content } = parseRoutePrefix(text, routes)
+      if (route && content) {
+        // Route to target (doc or task)
+        const result = await routeCapture(route.prefix, content)
+        if (result.target_type === 'task') {
+          emitTasksChanged()
+        }
+        setInputValue('')
+        toast.success(`Saved to ${result.label}`)
+        refreshCaptures()
+      } else {
+        // Default: create a plain capture
+        const capture = await createCapture(text, 'inbox')
+        setCaptures((prev) => [capture, ...prev])
+        setInputValue('')
+        toast.success('Note saved')
+      }
     } catch (e) {
       toast.error(`Failed: ${e}`)
     } finally {
       setSubmitting(false)
       inputRef.current?.focus()
     }
-  }, [inputValue, submitting])
+  }, [inputValue, submitting, routes, refreshCaptures])
 
   const handleConvert = useCallback(async (capture: Capture) => {
     try {
@@ -162,10 +205,19 @@ export function InboxPage() {
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
-          placeholder="Write a note..."
+          placeholder="Write a note... (/i idea, /q quote, /t task)"
           disabled={submitting}
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/40"
         />
+        {parsedRoute.route && parsedRoute.content && (
+          <span
+            className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
+            style={{ backgroundColor: parsedRoute.route.color }}
+          >
+            <RouteIcon name={parsedRoute.route.icon} className="size-3" />
+            {parsedRoute.route.label}
+          </span>
+        )}
         {inputValue.trim() && (
           <button
             onClick={handleSubmit}
@@ -373,6 +425,13 @@ function InboxNoteRow({
       >
         {capture.content}
       </button>
+
+      {/* Routed badge */}
+      {capture.routed_to && (
+        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
+          {capture.routed_to}
+        </span>
+      )}
 
       {/* Actions */}
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">

@@ -10,6 +10,7 @@ pub struct Capture {
     pub content: String,
     pub source: String,
     pub converted_to_task_id: Option<String>,
+    pub routed_to: Option<String>,
     pub created_at: String,
 }
 
@@ -24,9 +25,9 @@ pub async fn get_captures(
     let limit = limit.unwrap_or(50);
     let include_converted = include_converted.unwrap_or(false);
 
-    let rows: Vec<(String, String, String, Option<String>, String)> = if include_converted {
+    let rows: Vec<(String, String, String, Option<String>, Option<String>, String)> = if include_converted {
         sqlx::query_as(
-            "SELECT id, content, source, converted_to_task_id, created_at FROM captures ORDER BY created_at DESC LIMIT ?",
+            "SELECT id, content, source, converted_to_task_id, routed_to, created_at FROM captures ORDER BY created_at DESC LIMIT ?",
         )
         .bind(limit)
         .fetch_all(pool.inner())
@@ -34,7 +35,7 @@ pub async fn get_captures(
         .map_err(|e| e.to_string())?
     } else {
         sqlx::query_as(
-            "SELECT id, content, source, converted_to_task_id, created_at FROM captures WHERE converted_to_task_id IS NULL ORDER BY created_at DESC LIMIT ?",
+            "SELECT id, content, source, converted_to_task_id, routed_to, created_at FROM captures WHERE converted_to_task_id IS NULL ORDER BY created_at DESC LIMIT ?",
         )
         .bind(limit)
         .fetch_all(pool.inner())
@@ -44,11 +45,12 @@ pub async fn get_captures(
 
     Ok(rows
         .into_iter()
-        .map(|(id, content, source, converted_to_task_id, created_at)| Capture {
+        .map(|(id, content, source, converted_to_task_id, routed_to, created_at)| Capture {
             id,
             content,
             source,
             converted_to_task_id,
+            routed_to,
             created_at,
         })
         .collect())
@@ -93,6 +95,7 @@ pub async fn create_capture(
         content,
         source,
         converted_to_task_id: None,
+        routed_to: None,
         created_at: now,
     })
 }

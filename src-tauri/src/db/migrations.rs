@@ -231,6 +231,32 @@ CREATE INDEX IF NOT EXISTS idx_action_log_synced ON action_log(synced)
             ALTER TABLE local_tasks ADD COLUMN linked_doc_id TEXT
         "#,
     },
+    Migration {
+        version: 10,
+        description: "Capture routes + routed_to on captures",
+        sql: r#"
+            CREATE TABLE IF NOT EXISTS capture_routes (
+                id TEXT PRIMARY KEY,
+                prefix TEXT NOT NULL UNIQUE,
+                target_type TEXT NOT NULL DEFAULT 'doc',
+                doc_id TEXT,
+                label TEXT NOT NULL,
+                color TEXT NOT NULL DEFAULT '#f59e0b',
+                icon TEXT NOT NULL DEFAULT 'FileText',
+                position INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            );
+
+            INSERT OR IGNORE INTO capture_routes (id, prefix, target_type, doc_id, label, color, icon, position) VALUES
+                ('route-ideas', '/i', 'doc', NULL, 'Ideas', '#f59e0b', 'Lightbulb', 0);
+            INSERT OR IGNORE INTO capture_routes (id, prefix, target_type, doc_id, label, color, icon, position) VALUES
+                ('route-quotes', '/q', 'doc', NULL, 'Quotes', '#3b82f6', 'Quote', 1);
+            INSERT OR IGNORE INTO capture_routes (id, prefix, target_type, doc_id, label, color, icon, position) VALUES
+                ('route-task', '/t', 'task', NULL, 'Task', '#22c55e', 'CheckSquare', 2);
+
+            ALTER TABLE captures ADD COLUMN routed_to TEXT
+        "#,
+    },
 ];
 
 pub async fn run_migrations(pool: &SqlitePool) -> Result<(), String> {

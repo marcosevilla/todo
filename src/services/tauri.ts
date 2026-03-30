@@ -394,6 +394,7 @@ export interface Capture {
   content: string
   source: string
   converted_to_task_id: string | null
+  routed_to: string | null
   created_at: string
 }
 
@@ -415,6 +416,77 @@ export async function deleteCapture(id: string): Promise<void> {
 
 export async function importObsidianCaptures(): Promise<number> {
   return invoke<number>('import_obsidian_captures')
+}
+
+// ── Capture Routes ──
+
+export interface CaptureRoute {
+  id: string
+  prefix: string
+  target_type: 'doc' | 'task'
+  doc_id: string | null
+  label: string
+  color: string
+  icon: string
+  position: number
+  created_at: string
+}
+
+export interface RouteCaptureResult {
+  routed_to: string
+  target_type: string
+  created_id: string
+  label: string
+}
+
+export async function getCaptureRoutes(): Promise<CaptureRoute[]> {
+  return invoke<CaptureRoute[]>('get_capture_routes')
+}
+
+export async function createCaptureRoute(opts: {
+  prefix: string
+  targetType: string
+  docId?: string
+  label: string
+  color: string
+  icon: string
+}): Promise<CaptureRoute> {
+  return invoke<CaptureRoute>('create_capture_route', {
+    prefix: opts.prefix,
+    targetType: opts.targetType,
+    docId: opts.docId,
+    label: opts.label,
+    color: opts.color,
+    icon: opts.icon,
+  })
+}
+
+export async function updateCaptureRoute(opts: {
+  id: string
+  prefix?: string
+  targetType?: string
+  docId?: string
+  label?: string
+  color?: string
+  icon?: string
+}): Promise<void> {
+  return invoke<void>('update_capture_route', {
+    id: opts.id,
+    prefix: opts.prefix,
+    targetType: opts.targetType,
+    docId: opts.docId,
+    label: opts.label,
+    color: opts.color,
+    icon: opts.icon,
+  })
+}
+
+export async function deleteCaptureRoute(id: string): Promise<void> {
+  return invoke<void>('delete_capture_route', { id })
+}
+
+export async function routeCapture(prefix: string, content: string): Promise<RouteCaptureResult> {
+  return invoke<RouteCaptureResult>('route_capture', { prefix, content })
 }
 
 // ── Docs ──

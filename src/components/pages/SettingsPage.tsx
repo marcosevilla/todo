@@ -13,11 +13,24 @@ import {
   getCalendarFeeds,
   addCalendarFeed,
   removeCalendarFeed,
+  getCaptureRoutes,
+  createCaptureRoute,
+  updateCaptureRoute,
+  deleteCaptureRoute,
+  getDocuments,
 } from '@/services/tauri'
-import type { UpdateStatus, CalendarFeed } from '@/services/tauri'
+import type { UpdateStatus, CalendarFeed, CaptureRoute, Document } from '@/services/tauri'
 import { openUrl } from '@/services/tauri'
 import { useAppStore } from '@/stores/appStore'
 import { useTheme } from '@/hooks/useTheme'
+import { toast } from 'sonner'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
+import { Lightbulb, Quote, CheckSquare, FileText, Pencil, Trash2, ChevronDown } from 'lucide-react'
 
 // ── Types ──
 
@@ -399,6 +412,334 @@ function StatusColorsSection() {
   )
 }
 
+// ── Route icon map for settings ──
+
+const ROUTE_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Lightbulb,
+  Quote,
+  CheckSquare,
+  FileText,
+}
+
+const ROUTE_ICON_OPTIONS = ['FileText', 'Lightbulb', 'Quote', 'CheckSquare']
+
+const ROUTE_COLORS = [
+  '#f59e0b', // amber
+  '#3b82f6', // blue
+  '#22c55e', // green
+  '#ec4899', // pink
+  '#6366f1', // indigo
+  '#ef4444', // red
+  '#06b6d4', // cyan
+]
+
+// ── Capture Routes Section ──
+
+function CaptureRoutesSection() {
+  const [routes, setRoutes] = useState<CaptureRoute[]>([])
+  const [docs, setDocs] = useState<Document[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+
+  // Form state
+  const [formPrefix, setFormPrefix] = useState('')
+  const [formLabel, setFormLabel] = useState('')
+  const [formTargetType, setFormTargetType] = useState<'doc' | 'task'>('doc')
+  const [formColor, setFormColor] = useState(ROUTE_COLORS[0])
+  const [formIcon, setFormIcon] = useState('FileText')
+  const [formDocId, setFormDocId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    Promise.all([
+      getCaptureRoutes(),
+      getDocuments(),
+    ]).then(([r, d]) => {
+      setRoutes(r)
+      setDocs(d)
+    }).catch(() => {}).finally(() => setLoading(false))
+  }, [])
+
+  const resetForm = () => {
+    setFormPrefix('')
+    setFormLabel('')
+    setFormTargetType('doc')
+    setFormColor(ROUTE_COLORS[0])
+    setFormIcon('FileText')
+    setFormDocId(null)
+    setEditingId(null)
+    setShowForm(false)
+  }
+
+  const startEdit = (route: CaptureRoute) => {
+    setEditingId(route.id)
+    setFormPrefix(route.prefix)
+    setFormLabel(route.label)
+    setFormTargetType(route.target_type as 'doc' | 'task')
+    setFormColor(route.color)
+    setFormIcon(route.icon)
+    setFormDocId(route.doc_id)
+    setShowForm(true)
+  }
+
+  const handleSave = async () => {
+    if (!formPrefix.trim() || !formLabel.trim()) {
+      toast.error('Prefix and label are required')
+      return
+    }
+    if (!formPrefix.startsWith('/')) {
+      toast.error('Prefix must start with /')
+      return
+    }
+    setSaving(true)
+    try {
+      if (editingId) {
+        await updateCaptureRoute({
+          id: editingId,
+          prefix: formPrefix.trim(),
+          targetType: formTargetType,
+          docId: formDocId ?? '',
+          label: formLabel.trim(),
+          color: formColor,
+          icon: formIcon,
+        })
+        setRoutes((prev) =>
+          prev.map((r) =>
+            r.id === editingId
+              ? { ...r, prefix: formPrefix.trim(), target_type: formTargetType, doc_id: formDocId, label: formLabel.trim(), color: formColor, icon: formIcon }
+              : r
+          )
+        )
+        toast.success('Route updated')
+      } else {
+        const route = await createCaptureRoute({
+          prefix: formPrefix.trim(),
+          targetType: formTargetType,
+          docId: formDocId ?? undefined,
+          label: formLabel.trim(),
+          color: formColor,
+          icon: formIcon,
+        })
+        setRoutes((prev) => [...prev, route])
+        toast.success('Route created')
+      }
+      resetForm()
+    } catch (e) {
+      toast.error(`Failed: ${e}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (deleteConfirm !== id) {
+      setDeleteConfirm(id)
+      return
+    }
+    try {
+      await deleteCaptureRoute(id)
+      setRoutes((prev) => prev.filter((r) => r.id !== id))
+      setDeleteConfirm(null)
+      toast.success('Route deleted')
+    } catch (e) {
+      toast.error(`Failed: ${e}`)
+    }
+  }
+
+  if (loading) {
+    return (
+      <section className="space-y-4">
+        <SectionHeader title="Capture Routes" description="Prefix routing for quick capture to Docs or Tasks." />
+        <Skeleton className="h-8" />
+      </section>
+    )
+  }
+
+  return (
+    <section className="space-y-4">
+      <SectionHeader
+        title="Capture Routes"
+        description="Type a prefix in the Inbox input to route captures to a Doc or create a Task."
+      />
+
+      {/* Route list */}
+      <div className="space-y-2">
+        {routes.map((route) => {
+          const IconComponent = ROUTE_ICON_MAP[route.icon] ?? FileText
+          const linkedDoc = docs.find((d) => d.id === route.doc_id)
+          return (
+            <div
+              key={route.id}
+              className="flex items-center gap-3 rounded-md border px-3 py-2"
+            >
+              <span
+                className="flex size-6 items-center justify-center rounded-md"
+                style={{ backgroundColor: route.color + '20', color: route.color }}
+              >
+                <IconComponent className="size-3.5" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{route.label}</span>
+                  <code className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono text-muted-foreground">
+                    {route.prefix}
+                  </code>
+                  <span className="text-[10px] text-muted-foreground">
+                    {route.target_type === 'task' ? 'Creates task' : linkedDoc ? `Doc: ${linkedDoc.title}` : 'Auto-creates doc'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => startEdit(route)}
+                  className="flex size-6 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+                  aria-label="Edit route"
+                >
+                  <Pencil className="size-3" />
+                </button>
+                <button
+                  onClick={() => handleDelete(route.id)}
+                  className="flex size-6 items-center justify-center rounded-md text-destructive/40 hover:text-destructive hover:bg-accent/20 transition-colors"
+                  aria-label="Delete route"
+                >
+                  <Trash2 className="size-3" />
+                </button>
+                {deleteConfirm === route.id && (
+                  <span className="text-[10px] text-destructive">Click again</span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+        {routes.length === 0 && (
+          <p className="text-sm text-muted-foreground">No capture routes configured yet.</p>
+        )}
+      </div>
+
+      {/* Add/Edit form */}
+      {showForm ? (
+        <div className="space-y-3 rounded-md border p-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Prefix</Label>
+              <Input
+                placeholder="/i"
+                value={formPrefix}
+                onChange={(e) => setFormPrefix(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Label</Label>
+              <Input
+                placeholder="Ideas"
+                value={formLabel}
+                onChange={(e) => setFormLabel(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Type</Label>
+            <div className="flex items-center gap-1 rounded-lg border p-1">
+              {(['doc', 'task'] as const).map((value) => (
+                <Button
+                  key={value}
+                  variant={formTargetType === value ? 'default' : 'outline'}
+                  size="sm"
+                  className="flex-1 capitalize"
+                  onClick={() => setFormTargetType(value)}
+                >
+                  {value === 'doc' ? 'Doc Note' : 'Task'}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {formTargetType === 'doc' && (
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Linked Doc</Label>
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm hover:bg-accent/10 transition-colors">
+                  <span className={cn(formDocId ? 'text-foreground' : 'text-muted-foreground/50')}>
+                    {formDocId ? docs.find((d) => d.id === formDocId)?.title ?? 'Unknown' : 'Auto-create on first use'}
+                  </span>
+                  <ChevronDown className="size-3 text-muted-foreground" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56">
+                  <DropdownMenuItem onClick={() => setFormDocId(null)}>
+                    <span className="text-muted-foreground">Auto-create on first use</span>
+                  </DropdownMenuItem>
+                  {docs.map((doc) => (
+                    <DropdownMenuItem key={doc.id} onClick={() => setFormDocId(doc.id)}>
+                      <FileText className="size-3 mr-2 text-muted-foreground/40" />
+                      {doc.title || 'Untitled'}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Color</Label>
+            <div className="flex items-center gap-2">
+              {ROUTE_COLORS.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  className={cn(
+                    'h-6 w-6 rounded-full border-2 transition-all',
+                    formColor === color ? 'border-foreground scale-110' : 'border-transparent hover:border-muted-foreground/50',
+                  )}
+                  style={{ backgroundColor: color }}
+                  onClick={() => setFormColor(color)}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Icon</Label>
+            <div className="flex items-center gap-2">
+              {ROUTE_ICON_OPTIONS.map((iconName) => {
+                const Icon = ROUTE_ICON_MAP[iconName] ?? FileText
+                return (
+                  <button
+                    key={iconName}
+                    type="button"
+                    className={cn(
+                      'flex size-8 items-center justify-center rounded-md border transition-all',
+                      formIcon === iconName ? 'border-foreground bg-accent' : 'border-border/30 hover:border-muted-foreground/50',
+                    )}
+                    onClick={() => setFormIcon(iconName)}
+                  >
+                    <Icon className="size-4" />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : editingId ? 'Update Route' : 'Add Route'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={resetForm}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
+          + Add Route
+        </Button>
+      )}
+    </section>
+  )
+}
+
 // ── Main Page ──
 
 export function SettingsPage() {
@@ -585,6 +926,11 @@ export function SettingsPage() {
 
       {/* Status Colors */}
       <StatusColorsSection />
+
+      <Separator />
+
+      {/* Capture Routes */}
+      <CaptureRoutesSection />
 
       <Separator />
 

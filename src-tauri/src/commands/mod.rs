@@ -1,6 +1,7 @@
 pub mod activity;
 pub mod ai;
 pub mod calendar;
+pub mod capture_routes;
 pub mod captures;
 pub mod docs;
 pub mod focus;
