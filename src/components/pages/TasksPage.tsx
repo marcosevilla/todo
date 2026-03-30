@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { Plus, FolderPlus, Pencil, Trash2, Check, X } from 'lucide-react'
 import { STATUSES } from '@/components/tasks/StatusDropdown'
-import type { TaskStatus } from '@/services/tauri'
+import type { TaskStatus, LocalTask } from '@/services/tauri'
 
 const PROJECT_COLORS = [
   '#6366f1', '#ec4899', '#22c55e', '#f59e0b', '#06b6d4', '#f43f5e', '#8b5cf6', '#14b8a6',
@@ -225,8 +225,6 @@ function ProjectSection({
   projectId,
   tasks,
   onAddTask,
-  onComplete,
-  onUncomplete,
   onDelete,
   onAddSubtask,
   onDeleteProject,
@@ -239,10 +237,8 @@ function ProjectSection({
   projectName: string
   projectColor: string
   projectId: string
-  tasks: { id: string; parent_id: string | null }[] & any[]
+  tasks: LocalTask[]
   onAddTask: (content: string, extra?: { projectId?: string }) => void
-  onComplete: (id: string) => void
-  onUncomplete: (id: string) => void
   onDelete: (id: string) => void
   onAddSubtask: (parentId: string, content: string) => void
   onDeleteProject?: () => void
@@ -252,12 +248,12 @@ function ProjectSection({
   allProjects: import('@/services/tauri').Project[]
   defaultOpen: boolean
 }) {
-  const topLevel = tasks.filter((t: any) => !t.parent_id)
+  const topLevel = tasks.filter((t) => !t.parent_id)
 
   return (
     <CollapsibleSection
       title={projectName}
-      count={topLevel.filter((t: any) => !t.completed).length}
+      count={topLevel.filter((t) => !t.completed).length}
       defaultOpen={defaultOpen}
       variant="nested"
       icon={
@@ -284,8 +280,6 @@ function ProjectSection({
           projects={allProjects}
           projectName={projectName}
           projectColor={projectColor}
-          onComplete={onComplete}
-          onUncomplete={onUncomplete}
           onDelete={onDelete}
           onAddSubtask={onAddSubtask}
           onUpdated={onUpdated}
@@ -300,8 +294,8 @@ function ProjectSection({
 
 export function TasksPage() {
   const { projects, loading: projectsLoading, addProject, renameProject, updateProjectColor, removeProject } = useProjects()
-  const { tasks, loading: tasksLoading, addTask, complete, uncomplete, remove, refresh } = useLocalTasks()
-  const { tasks: todoistTasks, loading: todoistLoading, completeTask: completeTodoist, snoozeTask: snoozeTodoist } = useTodoist()
+  const { tasks, loading: tasksLoading, addTask, remove, refresh } = useLocalTasks()
+  const { tasks: todoistTasks, loading: todoistLoading, snoozeTask: snoozeTodoist } = useTodoist()
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all')
 
   const loading = projectsLoading || tasksLoading
@@ -433,8 +427,6 @@ export function TasksPage() {
             projectId={project.id}
             tasks={tasksByProject[project.id] || []}
             onAddTask={handleAddTask}
-            onComplete={complete}
-            onUncomplete={uncomplete}
             onDelete={remove}
             onAddSubtask={handleAddSubtask}
             onDeleteProject={project.id !== 'inbox' ? () => removeProject(project.id) : undefined}
@@ -466,7 +458,6 @@ export function TasksPage() {
               <TaskRow
                 key={task.id}
                 task={task}
-                onComplete={completeTodoist}
                 onSnooze={snoozeTodoist}
               />
             ))}

@@ -7,12 +7,11 @@ import { ExternalLink, Clock } from 'lucide-react'
 
 interface TaskRowProps {
   task: TodoistTaskRow
-  onComplete: (id: string) => void
   onSnooze: (id: string) => void
   focused?: boolean
 }
 
-export function TaskRow({ task, onComplete: _onComplete, onSnooze, focused }: TaskRowProps) {
+export function TaskRow({ task, onSnooze, focused }: TaskRowProps) {
   return (
     <div className="group relative flex items-center">
       <TaskItem

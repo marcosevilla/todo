@@ -27,8 +27,6 @@ interface SortableTaskItemProps {
   projects: Project[]
   projectName?: string
   projectColor?: string
-  onComplete: (id: string) => void
-  onUncomplete: (id: string) => void
   onDelete: (id: string) => void
   onAddSubtask: (parentId: string, content: string) => void
   onUpdated?: () => void
@@ -40,8 +38,6 @@ function SortableTaskItem({
   projects,
   projectName,
   projectColor,
-  onComplete,
-  onUncomplete,
   onDelete,
   onAddSubtask,
   onUpdated,
@@ -85,8 +81,6 @@ function SortableTaskItem({
           projects={projects}
           projectName={projectName}
           projectColor={projectColor}
-          onComplete={onComplete}
-          onUncomplete={onUncomplete}
           onDelete={onDelete}
           onAddSubtask={onAddSubtask}
           onUpdated={onUpdated}
@@ -102,8 +96,6 @@ interface SortableTaskListProps {
   projects: Project[]
   projectName?: string
   projectColor?: string
-  onComplete: (id: string) => void
-  onUncomplete: (id: string) => void
   onDelete: (id: string) => void
   onAddSubtask: (parentId: string, content: string) => void
   onUpdated?: () => void
@@ -115,8 +107,6 @@ export function SortableTaskList({
   projects,
   projectName,
   projectColor,
-  onComplete,
-  onUncomplete,
   onDelete,
   onAddSubtask,
   onUpdated,
@@ -189,8 +179,6 @@ export function SortableTaskList({
                 projects={projects}
                 projectName={projectName}
                 projectColor={projectColor}
-                onComplete={onComplete}
-                onUncomplete={onUncomplete}
                 onDelete={onDelete}
                 onAddSubtask={onAddSubtask}
                 onUpdated={onUpdated}

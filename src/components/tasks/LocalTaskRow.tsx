@@ -16,8 +16,6 @@ interface LocalTaskRowProps {
   projects?: Project[]
   projectName?: string
   projectColor?: string
-  onComplete: (id: string) => void
-  onUncomplete: (id: string) => void
   onDelete: (id: string) => void
   onAddSubtask: (parentId: string, content: string) => void
   onUpdated?: (task: LocalTask) => void
@@ -30,8 +28,6 @@ export function LocalTaskRow({
   projects = [],
   projectName,
   projectColor,
-  onComplete: _onComplete,
-  onUncomplete: _onUncomplete,
   onDelete,
   onAddSubtask,
   onUpdated,

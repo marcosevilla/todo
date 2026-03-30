@@ -167,11 +167,9 @@ function CalendarGlance() {
 
 function TriageSection({
   todoistTasks,
-  onComplete,
   onSnooze,
 }: {
   todoistTasks: TodoistTaskRow[]
-  onComplete: (id: string) => void
   onSnooze: (id: string) => void
 }) {
   const overdue = todoistTasks.filter((t) => {
@@ -198,7 +196,6 @@ function TriageSection({
         <TaskRow
           key={task.id}
           task={task}
-          onComplete={onComplete}
           onSnooze={onSnooze}
         />
       ))}
@@ -212,7 +209,7 @@ function ReviewMode({ onComplete }: { onComplete: (priorities: Priority[]) => vo
   const [step, setStep] = useState(1)
   const [priorities, setPriorities] = useState<Priority[] | null>(null)
   const [brief, setBrief] = useState<string | null | undefined>(undefined) // undefined = loading
-  const { tasks: todoistTasks, completeTask, snoozeTask } = useTodoist()
+  const { tasks: todoistTasks, snoozeTask } = useTodoist()
   const now = new Date()
   const dateStr = format(now, 'EEEE, MMMM d')
 
@@ -277,7 +274,6 @@ function ReviewMode({ onComplete }: { onComplete: (priorities: Priority[]) => vo
       <ReviewStep step={3} title="Quick triage" active={step === 3} completed={step > 3}>
         <TriageSection
           todoistTasks={todoistTasks}
-          onComplete={completeTask}
           onSnooze={snoozeTask}
         />
         <div className="flex justify-end mt-3">
@@ -314,7 +310,7 @@ function DashboardMode({ cachedPriorities }: { cachedPriorities: Priority[] | nu
       setBriefLoading(false)
     }).catch(() => setBriefLoading(false))
   }, [selectedDate])
-  const { tasks: localTasks, loading: localLoading, complete: completeLocal, uncomplete: uncompleteLocal, remove: removeLocal, addTask, refresh: refreshLocal } = useLocalTasks({ dueDate: today })
+  const { tasks: localTasks, loading: localLoading, remove: removeLocal, addTask, refresh: refreshLocal } = useLocalTasks({ dueDate: today })
   const { projects } = useProjects()
   const projectMap = useMemo(() => {
     const map: Record<string, { name: string; color: string }> = {}
@@ -423,8 +419,6 @@ function DashboardMode({ cachedPriorities }: { cachedPriorities: Priority[] | nu
                 projects={projects}
                 projectName={projectMap[task.project_id]?.name}
                 projectColor={projectMap[task.project_id]?.color}
-                onComplete={completeLocal}
-                onUncomplete={uncompleteLocal}
                 onDelete={removeLocal}
                 onAddSubtask={handleAddSubtask}
                 onUpdated={refreshLocal}
@@ -438,7 +432,7 @@ function DashboardMode({ cachedPriorities }: { cachedPriorities: Priority[] | nu
         <CollapsibleSection title="Todoist" count={todoistTasks.length} defaultOpen={false}>
           <div className="space-y-0.5">
             {todoistTasks.map((task) => (
-              <TaskRow key={task.id} task={task} onComplete={completeTask} onSnooze={snoozeTask} />
+              <TaskRow key={task.id} task={task} onSnooze={snoozeTask} />
             ))}
           </div>
         </CollapsibleSection>
