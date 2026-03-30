@@ -330,22 +330,15 @@ export function TasksPage() {
     [addTask],
   )
 
-  if (loading) {
-    return (
-      <div className="space-y-3 p-1">
-        {[...Array(5)].map((_, i) => (
-          <Skeleton key={i} className="h-8" />
-        ))}
-      </div>
-    )
-  }
-
   // Group filtered tasks by project
-  const tasksByProject: Record<string, typeof tasks> = {}
-  for (const task of filteredTasks) {
-    if (!tasksByProject[task.project_id]) tasksByProject[task.project_id] = []
-    tasksByProject[task.project_id].push(task)
-  }
+  const tasksByProject = useMemo(() => {
+    const grouped: Record<string, typeof tasks> = {}
+    for (const task of filteredTasks) {
+      if (!grouped[task.project_id]) grouped[task.project_id] = []
+      grouped[task.project_id].push(task)
+    }
+    return grouped
+  }, [filteredTasks])
 
   // Default-expand only the project with most in-progress tasks (or Inbox as fallback)
   const bestProject = useMemo(() => {
@@ -362,6 +355,16 @@ export function TasksPage() {
     }
     return best
   }, [projects, tasksByProject])
+
+  if (loading) {
+    return (
+      <div className="space-y-3 p-1">
+        {[...Array(5)].map((_, i) => (
+          <Skeleton key={i} className="h-8" />
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-3">
