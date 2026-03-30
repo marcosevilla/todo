@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -114,13 +114,11 @@ export function SortableTaskList({
   const topLevel = tasks.filter((t) => !t.parent_id)
   const [items, setItems] = useState(topLevel.map((t) => t.id))
 
-  // Update items when tasks change externally
-  const currentIds = topLevel.map((t) => t.id).join(',')
-  const [prevIds, setPrevIds] = useState(currentIds)
-  if (currentIds !== prevIds) {
+  // Sync items when tasks change externally
+  const topLevelIds = useMemo(() => topLevel.map((t) => t.id).join(','), [topLevel])
+  useEffect(() => {
     setItems(topLevel.map((t) => t.id))
-    setPrevIds(currentIds)
-  }
+  }, [topLevelIds])
 
   // Build subtask map
   const subtaskMap: Record<string, LocalTask[]> = {}

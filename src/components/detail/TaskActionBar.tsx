@@ -6,6 +6,7 @@ import { breakDownTask, createLocalTask, updateLocalTask, deleteLocalTask, logAc
 import { emitTasksChanged } from '@/hooks/useLocalTasks'
 import { toast } from 'sonner'
 import { taskToast } from '@/lib/taskToast'
+import { ProjectPickerMenu } from '@/components/shared/ProjectPickerMenu'
 import type { LocalTask, Project } from '@/services/tauri'
 
 interface TaskActionBarProps {
@@ -18,8 +19,6 @@ export function TaskActionBar({ task, projects, onDeleted }: TaskActionBarProps)
   const [showMoveSubmenu, setShowMoveSubmenu] = useState(false)
   const [breaking, setBreaking] = useState(false)
   const focusActive = useFocusStore((s) => s.isActive)
-
-  const otherProjects = projects.filter((p) => p.id !== task.project_id)
 
   const handleMove = useCallback(async (projectId: string) => {
     const project = projects.find((p) => p.id === projectId)
@@ -94,20 +93,13 @@ export function TaskActionBar({ task, projects, onDeleted }: TaskActionBarProps)
         <MenuItem icon={FolderInput} label="Move to project" onClick={() => setShowMoveSubmenu(!showMoveSubmenu)}>
           <ChevronRight className="size-3 text-muted-foreground/40 ml-auto" />
         </MenuItem>
-        {showMoveSubmenu && otherProjects.length > 0 && (
+        {showMoveSubmenu && (
           <div className="absolute left-full top-0 z-50 ml-1 animate-in fade-in slide-in-from-left-1 duration-100">
-            <div className="w-36 rounded-lg border border-border/30 bg-popover p-1 shadow-lg">
-              {otherProjects.map((p) => (
-                <button
-                  key={p.id}
-                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm hover:bg-accent/20 transition-colors"
-                  onClick={() => handleMove(p.id)}
-                >
-                  <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-                  <span className="truncate">{p.name}</span>
-                </button>
-              ))}
-            </div>
+            <ProjectPickerMenu
+              projects={projects}
+              excludeProjectId={task.project_id}
+              onSelect={handleMove}
+            />
           </div>
         )}
       </div>

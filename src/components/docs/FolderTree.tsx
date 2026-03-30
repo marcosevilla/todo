@@ -134,7 +134,7 @@ export function FolderTree() {
       style={{ width: folderTreeWidth }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border/10">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border/20">
         <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">Docs</span>
         <div className="flex items-center gap-0.5">
           <button

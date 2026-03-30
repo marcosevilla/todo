@@ -4,6 +4,7 @@ import { PRIORITY_COLORS } from '@/lib/priorities'
 import { Check, Plus, PenLine, FolderInput, Sparkles, FileText, X, Loader2 } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { FocusPlayMenu } from '@/components/focus/FocusPlayMenu'
+import { ProjectPickerMenu } from './ProjectPickerMenu'
 import type { LocalTask, Project, Document } from '@/services/tauri'
 
 export type BarMode = 'search' | 'task' | 'capture' | 'breakdown' | 'doc'
@@ -291,18 +292,11 @@ function TaskResultRow({
             <ActionButton icon={FolderInput} hint="⌥M" title="Move to project" onClick={() => setShowMoveMenu(!showMoveMenu)} className="text-muted-foreground/50 hover:text-muted-foreground" />
             {showMoveMenu && (
               <div className="absolute right-0 bottom-full z-50 mb-1 animate-in fade-in slide-in-from-bottom-1 duration-100">
-                <div className="w-36 rounded-lg border border-border/50 bg-popover p-1 shadow-lg ring-1 ring-foreground/10">
-                  {projects.filter((p) => p.id !== task.project_id).map((p) => (
-                    <button
-                      key={p.id}
-                      className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm hover:bg-accent/20 transition-colors"
-                      onClick={(e) => { e.stopPropagation(); onMove(p.id); setShowMoveMenu(false) }}
-                    >
-                      <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-                      <span className="truncate">{p.name}</span>
-                    </button>
-                  ))}
-                </div>
+                <ProjectPickerMenu
+                  projects={projects}
+                  excludeProjectId={task.project_id}
+                  onSelect={(projectId) => { onMove(projectId); setShowMoveMenu(false) }}
+                />
               </div>
             )}
           </div>

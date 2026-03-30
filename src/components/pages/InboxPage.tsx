@@ -23,6 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { taskToast } from '@/lib/taskToast'
+import { ProjectPickerMenu } from '@/components/shared/ProjectPickerMenu'
 import { Check, PenLine, ArrowRight, FileText, FolderInput, Trash2, Download, Search } from 'lucide-react'
 import type { LocalTask, Capture, Project, DocFolder, Document } from '@/services/tauri'
 
@@ -149,7 +150,7 @@ export function InboxPage() {
   return (
     <div className="space-y-4">
       {/* Note input — command bar style */}
-      <div className="flex h-10 items-center gap-2 rounded-xl border border-border/40 bg-muted/30 px-3">
+      <div className="flex h-10 items-center gap-2 rounded-xl border border-border/30 bg-muted/30 px-3">
         <Search className="size-3.5 shrink-0 text-muted-foreground/30" />
         <input
           ref={inputRef}
@@ -249,7 +250,6 @@ function InboxTaskRow({
   const isSelected = useSelectionStore((s) => s.selectedIds.has(task.id))
   const hasSelection = useSelectionStore((s) => s.hasSelection)
   const focusActive = useFocusStore((s) => s.isActive)
-  const otherProjects = projects.filter((p) => p.id !== task.project_id)
 
   return (
     <div className={cn(
@@ -299,18 +299,11 @@ function InboxTaskRow({
           </button>
           {showMoveMenu && (
             <div className="absolute right-0 bottom-full z-50 mb-1 animate-in fade-in slide-in-from-bottom-1 duration-100">
-              <div className="w-36 rounded-lg border border-border/30 bg-popover p-1 shadow-lg">
-                {otherProjects.map((p) => (
-                  <button
-                    key={p.id}
-                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm hover:bg-accent/20 transition-colors"
-                    onClick={() => { onMove(task.id, p.id); setShowMoveMenu(false) }}
-                  >
-                    <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-                    <span className="truncate">{p.name}</span>
-                  </button>
-                ))}
-              </div>
+              <ProjectPickerMenu
+                projects={projects}
+                excludeProjectId={task.project_id}
+                onSelect={(projectId) => { onMove(task.id, projectId); setShowMoveMenu(false) }}
+              />
             </div>
           )}
         </div>

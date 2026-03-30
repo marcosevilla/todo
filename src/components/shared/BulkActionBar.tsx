@@ -5,6 +5,7 @@ import { deleteLocalTask, deleteCapture, updateTaskStatus, updateLocalTask, conv
 import { emitTasksChanged } from '@/hooks/useLocalTasks'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { ProjectPickerMenu } from './ProjectPickerMenu'
 import { X, Trash2, ArrowRight, FolderInput } from 'lucide-react'
 import { STATUSES } from '@/components/tasks/StatusDropdown'
 import { playCompletionSound } from '@/lib/sound'
@@ -126,18 +127,7 @@ export function BulkActionBar() {
               />
               {showMove && (
                 <div className="absolute bottom-full left-0 mb-2 animate-in fade-in slide-in-from-bottom-1 duration-100">
-                  <div className="w-36 rounded-lg border border-border/30 bg-popover p-1 shadow-lg">
-                    {projects.map((p) => (
-                      <button
-                        key={p.id}
-                        className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm hover:bg-accent/20 transition-colors"
-                        onClick={() => handleMove(p.id)}
-                      >
-                        <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-                        <span className="truncate">{p.name}</span>
-                      </button>
-                    ))}
-                  </div>
+                  <ProjectPickerMenu projects={projects} onSelect={handleMove} />
                 </div>
               )}
             </div>

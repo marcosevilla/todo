@@ -271,7 +271,7 @@ export function CommandBar() {
 
       {/* Centered command bar */}
       <div className={cn('fixed inset-x-0 top-[28%] z-50 mx-auto w-full max-w-lg px-4', closing ? 'command-bar-flyout-out' : 'command-bar-flyout')}>
-        <div className="flex h-11 items-center gap-2 px-4 rounded-xl border border-border/60 bg-popover shadow-lg shadow-black/10">
+        <div className="flex h-11 items-center gap-2 px-4 rounded-xl border border-border/50 bg-popover shadow-lg shadow-black/10">
           <Search className="size-3.5 shrink-0 text-muted-foreground/60" />
           <input
             ref={inputRef}
@@ -282,7 +282,7 @@ export function CommandBar() {
             placeholder={placeholder}
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/40"
           />
-          <kbd className="rounded border border-border/40 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/50">
+          <kbd className="rounded border border-border/30 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/50">
             Esc
           </kbd>
         </div>

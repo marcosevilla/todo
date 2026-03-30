@@ -416,7 +416,7 @@ export function TasksPage() {
       {/* Project sections */}
       {filteredTasks.length === 0 && statusFilter === 'all' ? (
         <p className="text-sm text-muted-foreground text-center py-8">
-          No tasks yet. Press <kbd className="rounded border border-border/40 px-1.5 py-0.5 text-xs font-mono">Q</kbd> to create one.
+          No tasks yet. Press <kbd className="rounded border border-border/30 px-1.5 py-0.5 text-xs font-mono">Q</kbd> to create one.
         </p>
       ) : (
         projects.map((project) => (

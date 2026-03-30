@@ -159,7 +159,7 @@ export function LocalTaskRow({
 
       {/* Subtasks */}
       {expanded && subtasks.length > 0 && (
-        <div className="ml-7 border-l border-border/40 pl-2 space-y-0">
+        <div className="ml-7 border-l border-border/30 pl-2 space-y-0">
           {subtasks.map((sub) => (
             <div key={sub.id} className="group/sub relative flex min-w-0 items-center">
               <TaskItem
