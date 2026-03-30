@@ -3,7 +3,6 @@ import { cn } from '@/lib/utils'
 import { useFocusStore, type FocusConfig } from '@/stores/focusStore'
 import { getSetting } from '@/services/tauri'
 import { Play, Timer, TrendingUp, ChevronRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import type { LocalTask } from '@/services/tauri'
 

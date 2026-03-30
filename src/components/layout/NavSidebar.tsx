@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAppStore } from '@/stores/appStore'
 import { cn } from '@/lib/utils'
-import { Sun, CheckSquare, Inbox, BookOpen, Settings, Command } from 'lucide-react'
+import { Sun, CheckSquare, Inbox, FileText, BookOpen, Settings, Command } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 
@@ -9,10 +9,11 @@ const MIN_WIDTH = 48
 const MAX_WIDTH = 200
 const COLLAPSE_THRESHOLD = 80 // below this = icon-only mode
 
-const NAV_ITEMS: { id: 'today' | 'tasks' | 'inbox' | 'session'; label: string; icon: LucideIcon }[] = [
+const NAV_ITEMS: { id: 'today' | 'tasks' | 'inbox' | 'docs' | 'session'; label: string; icon: LucideIcon }[] = [
   { id: 'today', label: 'Today', icon: Sun },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare },
   { id: 'inbox', label: 'Inbox', icon: Inbox },
+  { id: 'docs', label: 'Docs', icon: FileText },
   { id: 'session', label: 'Activity', icon: BookOpen },
 ]
 
@@ -34,12 +35,12 @@ function NavButton({
     expanded ? 'w-full gap-2.5 px-2.5' : 'w-9 justify-center',
     isActive
       ? 'bg-accent/60 text-foreground'
-      : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',
+      : 'text-muted-foreground hover:text-foreground hover:bg-accent/20',
   )
 
   const content = (
     <>
-      <Icon className="size-[18px] shrink-0" />
+      <Icon className="size-4 shrink-0" strokeWidth={1.75} />
       {expanded && (
         <span className="text-sm font-medium truncate">{label}</span>
       )}
@@ -110,7 +111,7 @@ export function NavSidebar() {
 
   return (
     <nav
-      className="relative flex flex-col border-r border-border/20 bg-muted/10 py-3"
+      className="relative flex flex-col border-r border-border/20 bg-muted/30 py-3"
       style={{ width }}
     >
       {/* Nav items */}

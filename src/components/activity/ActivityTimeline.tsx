@@ -29,7 +29,7 @@ const ACTION_META: Record<string, ActionMeta> = {
   project_created: { label: 'Created project', icon: Plus, color: 'text-indigo-500' },
   project_deleted: { label: 'Deleted project', icon: Trash2, color: 'text-red-500/60' },
   priorities_generated: { label: 'Generated priorities', icon: Sparkles, color: 'text-purple-500' },
-  item_captured: { label: 'Captured note', icon: Lightbulb, color: 'text-amber-500' },
+  item_captured: { label: 'Saved note', icon: Lightbulb, color: 'text-amber-500' },
   focus_started: { label: 'Started focus', icon: Play, color: 'text-accent-blue' },
   focus_completed: { label: 'Completed focus', icon: Check, color: 'text-green-500' },
   focus_paused: { label: 'Paused focus', icon: Square, color: 'text-muted-foreground' },
@@ -38,7 +38,7 @@ const ACTION_META: Record<string, ActionMeta> = {
   focus_skipped: { label: 'Skipped task', icon: SkipForward, color: 'text-muted-foreground' },
   task_breakdown_requested: { label: 'AI breakdown', icon: Sparkles, color: 'text-purple-500' },
   task_breakdown_applied: { label: 'Applied breakdown', icon: Sparkles, color: 'text-purple-500' },
-  capture_converted: { label: 'Converted capture', icon: FolderInput, color: 'text-accent-blue' },
+  capture_converted: { label: 'Converted note to task', icon: FolderInput, color: 'text-accent-blue' },
   app_opened: { label: 'Opened app', icon: Eye, color: 'text-muted-foreground/40' },
   page_viewed: { label: 'Viewed page', icon: Eye, color: 'text-muted-foreground/40' },
 }

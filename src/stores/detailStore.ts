@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 export type DetailMode = 'body' | 'sidebar'
-export type DetailType = 'task' | 'capture'
+export type DetailType = 'task' | 'capture' | 'doc'
 
 export interface DetailTarget {
   type: DetailType
@@ -15,6 +15,7 @@ interface DetailStore {
 
   openTask: (taskId: string, mode?: DetailMode) => void
   openCapture: (captureId: string, mode?: DetailMode) => void
+  openDoc: (docId: string, mode?: DetailMode) => void
   switchMode: (mode: DetailMode) => void
   drillDown: (target: DetailTarget) => void
   navigateUp: (index?: number) => void
@@ -32,6 +33,10 @@ export const useDetailStore = create<DetailStore>((set, get) => ({
 
   openCapture: (captureId, mode = 'body') => {
     set({ target: { type: 'capture', id: captureId }, mode, breadcrumbs: [] })
+  },
+
+  openDoc: (docId, mode = 'body') => {
+    set({ target: { type: 'doc', id: docId }, mode, breadcrumbs: [] })
   },
 
   switchMode: (mode) => set({ mode }),

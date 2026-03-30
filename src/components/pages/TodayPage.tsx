@@ -1,5 +1,4 @@
 import { useMemo, useState, useCallback, useEffect } from 'react'
-import { TodayPanel } from '@/components/obsidian/TodayPanel'
 import { TaskRow } from '@/components/todoist/TaskRow'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { useTodoist } from '@/hooks/useTodoist'
@@ -12,9 +11,11 @@ import { useObsidian } from '@/hooks/useObsidian'
 import { useTaskNavigation } from '@/hooks/useTaskNavigation'
 import { useCalendar } from '@/hooks/useCalendar'
 import { cn } from '@/lib/utils'
-import { openUrl, getDailyState } from '@/services/tauri'
+import { openUrl, getDailyState, readDailyBrief, listBriefDates } from '@/services/tauri'
 import type { Priority, TodoistTaskRow } from '@/services/tauri'
-import { AlertTriangle, Zap, Calendar, ArrowRight, Check, Sparkles } from 'lucide-react'
+import { BriefDisplay } from '@/components/shared/BriefDisplay'
+import { DateStrip } from '@/components/shared/DateStrip'
+import { Calendar, ArrowRight, Check } from 'lucide-react'
 import { format } from 'date-fns'
 
 // ── Shared Utilities ──
@@ -78,11 +79,6 @@ function groupByUrgency(tasks: TodoistTaskRow[]): UrgencyGroup[] {
   return groups
 }
 
-function urgencyIcon(key: string): React.ReactNode | undefined {
-  if (key === 'overdue') return <AlertTriangle size={14} className="text-destructive/60" />
-  if (key === 'quick') return <Zap size={14} className="text-muted-foreground" />
-  return undefined
-}
 
 // ── Review Step Components ──
 
@@ -215,9 +211,14 @@ function TriageSection({
 function ReviewMode({ onComplete }: { onComplete: (priorities: Priority[]) => void }) {
   const [step, setStep] = useState(1)
   const [priorities, setPriorities] = useState<Priority[] | null>(null)
+  const [brief, setBrief] = useState<string | null | undefined>(undefined) // undefined = loading
   const { tasks: todoistTasks, completeTask, snoozeTask } = useTodoist()
   const now = new Date()
   const dateStr = format(now, 'EEEE, MMMM d')
+
+  useEffect(() => {
+    readDailyBrief().then(setBrief).catch(() => setBrief(null))
+  }, [])
 
   const handlePrioritiesGenerated = useCallback((p: Priority[]) => {
     setPriorities(p)
@@ -240,9 +241,26 @@ function ReviewMode({ onComplete }: { onComplete: (priorities: Priority[]) => vo
         <p className="text-sm text-muted-foreground pt-1">Let's plan your day.</p>
       </div>
 
-      {/* Step 1: Calendar glance */}
-      <ReviewStep step={1} title="Your schedule" active={step === 1} completed={step > 1}>
-        <CalendarGlance />
+      {/* Step 1: Daily brief or calendar glance */}
+      <ReviewStep
+        step={1}
+        title={brief ? 'Your daily brief' : 'Your schedule'}
+        active={step === 1}
+        completed={step > 1}
+      >
+        {brief === undefined ? (
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-5 w-1/2" />
+            <Skeleton className="h-5 w-2/3" />
+          </div>
+        ) : brief ? (
+          <div className="max-h-[50vh] overflow-y-auto">
+            <BriefDisplay markdown={brief} />
+          </div>
+        ) : (
+          <CalendarGlance />
+        )}
         <div className="flex justify-end mt-3">
           <Button size="sm" onClick={() => setStep(2)} className="gap-1.5">
             Next <ArrowRight className="size-3.5" />
@@ -278,6 +296,24 @@ function DashboardMode({ cachedPriorities }: { cachedPriorities: Priority[] | nu
   const { tasks: todoistTasks, completeTask, snoozeTask } = useTodoist()
   const { todayData } = useObsidian()
   const today = new Date().toISOString().slice(0, 10)
+
+  // Brief browsing
+  const [selectedDate, setSelectedDate] = useState(today)
+  const [briefDates, setBriefDates] = useState<Set<string>>(new Set())
+  const [briefContent, setBriefContent] = useState<string | null>(null)
+  const [briefLoading, setBriefLoading] = useState(true)
+
+  useEffect(() => {
+    listBriefDates().then((dates) => setBriefDates(new Set(dates))).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    setBriefLoading(true)
+    readDailyBrief(selectedDate).then((content) => {
+      setBriefContent(content)
+      setBriefLoading(false)
+    }).catch(() => setBriefLoading(false))
+  }, [selectedDate])
   const { tasks: localTasks, loading: localLoading, complete: completeLocal, uncomplete: uncompleteLocal, remove: removeLocal, addTask, refresh: refreshLocal } = useLocalTasks({ dueDate: today })
   const { projects } = useProjects()
   const projectMap = useMemo(() => {
@@ -324,7 +360,7 @@ function DashboardMode({ cachedPriorities }: { cachedPriorities: Priority[] | nu
     [todoistTasks],
   )
 
-  const { focusedIndex } = useTaskNavigation(flatTaskIds, {
+  useTaskNavigation(flatTaskIds, {
     onComplete: completeTask,
     onSnooze: snoozeTask,
     onOpen: handleOpen,
@@ -351,6 +387,23 @@ function DashboardMode({ cachedPriorities }: { cachedPriorities: Priority[] | nu
           </p>
         )}
       </div>
+
+      {/* Date strip + Brief */}
+      <DateStrip briefDates={briefDates} selected={selectedDate} onSelect={setSelectedDate} />
+      {briefLoading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-3/4" />
+          <Skeleton className="h-5 w-1/2" />
+        </div>
+      ) : briefContent ? (
+        <div className="rounded-lg border border-border/20 bg-muted/5 p-4">
+          <BriefDisplay markdown={briefContent} />
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground/40 text-center py-2">
+          No brief for this date.
+        </p>
+      )}
 
       {/* Cached priorities */}
       {cachedPriorities && cachedPriorities.length > 0 && (

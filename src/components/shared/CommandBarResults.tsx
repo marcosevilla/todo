@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { Check, Plus, PenLine, FolderInput, Sparkles, Play, X, Loader2 } from 'lucide-react'
+import { Check, Plus, PenLine, FolderInput, Sparkles, FileText, X, Loader2 } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
-import { useFocusStore } from '@/stores/focusStore'
 import { FocusPlayMenu } from '@/components/focus/FocusPlayMenu'
-import type { LocalTask, Project } from '@/services/tauri'
+import type { LocalTask, Project, Document } from '@/services/tauri'
 
 const PRIORITY_COLORS: Record<number, string> = {
   4: 'bg-red-500',
@@ -13,17 +12,19 @@ const PRIORITY_COLORS: Record<number, string> = {
   1: 'bg-transparent',
 }
 
-export type BarMode = 'search' | 'task' | 'capture' | 'breakdown'
+export type BarMode = 'search' | 'task' | 'capture' | 'breakdown' | 'doc'
 
 interface CommandBarResultsProps {
   query: string
   mode: BarMode
   tasks: LocalTask[]
+  docResults: Document[]
   projects: Project[]
   selectedIndex: number
   onComplete: (id: string) => void
   onMove: (id: string, projectId: string) => void
   onBreakDown: (task: LocalTask) => void
+  onOpenDoc: (docId: string) => void
   onCreateTask: () => void
   onCapture: () => void
   onSelect: (index: number) => void
@@ -41,11 +42,13 @@ export function CommandBarResults({
   query,
   mode,
   tasks,
+  docResults,
   projects,
   selectedIndex,
   onComplete,
   onMove,
   onBreakDown,
+  onOpenDoc,
   onCreateTask,
   onCapture,
   onSelect,
@@ -60,8 +63,9 @@ export function CommandBarResults({
   const projectMap: Record<string, Project> = {}
   for (const p of projects) projectMap[p.id] = p
 
-  const createIndex = tasks.length
-  const captureIndex = tasks.length + 1
+  const docStartIndex = tasks.length
+  const createIndex = tasks.length + docResults.length
+  const captureIndex = tasks.length + docResults.length + 1
 
   // Breakdown mode
   if (breakdownTask) {
@@ -125,9 +129,10 @@ export function CommandBarResults({
     )
   }
 
-  const showCreate = mode !== 'capture'
-  const showCapture = mode !== 'task'
-  const showTasks = mode !== 'task' && mode !== 'capture'
+  const showCreate = mode !== 'capture' && mode !== 'doc'
+  const showCapture = mode !== 'task' && mode !== 'doc'
+  const showTasks = mode !== 'task' && mode !== 'capture' && mode !== 'doc'
+  const showDocs = mode === 'search' || mode === 'doc'
 
   return (
     <div className="animate-in fade-in slide-in-from-top-1 duration-150">
@@ -156,8 +161,37 @@ export function CommandBarResults({
           </div>
         )}
 
+        {/* Doc results */}
+        {showDocs && docResults.length > 0 && (
+          <div className="p-1">
+            {tasks.length > 0 && <div className="mx-1 mb-1 border-t border-border/30" />}
+            <div className="px-2 py-1">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                Docs
+              </span>
+            </div>
+            {docResults.map((doc, i) => {
+              const idx = docStartIndex + i
+              return (
+                <button
+                  key={doc.id}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+                    selectedIndex === idx ? 'bg-accent/40' : 'hover:bg-accent/20',
+                  )}
+                  onMouseEnter={() => onSelect(idx)}
+                  onClick={() => onOpenDoc(doc.id)}
+                >
+                  <FileText className="size-3.5 shrink-0 text-muted-foreground/40" />
+                  <span className="flex-1 min-w-0 truncate">{doc.title || 'Untitled'}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         {/* Separator */}
-        {showTasks && tasks.length > 0 && (showCreate || showCapture) && (
+        {(tasks.length > 0 || docResults.length > 0) && (showCreate || showCapture) && (
           <div className="mx-2 border-t border-border/30" />
         )}
 
@@ -190,7 +224,7 @@ export function CommandBarResults({
               onClick={onCapture}
             >
               <PenLine className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="text-muted-foreground">Capture note</span>
+              <span className="text-muted-foreground">Save as note</span>
               <span className="flex-1 min-w-0 truncate font-medium">"{query}"</span>
             </button>
           )}

@@ -146,6 +146,49 @@ pub async fn read_session_log(app: AppHandle) -> Result<Option<String>, String> 
     }
 }
 
+/// Read daily brief from journal/briefs/
+#[tauri::command]
+pub async fn read_daily_brief(app: AppHandle, date: Option<String>) -> Result<Option<String>, String> {
+    let vault_path = get_vault_path(&app).await?;
+    let date = date.unwrap_or_else(|| Local::now().format("%Y-%m-%d").to_string());
+    let file_path = format!("{}/journal/briefs/Brief {}.md", vault_path, date);
+
+    match tokio::fs::read_to_string(&file_path).await {
+        Ok(content) => Ok(Some(content)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(format!("Failed to read daily brief: {}", e)),
+    }
+}
+
+/// List all dates that have briefs
+#[tauri::command]
+pub async fn list_brief_dates(app: AppHandle) -> Result<Vec<String>, String> {
+    let vault_path = get_vault_path(&app).await?;
+    let briefs_dir = format!("{}/journal/briefs", vault_path);
+
+    let mut dates = Vec::new();
+    let mut dir = match tokio::fs::read_dir(&briefs_dir).await {
+        Ok(d) => d,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(dates),
+        Err(e) => return Err(format!("Failed to read briefs directory: {}", e)),
+    };
+
+    while let Ok(Some(entry)) = dir.next_entry().await {
+        let name = entry.file_name().to_string_lossy().to_string();
+        // Extract date from "Brief YYYY-MM-DD.md"
+        if name.starts_with("Brief ") && name.ends_with(".md") {
+            let date = name.trim_start_matches("Brief ").trim_end_matches(".md").to_string();
+            if date.len() == 10 {
+                dates.push(date);
+            }
+        }
+    }
+
+    dates.sort();
+    dates.reverse(); // newest first
+    Ok(dates)
+}
+
 /// Write a quick capture to Quick Captures.md
 #[tauri::command]
 pub async fn write_quick_capture(app: AppHandle, content: String) -> Result<QuickCapture, String> {

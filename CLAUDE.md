@@ -6,8 +6,8 @@ A personal daily triage and briefing macOS app built with Tauri 2.0.
 - **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS v4 + shadcn/ui (base-nova style)
 - **Backend:** Rust (Tauri 2.0)
 - **Database:** SQLite via sqlx (not tauri-plugin-sql)
-- **State:** Zustand
-- **AI:** Claude Haiku via Anthropic API (priorities generation)
+- **State:** Zustand (appStore, focusStore, detailStore)
+- **AI:** Claude Haiku via Anthropic API (priorities generation, task breakdown)
 
 ## Commands
 - `npm run dev` — Start Vite dev server only (frontend)
@@ -21,22 +21,27 @@ A personal daily triage and briefing macOS app built with Tauri 2.0.
 - `src-tauri/` — Rust backend (commands, db, parsers)
 - `src/components/ui/` — shadcn/ui primitives (auto-generated, don't edit manually)
 - `src/components/layout/` — Dashboard, NavSidebar, RightSidebar
-- `src/components/pages/` — Top-level page components (Today, Tasks, Inbox, Session, Settings)
-- `src/components/tasks/` — TaskItem, LocalTaskRow, TaskEditor, QuickCreateDialog
+- `src/components/pages/` — Top-level page components (Today, Tasks, Inbox, Activity, Settings)
+- `src/components/tasks/` — TaskItem, LocalTaskRow, TaskEditor, QuickCreateDialog, StatusDropdown, InboxTaskItem
+- `src/components/focus/` — FocusView, FocusBanner, FocusCelebration, FocusPlayMenu, FocusResumeDialog
+- `src/components/detail/` — TaskDetailPage, CaptureDetailPage, DetailSidebar, DetailBreadcrumbs, InlineTitle, InlineDescription, TaskActionBar, TaskActivityLog
+- `src/components/activity/` — ActivityTimeline
+- `src/components/shared/` — CommandBar, CommandBarResults, HelpPanel, CollapsibleSection
 - `src/components/priorities/` — PrioritiesSection (energy selector + display)
 - `src/components/{calendar,todoist,obsidian}/` — Feature components
-- `src/components/shared/` — CollapsibleSection, CommandPalette, ShortcutOverlay, etc.
+- `src/stores/` — appStore.ts, focusStore.ts, detailStore.ts
+- `src/hooks/` — useLocalTasks, useFocusTimer, useFocusQueue, useTaskDetail, useCalendar, useObsidian, etc.
+- `src/lib/` — utils.ts, sound.ts, taskToast.ts
 - `docs/buildplan.md` — Feature prioritization and build plan
-- `docs/roadmap.md` — Original roadmap (partially superseded by buildplan)
 
 ## Architecture Rules
 - All API calls happen in Rust, never in the React frontend (CORS + security)
 - All file system access happens in Rust via tauri-plugin-fs
 - All URL opening happens via the custom `open_url` Rust command (not shell plugin)
 - Frontend communicates with backend via `invoke()` Tauri commands
-- Zustand is the frontend's single source of truth
-- Components read from Zustand, not from Tauri commands directly
-- Hooks bridge between Tauri commands and Zustand
+- Zustand stores for global state (app, focus, detail). Local state for ephemeral UI.
+- `emitTasksChanged()` event bus to sync all `useLocalTasks` instances after mutations
+- Activity logging via `crate::db::activity::log_activity()` — fire-and-forget, never fails user-facing commands
 
 ## Adding a Rust Command
 1. Create or edit the file in `src-tauri/src/commands/` (one file per domain)
@@ -50,18 +55,25 @@ A personal daily triage and briefing macOS app built with Tauri 2.0.
 - Versioned migration system in `src-tauri/src/db/migrations.rs`
 - Each migration has a version number, description, and SQL string
 - Migrations run automatically on app startup — append new ones to the `MIGRATIONS` array
-- Current version: **3** (initial schema + multi-calendar feeds + native tasks/projects)
+- Current version: **8** (initial schema → calendar feeds → tasks/projects → activity log → focus state → captures → task status)
 - `schema_version` table tracks what's been applied
 
 ## Key Tables
 - `settings` — key-value config store
 - `projects` — native project labels (id, name, color, position). Default: Inbox
-- `local_tasks` — native tasks with subtask support (parent_id), priority, due dates, descriptions
+- `local_tasks` — native tasks with subtask support (parent_id), priority, due dates, descriptions, status workflow
+- `captures` — native captures (migrated from Obsidian Quick Captures.md)
+- `activity_log` — timestamped activity events (action_type, target_id, metadata JSON)
+- `daily_state` — per-day energy level, cached AI priorities, focus session state
 - `todoist_tasks` — cached Todoist tasks
 - `calendar_events` / `calendar_feeds` — cached calendar data
-- `daily_state` — per-day energy level + cached AI priorities
-- `progress_snapshots` — save progress snapshots
-- `action_log` — offline action queue
+
+## Task Status Workflow
+- Statuses: `backlog` → `todo` → `in_progress` → `blocked` → `complete`
+- Default for new tasks: `todo`
+- Focus mode auto-sets `in_progress` on start, `complete` on finish
+- Blocked status prompts for reason (logged to activity)
+- Status changes logged as `status_changed` activity events
 
 ## Style Guide
 - Use shadcn/ui components as base, customize with Tailwind
@@ -70,6 +82,7 @@ A personal daily triage and briefing macOS app built with Tauri 2.0.
 - Import utils from `@/lib/utils`
 - Use `cn()` for all conditional class merging (never template literals)
 - Use `openUrl()` from `@/services/tauri` for all URL opening (never shell plugin `open()`)
+- Use `taskToast()` from `@/lib/taskToast` for task-related toasts (includes "View" link)
 
 ## Anti-Patterns
 - Don't make HTTP calls from the frontend — use Rust commands
@@ -77,25 +90,23 @@ A personal daily triage and briefing macOS app built with Tauri 2.0.
 - Don't use loading spinners — use skeleton placeholders matching content shape
 - Don't show "overdue" labels — use neutral "still open" framing
 - Don't add guilt-inducing UI (streaks, "you've been away" messages)
+- Don't use `<button>` inside `<TooltipTrigger>` — causes nested button crash in Tauri webview
 
 ## Current State
 
-- **Last session:** 2026-03-29 (massive build + refactor session)
-- **What exists:**
-  - Guided Today page: first-open-of-day review flow (calendar glance → energy selector → AI priorities → triage) that transitions to dashboard mode after completion
-  - Native task system: projects (create/delete), tasks with subtasks, priority, due dates, descriptions, inline editing
-  - Quick Capture from 3 entry points: Inbox page input, Cmd+K, tray menu
-  - AI Priorities via Claude Haiku: energy-based top 3 with reasoning, cached per day in daily_state
-  - Linear-style unified TaskItem component for both native and Todoist tasks
-  - Q shortcut → quick-create task dialog (title, description, project, priority, due date)
-  - Todoist integration (fetch, complete, snooze, 7-day filter, cache-first) in its own collapsed section
-  - Google Calendar multi-feed with color coding
-  - Obsidian integration (today.md, habits, quick captures, session logs)
-  - shadcn/ui components: command (cmdk), collapsible, sonner (toasts), tooltip, skeleton, dialog, etc.
-  - System tray, Cmd+Shift+T global hotkey, auto-launch, dark/light/system theme
-  - Cmd+K command palette with capture integration
-  - Keyboard shortcuts (j/k/x/s task nav, 1-4 page nav, Q quick create, ? shortcut overlay)
-  - Page transition animations, completion micro-celebrations
-  - Context-aware right sidebar (hidden on Settings/Session)
-- **Known gaps:** Project rename UI not surfaced. No native notifications. No .dmg distribution. No drag-to-reorder.
-- **Next up:** See `docs/buildplan.md` for remaining features (notifications, .dmg, daily review polish)
+- **Last session:** 2026-03-29 (14-hour marathon — 3 pillars, detail pages, status system, docs page, brief display)
+- **Completed this session (part 3, 12:30 PM – 2:35 PM):**
+  - A1: Daily Brief Display with date browsing (BriefDisplay + DateStrip components)
+  - Phase F: Docs Page with Tiptap rich text editor, folder tree, doc notes
+  - Command bar `/doc` search for documents
+  - Inbox "Move to Doc" action with folder/doc picker
+  - Task ↔ Doc linking (linked_doc_id field, picker on task detail, clickable link)
+  - Tiptap `@` mentions in docs AND task descriptions (searches both tasks + docs)
+  - Task descriptions upgraded to rich text (Tiptap replaces plain textarea)
+  - Code + UI/UX audit agents ran (findings saved to memory/project_cleanup_backlog.md)
+  - Brief v2 roadmap ideas saved (8 items: time-blocking, habit streaks, meeting prep, etc.)
+  - Mood tracker added to roadmap (replaces energy tracker)
+  - Nav sidebar icon quality + contrast fixes
+  - Fixed auto-save loop bug (description saves causing activity log spam)
+- **Known issues:** Dead code to clean up (see cleanup backlog). Tiptap duplicate link extension warning. `useSave` hook still dead code.
+- **Next up:** Phase B (evening loop), Phase C (goals), code cleanup from audit, UI/UX fixes from audit. See HelpPanel roadmap tab + memory/project_cleanup_backlog.md.

@@ -188,6 +188,49 @@ CREATE INDEX IF NOT EXISTS idx_action_log_synced ON action_log(synced)
             CREATE INDEX IF NOT EXISTS idx_captures_converted ON captures(converted_to_task_id)
         "#,
     },
+    Migration {
+        version: 9,
+        description: "Docs: folders, documents, doc_notes",
+        sql: r#"
+            CREATE TABLE IF NOT EXISTS doc_folders (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                position INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            );
+
+            CREATE TABLE IF NOT EXISTS documents (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL DEFAULT '',
+                content TEXT NOT NULL DEFAULT '',
+                folder_id TEXT,
+                position INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                FOREIGN KEY (folder_id) REFERENCES doc_folders(id) ON DELETE SET NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_documents_folder ON documents(folder_id);
+            CREATE INDEX IF NOT EXISTS idx_documents_updated ON documents(updated_at);
+
+            CREATE TABLE IF NOT EXISTS doc_notes (
+                id TEXT PRIMARY KEY,
+                doc_id TEXT NOT NULL,
+                content TEXT NOT NULL,
+                position INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                FOREIGN KEY (doc_id) REFERENCES documents(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_doc_notes_doc ON doc_notes(doc_id);
+
+            INSERT OR IGNORE INTO doc_folders (id, name, position) VALUES ('ideas', 'Ideas', 0);
+            INSERT OR IGNORE INTO doc_folders (id, name, position) VALUES ('work', 'Work', 1);
+            INSERT OR IGNORE INTO doc_folders (id, name, position) VALUES ('personal', 'Personal', 2);
+
+            ALTER TABLE local_tasks ADD COLUMN linked_doc_id TEXT
+        "#,
+    },
 ];
 
 pub async fn run_migrations(pool: &SqlitePool) -> Result<(), String> {

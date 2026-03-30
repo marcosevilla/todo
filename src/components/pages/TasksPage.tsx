@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { Plus, FolderPlus, Pencil, Trash2, Check, X } from 'lucide-react'
+import { STATUSES } from '@/components/tasks/StatusDropdown'
+import type { TaskStatus } from '@/services/tauri'
 
 const PROJECT_COLORS = [
   '#6366f1', '#ec4899', '#22c55e', '#f59e0b', '#06b6d4', '#f43f5e', '#8b5cf6', '#14b8a6',
@@ -228,6 +230,8 @@ function ProjectSection({
   onDelete,
   onAddSubtask,
   onDeleteProject,
+  onRenameProject,
+  onUpdateProjectColor,
   onUpdated,
   allProjects,
   defaultOpen,
@@ -298,12 +302,26 @@ export function TasksPage() {
   const { projects, loading: projectsLoading, addProject, renameProject, updateProjectColor, removeProject } = useProjects()
   const { tasks, loading: tasksLoading, addTask, complete, uncomplete, remove, refresh } = useLocalTasks()
   const { tasks: todoistTasks, loading: todoistLoading, completeTask: completeTodoist, snoozeTask: snoozeTodoist } = useTodoist()
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all')
 
   const loading = projectsLoading || tasksLoading
 
+  const filteredTasks = useMemo(() => {
+    if (statusFilter === 'all') return tasks
+    return tasks.filter((t) => t.status === statusFilter)
+  }, [tasks, statusFilter])
+
+  // Status counts for filter pills
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: tasks.length }
+    for (const t of tasks) {
+      counts[t.status] = (counts[t.status] || 0) + 1
+    }
+    return counts
+  }, [tasks])
+
   const handleAddSubtask = useCallback(
     async (parentId: string, content: string) => {
-      // Find the parent's project
       const parent = tasks.find((t) => t.id === parentId)
       await addTask(content, { parentId, projectId: parent?.project_id })
       refresh()
@@ -328,22 +346,60 @@ export function TasksPage() {
     )
   }
 
-  // Group tasks by project
+  // Group filtered tasks by project
   const tasksByProject: Record<string, typeof tasks> = {}
-  for (const task of tasks) {
+  for (const task of filteredTasks) {
     if (!tasksByProject[task.project_id]) tasksByProject[task.project_id] = []
     tasksByProject[task.project_id].push(task)
   }
 
   return (
     <div className="space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between pb-1">
+      {/* Header + Filter */}
+      <div className="space-y-2 pb-1">
         <div className="flex items-baseline gap-2">
           <h2 className="text-sm font-semibold">All Tasks</h2>
           <span className="text-xs text-muted-foreground">
-            {tasks.filter((t) => !t.completed).length} open across {projects.length} project{projects.length !== 1 ? 's' : ''}
+            {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''}
+            {statusFilter !== 'all' && ` · ${statusFilter.replace('_', ' ')}`}
           </span>
+        </div>
+
+        {/* Status filter pills */}
+        <div className="flex items-center gap-1 flex-wrap">
+          <button
+            onClick={() => setStatusFilter('all')}
+            className={cn(
+              'rounded-md px-2 py-1 text-xs font-medium transition-colors',
+              statusFilter === 'all'
+                ? 'bg-foreground text-background'
+                : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',
+            )}
+          >
+            All
+            <span className="ml-1 text-[10px] opacity-60">{statusCounts.all || 0}</span>
+          </button>
+          {STATUSES.map((s) => {
+            const SIcon = s.icon
+            const count = statusCounts[s.value] || 0
+            if (count === 0 && statusFilter !== s.value) return null
+            return (
+              <button
+                key={s.value}
+                onClick={() => setStatusFilter(statusFilter === s.value ? 'all' : s.value)}
+                className={cn(
+                  'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
+                  statusFilter === s.value
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',
+                )}
+              >
+                <SIcon className={cn('size-3', statusFilter === s.value ? '' : s.iconColor)} />
+                {s.label}
+                <span className="text-[10px] opacity-60">{count}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 

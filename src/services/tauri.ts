@@ -126,6 +126,16 @@ export async function readSessionLog(): Promise<string | null> {
   return invoke<string | null>('read_session_log')
 }
 
+// ── Daily Brief ──
+
+export async function readDailyBrief(date?: string): Promise<string | null> {
+  return invoke<string | null>('read_daily_brief', { date })
+}
+
+export async function listBriefDates(): Promise<string[]> {
+  return invoke<string[]>('list_brief_dates')
+}
+
 // ── Quick Captures ──
 export interface QuickCapture {
   timestamp: string | null
@@ -210,6 +220,7 @@ export interface LocalTask {
   completed: boolean
   completed_at: string | null
   status: TaskStatus
+  linked_doc_id: string | null
   position: number
   created_at: string
   updated_at: string
@@ -384,6 +395,89 @@ export async function deleteCapture(id: string): Promise<void> {
 
 export async function importObsidianCaptures(): Promise<number> {
   return invoke<number>('import_obsidian_captures')
+}
+
+// ── Docs ──
+
+export interface DocFolder {
+  id: string
+  name: string
+  position: number
+  created_at: string
+}
+
+export interface Document {
+  id: string
+  title: string
+  content: string
+  folder_id: string | null
+  position: number
+  created_at: string
+  updated_at: string
+}
+
+export interface DocNote {
+  id: string
+  doc_id: string
+  content: string
+  position: number
+  created_at: string
+}
+
+export async function getDocFolders(): Promise<DocFolder[]> {
+  return invoke<DocFolder[]>('get_doc_folders')
+}
+
+export async function createDocFolder(name: string): Promise<DocFolder> {
+  return invoke<DocFolder>('create_doc_folder', { name })
+}
+
+export async function renameDocFolder(id: string, name: string): Promise<void> {
+  return invoke<void>('rename_doc_folder', { id, name })
+}
+
+export async function deleteDocFolder(id: string): Promise<void> {
+  return invoke<void>('delete_doc_folder', { id })
+}
+
+export async function getDocuments(folderId?: string): Promise<Document[]> {
+  return invoke<Document[]>('get_documents', { folderId })
+}
+
+export async function getDocument(id: string): Promise<Document | null> {
+  return invoke<Document | null>('get_document', { id })
+}
+
+export async function createDocument(title: string, folderId?: string): Promise<Document> {
+  return invoke<Document>('create_document', { title, folderId })
+}
+
+export async function updateDocument(id: string, title?: string, content?: string, folderId?: string): Promise<Document> {
+  return invoke<Document>('update_document', { id, title, content, folderId })
+}
+
+export async function deleteDocument(id: string): Promise<void> {
+  return invoke<void>('delete_document', { id })
+}
+
+export async function searchDocuments(query: string): Promise<Document[]> {
+  return invoke<Document[]>('search_documents', { query })
+}
+
+export async function getDocNotes(docId: string): Promise<DocNote[]> {
+  return invoke<DocNote[]>('get_doc_notes', { docId })
+}
+
+export async function createDocNote(docId: string, content: string): Promise<DocNote> {
+  return invoke<DocNote>('create_doc_note', { docId, content })
+}
+
+export async function deleteDocNote(id: string): Promise<void> {
+  return invoke<void>('delete_doc_note', { id })
+}
+
+export async function reorderDocNotes(noteIds: string[]): Promise<void> {
+  return invoke<void>('reorder_doc_notes', { noteIds })
 }
 
 // ── AI ──

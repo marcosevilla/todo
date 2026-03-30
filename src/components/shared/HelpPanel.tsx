@@ -40,8 +40,17 @@ const SHORTCUT_SECTIONS: ShortcutSection[] = [
       { key: '\u2325B', action: 'AI breakdown' },
       { key: '\u2325M', action: 'Move to project' },
       { key: '/task', action: 'Force create mode' },
-      { key: '/capture', action: 'Force capture mode' },
+      { key: '/capture', action: 'Force note mode' },
+      { key: '/doc', action: 'Search docs' },
       { key: '/search', action: 'Force search mode' },
+    ],
+  },
+  {
+    title: 'Selection',
+    shortcuts: [
+      { key: 'Click', action: 'Select / deselect item' },
+      { key: 'Shift+Click', action: 'Select range' },
+      { key: 'Escape', action: 'Clear selection' },
     ],
   },
   {
@@ -70,19 +79,20 @@ const ROADMAP: RoadmapItem[] = [
   { title: 'Activity Timeline', description: 'Browse daily activity with summary stats', done: true },
   { title: 'Task Detail Page', description: 'Body + sidebar modes, inline editing, breadcrumbs', done: true },
   { title: 'Task Status System', description: 'Backlog → Todo → In Progress → Blocked → Complete', done: true },
-  { title: 'Mutable Inbox', description: 'Native tasks + captures with actions', done: true },
+  { title: 'Mutable Inbox', description: 'Native tasks + notes with actions', done: true },
   { title: 'Resizable Sidebars', description: 'Drag to resize nav + right sidebar', done: true },
 
   // Near-term
-  { title: 'Captures Migration', description: 'Move captures to SQLite, CaptureDetailPage, import from Obsidian', done: false, phase: 'Near-term' },
-  { title: 'Status Configurable Colors', description: 'Customize status icon colors in Settings', done: false, phase: 'Near-term' },
-  { title: 'Focus Abandon Setting', description: 'Configure default status when abandoning focus', done: false, phase: 'Near-term' },
-  { title: 'Task Filtering by Status', description: 'Filter/sort tasks page by status, show In Progress first', done: false, phase: 'Near-term' },
+  { title: 'Notes Migration', description: 'Move notes to SQLite, note detail page, import from Obsidian', done: true },
+  { title: 'Status Colors Reference', description: 'Status color assignments visible in Settings', done: true },
+  { title: 'Focus Abandon Setting', description: 'Configure default status when abandoning focus', done: true },
+  { title: 'Task Filtering by Status', description: 'Filter/sort tasks page by status pills', done: true },
+  { title: 'Bulk Select + Actions', description: 'Shift+click range select, floating action bar', done: true },
 
   // Phase A
-  { title: 'Daily Brief Display', description: 'Show the 4am brief in morning review flow', done: false, phase: 'A: Morning' },
-  { title: 'Energy Write-back', description: 'Write energy level to Obsidian, show 7-day sparkline', done: false, phase: 'A: Morning' },
-  { title: 'Smart Capture Routing', description: '/idea → Ideas.md, /quote → Quotes.md', done: false, phase: 'A: Morning' },
+  { title: 'Daily Brief Display', description: 'Render daily brief with date browsing, formatted to match app UI', done: false, phase: 'A: Morning' },
+  { title: 'Mood Tracker', description: 'Track mood over time, integrate with phone mood apps, power AI reflection', done: false, phase: 'A: Morning' },
+  { title: 'Smart Capture Routing', description: '/idea and /quote routing to Docs page (after Docs is built)', done: false, phase: 'A: Morning' },
 
   // Phase B
   { title: 'Evening Review Flow', description: 'Guided reflection: accomplishments, questions, energy, affirmation', done: false, phase: 'B: Evening' },
@@ -103,10 +113,30 @@ const ROADMAP: RoadmapItem[] = [
   { title: 'Native Notifications', description: 'Meeting reminders, evening nudge, open tasks', done: false, phase: 'E: Infra' },
   { title: '.dmg Distribution', description: 'Signed build, auto-updater via GitHub Releases', done: false, phase: 'E: Infra' },
 
+  // Docs
+  { title: 'Docs Page', description: 'Folder tree + Tiptap rich text editor with auto-save', done: true },
+  { title: 'Rich Text Editor', description: 'Markdown shortcuts, headings, bold, lists, code, links', done: true },
+  { title: 'Doc Search in Command Bar', description: '/doc prefix searches docs by title + content', done: true },
+  { title: 'Move to Docs Action', description: 'Triage notes from Inbox to Docs once processed', done: false, phase: 'F: Docs' },
+  { title: 'Project-linked Docs', description: 'Optionally link documents to a project for context', done: false, phase: 'F: Docs' },
+  { title: 'Export to Obsidian', description: 'One-way push any doc to vault as .md file', done: false, phase: 'F: Docs' },
+  { title: 'AI Artifacts in Docs', description: 'Save AI breakdowns, reflections, and prep docs', done: false, phase: 'F: Docs' },
+
+  // Brief v2: Living Daily Workspace
+  { title: 'Time-blocking / Day Planner', description: 'Drag tasks onto calendar timeline, auto-set in_progress when block starts', done: false, phase: 'G: Brief v2' },
+  { title: 'Live Habit Streaks', description: 'Show streak counts + mini heatmap, checking off updates everywhere', done: false, phase: 'G: Brief v2' },
+  { title: 'Interactive Triage Cards', description: 'Swipeable overdue/needs-response cards — snooze, complete, delegate, schedule', done: false, phase: 'G: Brief v2' },
+  { title: 'Energy-aware Suggestions', description: 'Brief adapts by time of day — morning full view, afternoon remaining, evening reflection', done: false, phase: 'G: Brief v2' },
+  { title: 'Meeting Prep Blocks', description: 'Auto-show context before each meeting — Linear tickets, Slack threads, last notes', done: false, phase: 'G: Brief v2' },
+  { title: 'Live Progress Pulse', description: 'Brief updates in real-time — completion bar, time focused, what\'s left', done: false, phase: 'G: Brief v2' },
+  { title: 'Tomorrow Planning Mode', description: 'End-of-day view: drag tasks into tomorrow\'s time slots, set top 3, pre-configure focus', done: false, phase: 'G: Brief v2' },
+  { title: 'Brief Diff', description: 'Historical view showing intention vs reality — planned vs completed vs added', done: false, phase: 'G: Brief v2' },
+
   // Ideas
   { title: 'AI Reflection', description: 'Weekly trends, dropoff analysis, pattern recognition', done: false, phase: 'Ideas' },
   { title: 'AI Next-task Picker', description: 'Claude picks next task based on energy + context', done: false, phase: 'Ideas' },
   { title: 'Full-page Detail Mode', description: 'Third display mode for task detail', done: false, phase: 'Ideas' },
+  { title: 'Bulk Actions Extensions', description: 'AI breakdown on multiple tasks, bulk priority, bulk due date', done: false, phase: 'Ideas' },
 ]
 
 // ── Component ──

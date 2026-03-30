@@ -1,8 +1,6 @@
 import { useState, useCallback } from 'react'
 import { cn } from '@/lib/utils'
-import { Trash2, FolderInput, Sparkles } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { FocusPlayMenu } from '@/components/focus/FocusPlayMenu'
+import { Trash2, FolderInput, Sparkles, Play, ChevronRight } from 'lucide-react'
 import { useFocusStore } from '@/stores/focusStore'
 import { breakDownTask, createLocalTask, updateLocalTask, deleteLocalTask, logActivity } from '@/services/tauri'
 import { emitTasksChanged } from '@/hooks/useLocalTasks'
@@ -14,10 +12,11 @@ interface TaskActionBarProps {
   task: LocalTask
   projects: Project[]
   onDeleted: () => void
+  variant?: 'bar' | 'menu'
 }
 
-export function TaskActionBar({ task, projects, onDeleted }: TaskActionBarProps) {
-  const [showMoveMenu, setShowMoveMenu] = useState(false)
+export function TaskActionBar({ task, projects, onDeleted, variant = 'bar' }: TaskActionBarProps) {
+  const [showMoveSubmenu, setShowMoveSubmenu] = useState(false)
   const [breaking, setBreaking] = useState(false)
 
   const otherProjects = projects.filter((p) => p.id !== task.project_id)
@@ -28,7 +27,6 @@ export function TaskActionBar({ task, projects, onDeleted }: TaskActionBarProps)
       await updateLocalTask({ id: task.id, projectId })
       taskToast(`Moved to ${project?.name ?? 'project'}`, task.id)
       emitTasksChanged()
-      setShowMoveMenu(false)
     } catch (e) {
       toast.error(`Failed to move: ${e}`)
     }
@@ -66,36 +64,39 @@ export function TaskActionBar({ task, projects, onDeleted }: TaskActionBarProps)
     }
   }, [task.id, onDeleted])
 
+  const handleFocus = useCallback(() => {
+    // Open the focus play menu by dispatching to the store
+    useFocusStore.getState().beginSetup(task)
+  }, [task])
+
+  // Menu variant — vertical list for popover
   return (
-    <div className="flex items-center gap-1 flex-wrap">
+    <div className="flex flex-col">
+      {/* Focus */}
       {!task.completed && !useFocusStore.getState().isActive && (
-        <FocusPlayMenu task={task} />
+        <MenuItem icon={Play} label="Start focus" onClick={handleFocus} />
       )}
 
-      <Button
-        variant="ghost"
-        size="sm"
+      {/* Break down */}
+      <MenuItem
+        icon={Sparkles}
+        label={breaking ? 'Breaking down...' : 'Break down with AI'}
         onClick={handleBreakDown}
         disabled={breaking}
-        className="gap-1.5 text-muted-foreground"
-      >
-        <Sparkles className="size-3.5" />
-        {breaking ? 'Breaking down...' : 'Break down'}
-      </Button>
+      />
 
-      <div className="relative">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowMoveMenu(!showMoveMenu)}
-          className="gap-1.5 text-muted-foreground"
-        >
-          <FolderInput className="size-3.5" />
-          Move
-        </Button>
-        {showMoveMenu && (
-          <div className="absolute left-0 top-full z-50 mt-1 animate-in fade-in slide-in-from-top-1 duration-100">
-            <div className="w-36 rounded-lg border border-border/50 bg-popover p-1 shadow-lg ring-1 ring-foreground/10">
+      {/* Move to project */}
+      <div
+        className="relative"
+        onMouseEnter={() => setShowMoveSubmenu(true)}
+        onMouseLeave={() => setShowMoveSubmenu(false)}
+      >
+        <MenuItem icon={FolderInput} label="Move to project" onClick={() => setShowMoveSubmenu(!showMoveSubmenu)}>
+          <ChevronRight className="size-3 text-muted-foreground/40 ml-auto" />
+        </MenuItem>
+        {showMoveSubmenu && otherProjects.length > 0 && (
+          <div className="absolute left-full top-0 z-50 ml-1 animate-in fade-in slide-in-from-left-1 duration-100">
+            <div className="w-36 rounded-lg border border-border/30 bg-popover p-1 shadow-lg">
               {otherProjects.map((p) => (
                 <button
                   key={p.id}
@@ -111,15 +112,48 @@ export function TaskActionBar({ task, projects, onDeleted }: TaskActionBarProps)
         )}
       </div>
 
-      <Button
-        variant="ghost"
-        size="sm"
+      {/* Separator */}
+      <div className="mx-1.5 my-1 border-t border-border/20" />
+
+      {/* Delete */}
+      <MenuItem
+        icon={Trash2}
+        label="Delete"
         onClick={handleDelete}
-        className="gap-1.5 text-destructive/60 hover:text-destructive"
-      >
-        <Trash2 className="size-3.5" />
-        Delete
-      </Button>
+        className="text-destructive/60 hover:text-destructive"
+      />
     </div>
+  )
+}
+
+function MenuItem({
+  icon: Icon,
+  label,
+  onClick,
+  disabled,
+  className,
+  children,
+}: {
+  icon: typeof Trash2
+  label: string
+  onClick: () => void
+  disabled?: boolean
+  className?: string
+  children?: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors',
+        disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-accent/20',
+        className,
+      )}
+    >
+      <Icon className="size-3.5 shrink-0" />
+      <span className="flex-1 text-left">{label}</span>
+      {children}
+    </button>
   )
 }

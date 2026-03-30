@@ -1,0 +1,203 @@
+import { useEditor, EditorContent, ReactRenderer } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Link from '@tiptap/extension-link'
+import Placeholder from '@tiptap/extension-placeholder'
+import Mention from '@tiptap/extension-mention'
+import { useCallback, useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react'
+import { getLocalTasks, searchDocuments } from '@/services/tauri'
+import { cn } from '@/lib/utils'
+import type { LocalTask, Document } from '@/services/tauri'
+import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion'
+import tippy, { type Instance } from 'tippy.js'
+import { CheckSquare, FileText } from 'lucide-react'
+
+interface TiptapEditorProps {
+  content: string
+  onChange: (html: string) => void
+  placeholder?: string
+}
+
+// ── Mention item type (tasks + docs) ──
+
+interface MentionItem {
+  id: string
+  label: string
+  kind: 'task' | 'doc'
+}
+
+// ── Mention suggestion list ──
+
+interface MentionListRef {
+  onKeyDown: (props: SuggestionKeyDownProps) => boolean
+}
+
+const MentionList = forwardRef<MentionListRef, SuggestionProps<MentionItem>>((props, ref) => {
+  const [selectedIndex, setSelectedIndex] = useState(0)
+
+  useEffect(() => setSelectedIndex(0), [props.items])
+
+  useImperativeHandle(ref, () => ({
+    onKeyDown: ({ event }: SuggestionKeyDownProps) => {
+      if (event.key === 'ArrowUp') {
+        setSelectedIndex((prev) => (prev - 1 + props.items.length) % props.items.length)
+        return true
+      }
+      if (event.key === 'ArrowDown') {
+        setSelectedIndex((prev) => (prev + 1) % props.items.length)
+        return true
+      }
+      if (event.key === 'Enter') {
+        const item = props.items[selectedIndex]
+        if (item) props.command(item)
+        return true
+      }
+      return false
+    },
+  }))
+
+  if (props.items.length === 0) return null
+
+  return (
+    <div className="w-56 rounded-lg border border-border/30 bg-popover p-1 shadow-lg">
+      {props.items.map((item, i) => (
+        <button
+          key={`${item.kind}-${item.id}`}
+          onClick={() => props.command(item)}
+          className={cn(
+            'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+            i === selectedIndex ? 'bg-accent/40' : 'hover:bg-accent/20',
+          )}
+        >
+          {item.kind === 'task' ? (
+            <CheckSquare className="size-3 shrink-0 text-muted-foreground/40" />
+          ) : (
+            <FileText className="size-3 shrink-0 text-muted-foreground/40" />
+          )}
+          <span className="truncate">{item.label}</span>
+        </button>
+      ))}
+    </div>
+  )
+})
+MentionList.displayName = 'MentionList'
+
+// ── Main editor ──
+
+export function TiptapEditor({ content, onChange, placeholder = 'Start writing...' }: TiptapEditorProps) {
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+      }),
+      Link.extend({ name: 'link' }).configure({
+        openOnClick: false,
+        HTMLAttributes: { class: 'text-accent-blue underline cursor-pointer' },
+      }),
+      Placeholder.configure({ placeholder }),
+      Mention.configure({
+        HTMLAttributes: {
+          class: 'mention-tag',
+        },
+        suggestion: {
+          items: async ({ query }: { query: string }): Promise<MentionItem[]> => {
+            try {
+              const q = query.toLowerCase()
+              const [tasks, docs] = await Promise.all([
+                getLocalTasks({ includeCompleted: false }),
+                q.length > 0 ? searchDocuments(query) : Promise.resolve([]),
+              ])
+              const taskItems: MentionItem[] = tasks
+                .filter((t) => !t.parent_id && t.content.toLowerCase().includes(q))
+                .slice(0, 5)
+                .map((t) => ({ id: t.id, label: t.content, kind: 'task' }))
+              const docItems: MentionItem[] = docs
+                .slice(0, 3)
+                .map((d) => ({ id: d.id, label: d.title || 'Untitled', kind: 'doc' }))
+              return [...taskItems, ...docItems]
+            } catch {
+              return []
+            }
+          },
+          render: () => {
+            let component: ReactRenderer<MentionListRef> | null = null
+            let popup: Instance[] | null = null
+
+            return {
+              onStart: (props: SuggestionProps<MentionItem>) => {
+                component = new ReactRenderer(MentionList, {
+                  props,
+                  editor: props.editor,
+                })
+
+                if (!props.clientRect) return
+
+                popup = tippy('body', {
+                  getReferenceClientRect: props.clientRect as () => DOMRect,
+                  appendTo: () => document.body,
+                  content: component.element,
+                  showOnCreate: true,
+                  interactive: true,
+                  trigger: 'manual',
+                  placement: 'bottom-start',
+                })
+              },
+              onUpdate: (props: SuggestionProps<MentionItem>) => {
+                component?.updateProps(props)
+                if (popup && props.clientRect) {
+                  popup[0]?.setProps({
+                    getReferenceClientRect: props.clientRect as () => DOMRect,
+                  })
+                }
+              },
+              onKeyDown: (props: SuggestionKeyDownProps) => {
+                if (props.event.key === 'Escape') {
+                  popup?.[0]?.hide()
+                  return true
+                }
+                return component?.ref?.onKeyDown(props) ?? false
+              },
+              onExit: () => {
+                popup?.[0]?.destroy()
+                component?.destroy()
+              },
+            }
+          },
+        },
+        renderText: ({ node }) => `@${node.attrs.label ?? node.attrs.id}`,
+      }),
+    ],
+    content,
+    editorProps: {
+      attributes: {
+        class: 'tiptap-editor outline-none min-h-[200px] text-sm leading-relaxed',
+      },
+    },
+    onUpdate: ({ editor }) => {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => {
+        onChange(editor.getHTML())
+      }, 1000)
+    },
+  })
+
+  useEffect(() => {
+    if (editor && content !== editor.getHTML()) {
+      editor.commands.setContent(content, false)
+    }
+  }, [content, editor])
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+        if (editor) onChange(editor.getHTML())
+      }
+    }
+  }, [editor, onChange])
+
+  if (!editor) return null
+
+  return <EditorContent editor={editor} />
+}

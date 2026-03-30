@@ -30,8 +30,8 @@ export function LocalTaskRow({
   projects = [],
   projectName,
   projectColor,
-  onComplete,
-  onUncomplete,
+  onComplete: _onComplete,
+  onUncomplete: _onUncomplete,
   onDelete,
   onAddSubtask,
   onUpdated,
@@ -44,16 +44,6 @@ export function LocalTaskRow({
   const [focusMenuOpen, setFocusMenuOpen] = useState(false)
 
   const hasSubtasks = subtasks.length > 0
-
-  const handleToggle = useCallback(
-    (id: string) => {
-      const t = id === task.id ? task : subtasks.find((s) => s.id === id)
-      if (!t) return
-      if (t.completed) onUncomplete(id)
-      else onComplete(id)
-    },
-    [task, subtasks, onComplete, onUncomplete],
-  )
 
   const handleSubSubmit = useCallback(() => {
     const text = subInput.trim()

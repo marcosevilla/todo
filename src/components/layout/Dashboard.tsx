@@ -1,16 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
+import { cn } from '@/lib/utils'
 import { useAppStore } from '@/stores/appStore'
 import { NavSidebar } from './NavSidebar'
 import { RightSidebar } from './RightSidebar'
 import { CommandBar } from '@/components/shared/CommandBar'
 import { HelpPanel } from '@/components/shared/HelpPanel'
+import { BulkActionBar } from '@/components/shared/BulkActionBar'
+import { useSelectionStore } from '@/stores/selectionStore'
 import { QuickCreateDialog } from '@/components/tasks/QuickCreateDialog'
 import { TodayPage } from '@/components/pages/TodayPage'
 import { TasksPage } from '@/components/pages/TasksPage'
 import { InboxPage } from '@/components/pages/InboxPage'
 import { SessionPage } from '@/components/pages/SessionPage'
 import { SettingsPage } from '@/components/pages/SettingsPage'
+import { DocsPage } from '@/components/pages/DocsPage'
 import { emitTasksChanged } from '@/hooks/useLocalTasks'
 import { useFocusTimer } from '@/hooks/useFocusTimer'
 import { useFocusStore } from '@/stores/focusStore'
@@ -27,11 +31,12 @@ const PAGE_TITLES: Record<string, string> = {
   today: 'Today',
   tasks: 'Tasks',
   inbox: 'Inbox',
+  docs: 'Docs',
   session: 'Activity',
   settings: 'Settings',
 }
 
-const PAGES = ['today', 'tasks', 'inbox', 'session'] as const
+const PAGES = ['today', 'tasks', 'inbox', 'docs', 'session'] as const
 
 function PageContent({ page }: { page: string }) {
   switch (page) {
@@ -41,6 +46,8 @@ function PageContent({ page }: { page: string }) {
       return <TasksPage />
     case 'inbox':
       return <InboxPage />
+    case 'docs':
+      return <DocsPage />
     case 'session':
       return <SessionPage />
     case 'settings':
@@ -68,6 +75,11 @@ export function Dashboard() {
   const closeDetail = useDetailStore((s) => s.close)
 
   const setCaptureRequested = useAppStore((s) => s.setCaptureRequested)
+
+  // Clear selection on page change
+  useEffect(() => {
+    useSelectionStore.getState().clear()
+  }, [currentPage])
 
   // Listen for tray "Quick Capture" event
   useEffect(() => {
@@ -99,6 +111,14 @@ export function Dashboard() {
       if (meta && e.key === 'r') {
         e.preventDefault()
         emitTasksChanged()
+        return
+      }
+
+      // Cmd+A — select all (handled by individual pages, but prevent default browser behavior)
+      // Escape — clear selection (if any selected, before closing detail)
+      if (e.key === 'Escape' && !isInput && useSelectionStore.getState().hasSelection) {
+        e.preventDefault()
+        useSelectionStore.getState().clear()
         return
       }
 
@@ -177,10 +197,14 @@ export function Dashboard() {
               </div>
             </main>
           ) : (
-            <main key={currentPage} className="flex-1 p-6 animate-page-enter">
-              <div className="mx-auto w-full max-w-2xl">
+            <main key={currentPage} className={cn('flex-1 animate-page-enter', currentPage === 'docs' ? 'flex' : 'p-6')}>
+              {currentPage === 'docs' ? (
                 <PageContent page={currentPage} />
-              </div>
+              ) : (
+                <div className="mx-auto w-full max-w-2xl">
+                  <PageContent page={currentPage} />
+                </div>
+              )}
             </main>
           )}
         </div>
@@ -200,6 +224,9 @@ export function Dashboard() {
         open={quickCreateOpen}
         onClose={() => setQuickCreateOpen(false)}
       />
+
+      {/* Bulk action bar */}
+      <BulkActionBar />
 
       {/* Help panel (shortcuts + roadmap) */}
       <HelpPanel />

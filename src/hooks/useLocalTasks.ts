@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 // Simple event bus so all useLocalTasks instances refetch on any mutation
 const TASKS_CHANGED = 'tasks-changed'

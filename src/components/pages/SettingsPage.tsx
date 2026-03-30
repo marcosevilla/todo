@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -70,6 +71,13 @@ const FOCUS_FIELDS: SettingField[] = [
     label: 'Break Duration (minutes)',
     placeholder: '5',
     help: 'Default break length between Pomodoro rounds (e.g., 5, 10, 15)',
+    type: 'text',
+  },
+  {
+    key: 'focus_abandon_status',
+    label: 'Status on Abandon',
+    placeholder: 'todo',
+    help: 'What status a task gets when you stop a focus session (todo or in_progress)',
     type: 'text',
   },
 ]
@@ -344,6 +352,53 @@ function CalendarsSection() {
   )
 }
 
+// ── Status Colors Section ──
+
+const COLOR_OPTIONS = [
+  { label: 'Gray', value: 'text-muted-foreground/50', preview: 'bg-gray-400' },
+  { label: 'Blue', value: 'text-blue-500', preview: 'bg-blue-500' },
+  { label: 'Amber', value: 'text-amber-500', preview: 'bg-amber-500' },
+  { label: 'Red', value: 'text-red-500', preview: 'bg-red-500' },
+  { label: 'Green', value: 'text-green-500', preview: 'bg-green-500' },
+  { label: 'Purple', value: 'text-purple-500', preview: 'bg-purple-500' },
+  { label: 'Cyan', value: 'text-cyan-500', preview: 'bg-cyan-500' },
+  { label: 'Pink', value: 'text-pink-500', preview: 'bg-pink-500' },
+  { label: 'Orange', value: 'text-orange-500', preview: 'bg-orange-500' },
+]
+
+const STATUS_DEFAULTS: Record<string, { label: string; defaultColor: string }> = {
+  backlog: { label: 'Backlog', defaultColor: 'Gray' },
+  todo: { label: 'Todo', defaultColor: 'Blue' },
+  in_progress: { label: 'In Progress', defaultColor: 'Amber' },
+  blocked: { label: 'Blocked', defaultColor: 'Red' },
+  complete: { label: 'Complete', defaultColor: 'Green' },
+}
+
+function StatusColorsSection() {
+  return (
+    <section className="space-y-4">
+      <SectionHeader
+        title="Status Colors"
+        description="Current color assignments for task statuses."
+      />
+      <div className="space-y-2">
+        {Object.entries(STATUS_DEFAULTS).map(([status, config]) => (
+          <div key={status} className="flex items-center justify-between py-1">
+            <div className="flex items-center gap-2">
+              <span className={cn('size-3 rounded-full', COLOR_OPTIONS.find((c) => c.label === config.defaultColor)?.preview)} />
+              <span className="text-sm">{config.label}</span>
+            </div>
+            <span className="text-xs text-muted-foreground">{config.defaultColor}</span>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-muted-foreground/50">
+        Color customization coming soon. These are the current defaults.
+      </p>
+    </section>
+  )
+}
+
 // ── Main Page ──
 
 export function SettingsPage() {
@@ -511,7 +566,7 @@ export function SettingsPage() {
       <section className="space-y-4">
         <SectionHeader
           title="Focus Mode"
-          description="Configure your default Pomodoro break length."
+          description="Configure Pomodoro and focus session behavior."
         />
         <div className="space-y-5">
           {FOCUS_FIELDS.map((field) => (
@@ -525,6 +580,11 @@ export function SettingsPage() {
           ))}
         </div>
       </section>
+
+      <Separator />
+
+      {/* Status Colors */}
+      <StatusColorsSection />
 
       <Separator />
 

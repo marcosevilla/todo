@@ -1,0 +1,283 @@
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { useDocsStore } from '@/stores/docsStore'
+import { createDocFolder, renameDocFolder, deleteDocFolder, createDocument, deleteDocument } from '@/services/tauri'
+import { cn } from '@/lib/utils'
+import { ChevronRight, Plus, FolderOpen, FileText, Trash2, Pencil, PanelLeftClose } from 'lucide-react'
+import { toast } from 'sonner'
+import type { DocFolder, Document } from '@/services/tauri'
+
+export function FolderTree() {
+  const folders = useDocsStore((s) => s.folders)
+  const documents = useDocsStore((s) => s.documents)
+  const selectedDocId = useDocsStore((s) => s.selectedDocId)
+  const selectedFolderId = useDocsStore((s) => s.selectedFolderId)
+  const selectDoc = useDocsStore((s) => s.selectDoc)
+  const selectFolder = useDocsStore((s) => s.selectFolder)
+  const setFolderTreeCollapsed = useDocsStore((s) => s.setFolderTreeCollapsed)
+  const folderTreeWidth = useDocsStore((s) => s.folderTreeWidth)
+  const setFolderTreeWidth = useDocsStore((s) => s.setFolderTreeWidth)
+  const refresh = useDocsStore((s) => s.refresh)
+
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(folders.map((f) => f.id)))
+  const [newFolderInput, setNewFolderInput] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  const [dragging, setDragging] = useState(false)
+  const startX = useRef(0)
+  const startWidth = useRef(220)
+
+  // Load on mount
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  // Auto-expand new folders
+  useEffect(() => {
+    setExpandedFolders(new Set(folders.map((f) => f.id)))
+  }, [folders])
+
+  // Group docs by folder
+  const docsByFolder: Record<string, Document[]> = {}
+  const unfiled: Document[] = []
+  for (const doc of documents) {
+    if (doc.folder_id) {
+      if (!docsByFolder[doc.folder_id]) docsByFolder[doc.folder_id] = []
+      docsByFolder[doc.folder_id].push(doc)
+    } else {
+      unfiled.push(doc)
+    }
+  }
+
+  const toggleFolder = (id: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleCreateFolder = useCallback(async () => {
+    const name = newFolderName.trim()
+    if (!name) return
+    try {
+      await createDocFolder(name)
+      setNewFolderName('')
+      setNewFolderInput(false)
+      refresh()
+    } catch (e) {
+      toast.error(`Failed to create folder: ${e}`)
+    }
+  }, [newFolderName, refresh])
+
+  const handleCreateDoc = useCallback(async (folderId?: string) => {
+    try {
+      const doc = await createDocument('Untitled', folderId)
+      await refresh()
+      selectDoc(doc.id)
+    } catch (e) {
+      toast.error(`Failed to create document: ${e}`)
+    }
+  }, [refresh, selectDoc])
+
+  const handleDeleteDoc = useCallback(async (id: string) => {
+    try {
+      await deleteDocument(id)
+      if (selectedDocId === id) selectDoc(null)
+      refresh()
+    } catch (e) {
+      toast.error(`Failed to delete: ${e}`)
+    }
+  }, [selectedDocId, selectDoc, refresh])
+
+  const handleDeleteFolder = useCallback(async (id: string) => {
+    try {
+      await deleteDocFolder(id)
+      refresh()
+    } catch (e) {
+      toast.error(`Failed to delete folder: ${e}`)
+    }
+  }, [refresh])
+
+  // Resize
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setDragging(true)
+    startX.current = e.clientX
+    startWidth.current = folderTreeWidth
+  }, [folderTreeWidth])
+
+  useEffect(() => {
+    if (!dragging) return
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    function handleMouseMove(e: MouseEvent) {
+      const delta = e.clientX - startX.current
+      setFolderTreeWidth(Math.min(400, Math.max(160, startWidth.current + delta)))
+    }
+    function handleMouseUp() {
+      setDragging(false)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [dragging, setFolderTreeWidth])
+
+  return (
+    <div
+      className="relative flex flex-col border-r border-border/20 bg-muted/10 overflow-hidden"
+      style={{ width: folderTreeWidth }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border/10">
+        <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">Docs</span>
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={() => handleCreateDoc(selectedFolderId ?? undefined)}
+            className="flex size-5 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+            title="New document"
+          >
+            <Plus className="size-3" />
+          </button>
+          <button
+            onClick={() => setFolderTreeCollapsed(true)}
+            className="flex size-5 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+            title="Collapse"
+          >
+            <PanelLeftClose className="size-3" />
+          </button>
+        </div>
+      </div>
+
+      {/* Folder list */}
+      <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
+        {folders.map((folder) => (
+          <div key={folder.id}>
+            {/* Folder header */}
+            <div className="group flex items-center gap-1 rounded-md px-1.5 py-1 hover:bg-accent/10 transition-colors">
+              <button onClick={() => toggleFolder(folder.id)} className="shrink-0">
+                <ChevronRight className={cn('size-3 text-muted-foreground/40 transition-transform', expandedFolders.has(folder.id) && 'rotate-90')} />
+              </button>
+              <FolderOpen className="size-3.5 shrink-0 text-muted-foreground/50" />
+              <span className="flex-1 text-xs font-medium truncate">{folder.name}</span>
+              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => handleCreateDoc(folder.id)}
+                  className="flex size-4 items-center justify-center rounded text-muted-foreground/30 hover:text-muted-foreground"
+                >
+                  <Plus className="size-2.5" />
+                </button>
+                <button
+                  onClick={() => handleDeleteFolder(folder.id)}
+                  className="flex size-4 items-center justify-center rounded text-destructive/30 hover:text-destructive"
+                >
+                  <Trash2 className="size-2.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Docs in folder */}
+            {expandedFolders.has(folder.id) && (
+              <div className="ml-4 space-y-0.5">
+                {(docsByFolder[folder.id] || []).map((doc) => (
+                  <button
+                    key={doc.id}
+                    onClick={() => selectDoc(doc.id)}
+                    className={cn(
+                      'group/doc flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left transition-colors',
+                      selectedDocId === doc.id
+                        ? 'bg-accent/40 text-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/10',
+                    )}
+                  >
+                    <FileText className="size-3 shrink-0 text-muted-foreground/40" />
+                    <span className="flex-1 text-xs truncate">{doc.title || 'Untitled'}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteDoc(doc.id) }}
+                      className="flex size-4 items-center justify-center rounded text-destructive/30 opacity-0 group-hover/doc:opacity-100 hover:text-destructive"
+                    >
+                      <Trash2 className="size-2.5" />
+                    </button>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Unfiled docs */}
+        {unfiled.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1 px-1.5 py-1">
+              <span className="text-[10px] text-muted-foreground/30 uppercase tracking-wider">Unfiled</span>
+            </div>
+            <div className="space-y-0.5">
+              {unfiled.map((doc) => (
+                <button
+                  key={doc.id}
+                  onClick={() => selectDoc(doc.id)}
+                  className={cn(
+                    'group/doc flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left transition-colors',
+                    selectedDocId === doc.id
+                      ? 'bg-accent/40 text-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/10',
+                  )}
+                >
+                  <FileText className="size-3 shrink-0 text-muted-foreground/40" />
+                  <span className="flex-1 text-xs truncate">{doc.title || 'Untitled'}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteDoc(doc.id) }}
+                    className="flex size-4 items-center justify-center rounded text-destructive/30 opacity-0 group-hover/doc:opacity-100 hover:text-destructive"
+                  >
+                    <Trash2 className="size-2.5" />
+                  </button>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* New folder input */}
+        {newFolderInput ? (
+          <div className="px-1.5 py-1">
+            <input
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreateFolder()
+                if (e.key === 'Escape') { setNewFolderInput(false); setNewFolderName('') }
+              }}
+              onBlur={() => { if (!newFolderName.trim()) setNewFolderInput(false) }}
+              placeholder="Folder name..."
+              className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/30 border-b border-border/20 py-0.5"
+              autoFocus
+            />
+          </div>
+        ) : (
+          <button
+            onClick={() => setNewFolderInput(true)}
+            className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground/30 hover:text-muted-foreground hover:bg-accent/10 transition-colors"
+          >
+            <Plus className="size-3" />
+            New folder
+          </button>
+        )}
+      </div>
+
+      {/* Resize handle */}
+      <div
+        onMouseDown={handleMouseDown}
+        className={cn(
+          'absolute right-0 top-0 bottom-0 z-10 w-px cursor-col-resize transition-colors bg-border/20',
+          dragging ? 'bg-accent-blue/50 w-1' : 'hover:bg-accent-blue/30 hover:w-1',
+        )}
+      />
+    </div>
+  )
+}

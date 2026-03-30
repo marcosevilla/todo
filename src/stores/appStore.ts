@@ -4,11 +4,11 @@ import type {
   TodoistTask,
 } from '@/services/types'
 
-type Page = 'today' | 'tasks' | 'inbox' | 'session' | 'settings'
+type Page = 'today' | 'tasks' | 'inbox' | 'docs' | 'session' | 'settings'
 
 interface AppState {
   // Setup
-  setupComplete: boolean | null // null = not checked yet
+  setupComplete: boolean | null
   setSetupComplete: (v: boolean) => void
 
   // Navigation
@@ -25,18 +25,9 @@ interface AppState {
   obsidianToday: string | null
   setObsidianToday: (content: string | null) => void
 
-  quickCaptures: string | null
-  setQuickCaptures: (content: string | null) => void
-
   // Quick capture trigger (from tray)
   captureRequested: boolean
   setCaptureRequested: (v: boolean) => void
-
-  // Refresh state
-  lastRefreshedAt: string | null
-  setLastRefreshedAt: (at: string) => void
-  isRefreshing: boolean
-  setIsRefreshing: (v: boolean) => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -55,14 +46,6 @@ export const useAppStore = create<AppState>((set) => ({
   obsidianToday: null,
   setObsidianToday: (content) => set({ obsidianToday: content }),
 
-  quickCaptures: null,
-  setQuickCaptures: (content) => set({ quickCaptures: content }),
-
   captureRequested: false,
   setCaptureRequested: (v) => set({ captureRequested: v }),
-
-  lastRefreshedAt: null,
-  setLastRefreshedAt: (at) => set({ lastRefreshedAt: at }),
-  isRefreshing: false,
-  setIsRefreshing: (v) => set({ isRefreshing: v }),
 }))

@@ -15,6 +15,7 @@ pub struct LocalTask {
     pub completed: bool,
     pub completed_at: Option<String>,
     pub status: String,
+    pub linked_doc_id: Option<String>,
     pub position: i64,
     pub created_at: String,
     pub updated_at: String,
@@ -32,6 +33,7 @@ fn row_to_task(
         i64,
         Option<String>,
         String,
+        Option<String>,
         i64,
         String,
         String,
@@ -48,9 +50,10 @@ fn row_to_task(
         completed: row.7 != 0,
         completed_at: row.8,
         status: row.9,
-        position: row.10,
-        created_at: row.11,
-        updated_at: row.12,
+        linked_doc_id: row.10,
+        position: row.11,
+        created_at: row.12,
+        updated_at: row.13,
     }
 }
 
@@ -79,7 +82,7 @@ pub async fn reorder_local_tasks(app: AppHandle, task_ids: Vec<String>) -> Resul
     Ok(())
 }
 
-const SELECT_COLS: &str = "id, parent_id, content, description, project_id, priority, due_date, completed, completed_at, status, position, created_at, updated_at";
+const SELECT_COLS: &str = "id, parent_id, content, description, project_id, priority, due_date, completed, completed_at, status, linked_doc_id, position, created_at, updated_at";
 
 #[tauri::command]
 pub async fn get_local_tasks(
@@ -143,6 +146,7 @@ pub async fn get_local_tasks(
         i64,
         Option<String>,
         String,
+        Option<String>,
         i64,
         String,
         String,
@@ -234,6 +238,7 @@ pub async fn create_local_task(
         i64,
         Option<String>,
         String,
+        Option<String>,
         i64,
         String,
         String,
@@ -256,6 +261,7 @@ pub async fn update_local_task(
     priority: Option<i64>,
     due_date: Option<String>,
     clear_due_date: Option<bool>,
+    linked_doc_id: Option<String>,
 ) -> Result<LocalTask, String> {
     let pool = app.state::<SqlitePool>();
 
@@ -306,6 +312,14 @@ pub async fn update_local_task(
             .await
             .map_err(|e| e.to_string())?;
     }
+    if let Some(ref doc_id) = linked_doc_id {
+        sqlx::query("UPDATE local_tasks SET linked_doc_id = ?, updated_at = datetime('now') WHERE id = ?")
+            .bind(doc_id)
+            .bind(&id)
+            .execute(pool.inner())
+            .await
+            .map_err(|e| e.to_string())?;
+    }
 
     // Log activity with changed fields
     let mut fields_changed = Vec::new();
@@ -313,6 +327,7 @@ pub async fn update_local_task(
     if description.is_some() { fields_changed.push("description"); }
     if project_id.is_some() { fields_changed.push("project_id"); }
     if priority.is_some() { fields_changed.push("priority"); }
+    if linked_doc_id.is_some() { fields_changed.push("linked_doc_id"); }
     if due_date.is_some() || clear_due_date.unwrap_or(false) { fields_changed.push("due_date"); }
     if !fields_changed.is_empty() {
         // Use task_moved when only project_id changed
@@ -337,6 +352,7 @@ pub async fn update_local_task(
         i64,
         Option<String>,
         String,
+        Option<String>,
         i64,
         String,
         String,

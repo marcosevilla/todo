@@ -1,4 +1,3 @@
-import { useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { TaskItem } from '@/components/tasks/TaskItem'
@@ -13,12 +12,7 @@ interface TaskRowProps {
   focused?: boolean
 }
 
-export function TaskRow({ task, onComplete, onSnooze, focused }: TaskRowProps) {
-  const handleToggle = useCallback(
-    () => onComplete(task.id),
-    [onComplete, task.id],
-  )
-
+export function TaskRow({ task, onComplete: _onComplete, onSnooze, focused }: TaskRowProps) {
   return (
     <div className="group relative flex items-center">
       <TaskItem
@@ -32,7 +26,6 @@ export function TaskRow({ task, onComplete, onSnooze, focused }: TaskRowProps) {
           projectColor: '#e44332', // Todoist red
           source: 'todoist',
         }}
-        onToggle={handleToggle}
         focused={focused}
         className="flex-1"
       />

@@ -1,5 +1,7 @@
 import { cn } from '@/lib/utils'
+import { Check } from 'lucide-react'
 import { StatusDropdown } from './StatusDropdown'
+import { useSelectionStore } from '@/stores/selectionStore'
 import type { TaskStatus } from '@/services/tauri'
 import { format, parseISO, isToday, isTomorrow, isPast } from 'date-fns'
 
@@ -77,20 +79,48 @@ export interface TaskItemData {
 interface TaskItemProps {
   task: TaskItemData
   onContentClick?: () => void
+  allIds?: string[]
   focused?: boolean
   className?: string
 }
 
-export function TaskItem({ task, onContentClick, focused, className }: TaskItemProps) {
+export function TaskItem({ task, onContentClick, allIds, focused, className }: TaskItemProps) {
+  const isSelected = useSelectionStore((s) => s.selectedIds.has(task.id))
+  const hasSelection = useSelectionStore((s) => s.hasSelection)
+
+  const handleSelectClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const store = useSelectionStore.getState()
+    if (e.shiftKey && allIds) {
+      store.rangeSelect(task.id, 'task', allIds)
+    } else {
+      store.toggle(task.id, 'task')
+    }
+  }
 
   return (
     <div
       className={cn(
         'group flex items-center gap-2 h-9 px-2 rounded-md transition-all duration-150 hover:bg-accent/30',
         focused && 'ring-1 ring-accent-blue/40 bg-accent/10',
+        isSelected && 'bg-accent-blue/10',
         className,
       )}
     >
+      {/* Selection checkbox */}
+      <button
+        onClick={handleSelectClick}
+        className={cn(
+          'flex size-4 shrink-0 items-center justify-center rounded border transition-all',
+          isSelected
+            ? 'border-accent-blue bg-accent-blue text-white'
+            : 'border-muted-foreground/30 hover:border-muted-foreground/50',
+          hasSelection || isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+        )}
+      >
+        {isSelected && <Check className="size-3" />}
+      </button>
+
       {/* Priority */}
       <PriorityIndicator priority={task.priority} />
 

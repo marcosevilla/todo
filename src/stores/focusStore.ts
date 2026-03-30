@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import { startFocusSession, endFocusSession, updateTaskStatus } from '@/services/tauri'
-import type { LocalTask } from '@/services/tauri'
+import { startFocusSession, endFocusSession, updateTaskStatus, getSetting } from '@/services/tauri'
+import type { LocalTask, TaskStatus } from '@/services/tauri'
 
 export type TimerMode = 'up' | 'down'
 
@@ -131,10 +131,14 @@ export const useFocusStore = create<FocusStore>((set, get) => ({
     })
   },
 
-  abandonFocus: () => {
+  abandonFocus: async () => {
     const { taskId, elapsed } = get()
     if (taskId) {
       endFocusSession(taskId, 'focus_abandoned', elapsed).catch(() => {})
+      // Set status based on setting (default: todo)
+      const abandonStatus = await getSetting('focus_abandon_status').catch(() => null)
+      const status: TaskStatus = (abandonStatus === 'in_progress' ? 'in_progress' : 'todo')
+      updateTaskStatus(taskId, status).catch(() => {})
     }
     get().reset()
   },

@@ -1,0 +1,101 @@
+import { useMemo, useRef, useEffect } from 'react'
+import { cn } from '@/lib/utils'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+
+interface DateStripProps {
+  briefDates: Set<string>
+  selected: string
+  onSelect: (date: string) => void
+}
+
+function formatDatePill(dateStr: string): { day: string; weekday: string; isToday: boolean } {
+  const date = new Date(dateStr + 'T12:00:00') // avoid timezone issues
+  const today = new Date()
+  const isToday =
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  return {
+    day: date.getDate().toString(),
+    weekday: date.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 2),
+    isToday,
+  }
+}
+
+function generateDateRange(center: string, range: number): string[] {
+  const dates: string[] = []
+  const centerDate = new Date(center + 'T12:00:00')
+  for (let i = -range; i <= range; i++) {
+    const d = new Date(centerDate)
+    d.setDate(d.getDate() + i)
+    dates.push(d.toISOString().slice(0, 10))
+  }
+  return dates
+}
+
+export function DateStrip({ briefDates, selected, onSelect }: DateStripProps) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const dates = useMemo(() => generateDateRange(selected, 14), [selected])
+
+  // Scroll to selected date on mount
+  useEffect(() => {
+    const el = scrollRef.current?.querySelector('[data-selected="true"]')
+    if (el) el.scrollIntoView({ inline: 'center', behavior: 'smooth' })
+  }, [selected])
+
+  const scroll = (dir: number) => {
+    scrollRef.current?.scrollBy({ left: dir * 200, behavior: 'smooth' })
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={() => scroll(-1)}
+        className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/30 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+      >
+        <ChevronLeft className="size-3.5" />
+      </button>
+
+      <div
+        ref={scrollRef}
+        className="flex-1 flex gap-1 overflow-x-auto scrollbar-none py-1"
+      >
+        {dates.map((dateStr) => {
+          const { day, weekday, isToday } = formatDatePill(dateStr)
+          const isSelected = dateStr === selected
+          const hasBrief = briefDates.has(dateStr)
+
+          return (
+            <button
+              key={dateStr}
+              data-selected={isSelected}
+              onClick={() => onSelect(dateStr)}
+              className={cn(
+                'flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 min-w-[36px] transition-all duration-150',
+                isSelected
+                  ? 'bg-foreground text-background'
+                  : isToday
+                    ? 'bg-accent-blue/10 text-accent-blue'
+                    : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-accent/20',
+              )}
+            >
+              <span className="text-[9px] font-medium uppercase">{weekday}</span>
+              <span className="text-sm font-semibold tabular-nums">{day}</span>
+              {hasBrief && !isSelected && (
+                <span className="size-1 rounded-full bg-accent-blue/60" />
+              )}
+              {!hasBrief && <span className="size-1" />}
+            </button>
+          )
+        })}
+      </div>
+
+      <button
+        onClick={() => scroll(1)}
+        className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/30 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+      >
+        <ChevronRight className="size-3.5" />
+      </button>
+    </div>
+  )
+}

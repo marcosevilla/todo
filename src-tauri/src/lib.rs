@@ -12,7 +12,7 @@ use tauri::{
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt as AutostartManagerExt};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-use commands::{activity, ai, calendar, captures, focus, local_tasks, obsidian, open_url, priorities, progress, projects, settings, todoist, updater};
+use commands::{activity, ai, calendar, captures, docs, focus, local_tasks, obsidian, open_url, priorities, progress, projects, settings, todoist, updater};
 
 /// Show and focus the main window
 fn show_window(app: &tauri::AppHandle) {
@@ -187,6 +187,8 @@ pub fn run() {
             calendar::get_calendar_feeds,
             calendar::add_calendar_feed,
             calendar::remove_calendar_feed,
+            obsidian::read_daily_brief,
+            obsidian::list_brief_dates,
             obsidian::read_quick_captures,
             obsidian::write_quick_capture,
             obsidian::read_session_log,
@@ -211,6 +213,20 @@ pub fn run() {
             activity::get_activity_log,
             activity::get_activity_summary,
             ai::break_down_task,
+            docs::get_doc_folders,
+            docs::create_doc_folder,
+            docs::rename_doc_folder,
+            docs::delete_doc_folder,
+            docs::get_documents,
+            docs::get_document,
+            docs::create_document,
+            docs::update_document,
+            docs::delete_document,
+            docs::search_documents,
+            docs::get_doc_notes,
+            docs::create_doc_note,
+            docs::delete_doc_note,
+            docs::reorder_doc_notes,
             captures::get_captures,
             captures::create_capture,
             captures::convert_capture_to_task,

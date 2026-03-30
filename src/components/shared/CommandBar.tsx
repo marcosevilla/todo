@@ -2,12 +2,14 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { Search } from 'lucide-react'
 import { useLocalTasks, useProjects } from '@/hooks/useLocalTasks'
-import { createCapture, logActivity, breakDownTask, createLocalTask, updateLocalTask } from '@/services/tauri'
+import { createCapture, logActivity, breakDownTask, createLocalTask, updateLocalTask, searchDocuments } from '@/services/tauri'
 import { emitTasksChanged } from '@/hooks/useLocalTasks'
+import { useDocsStore } from '@/stores/docsStore'
+import { useAppStore } from '@/stores/appStore'
 import { CommandBarResults, type BarMode } from './CommandBarResults'
 import { toast } from 'sonner'
 import { taskToast } from '@/lib/taskToast'
-import type { LocalTask } from '@/services/tauri'
+import type { LocalTask, Document } from '@/services/tauri'
 
 const MAX_RESULTS = 8
 
@@ -24,6 +26,7 @@ function parseMode(raw: string): { mode: BarMode; query: string } {
   if (trimmed.startsWith('/task ')) return { mode: 'task', query: trimmed.slice(6) }
   if (trimmed.startsWith('/capture ')) return { mode: 'capture', query: trimmed.slice(9) }
   if (trimmed.startsWith('/note ')) return { mode: 'capture', query: trimmed.slice(6) }
+  if (trimmed.startsWith('/doc ')) return { mode: 'doc', query: trimmed.slice(5) }
   if (trimmed.startsWith('/search ')) return { mode: 'search', query: trimmed.slice(8) }
   return { mode: 'search', query: trimmed }
 }
@@ -53,18 +56,31 @@ export function CommandBar() {
 
   const { tasks, addTask, complete, refresh } = useLocalTasks()
   const { projects } = useProjects()
+  const [docResults, setDocResults] = useState<Document[]>([])
 
   const { mode, query } = useMemo(() => parseMode(rawQuery), [rawQuery])
 
   const filteredTasks = useMemo(() => {
-    if (!query.trim()) return []
+    if (!query.trim() || mode === 'doc') return []
     const q = query.toLowerCase()
     return tasks
       .filter((t) => !t.completed && t.content.toLowerCase().includes(q))
       .slice(0, MAX_RESULTS)
-  }, [query, tasks])
+  }, [query, tasks, mode])
 
-  const totalItems = filteredTasks.length + 2
+  // Search docs when query changes
+  useEffect(() => {
+    if (!query.trim() || (mode !== 'search' && mode !== 'doc')) {
+      setDocResults([])
+      return
+    }
+    const timeout = setTimeout(() => {
+      searchDocuments(query.trim()).then((docs) => setDocResults(docs.slice(0, 5))).catch(() => setDocResults([]))
+    }, 200)
+    return () => clearTimeout(timeout)
+  }, [query, mode])
+
+  const totalItems = filteredTasks.length + docResults.length + 2
 
   // Open/close
   const openBar = useCallback(() => {
@@ -120,12 +136,18 @@ export function CommandBar() {
     if (!text) return
     try {
       await createCapture(text, 'command_bar')
-      toast.success(`Captured: "${text}"`)
+      toast.success(`Note saved: "${text}"`)
       closeBar()
     } catch (e) {
-      toast.error(`Failed to capture: ${e}`)
+      toast.error(`Failed to save note: ${e}`)
     }
   }, [query, closeBar])
+
+  const handleOpenDoc = useCallback((docId: string) => {
+    useDocsStore.getState().selectDoc(docId)
+    useAppStore.getState().setCurrentPage('docs')
+    closeBar()
+  }, [closeBar])
 
   const handleComplete = useCallback(async (id: string) => {
     const task = tasks.find((t) => t.id === id)
@@ -232,9 +254,10 @@ export function CommandBar() {
 
   let placeholder = 'What do you need?'
   if (rawQuery.startsWith('/task ')) placeholder = 'Create a task...'
-  else if (rawQuery.startsWith('/capture ') || rawQuery.startsWith('/note ')) placeholder = 'Capture a note...'
+  else if (rawQuery.startsWith('/capture ') || rawQuery.startsWith('/note ')) placeholder = 'Save a note...'
+  else if (rawQuery.startsWith('/doc ')) placeholder = 'Search docs...'
   else if (rawQuery.startsWith('/search ')) placeholder = 'Search tasks...'
-  else if (rawQuery === '/') placeholder = 'task, capture, search...'
+  else if (rawQuery === '/') placeholder = 'task, capture, doc, search...'
 
   const showResults = query.trim().length > 0
 
@@ -270,11 +293,13 @@ export function CommandBar() {
               query={query.trim()}
               mode={mode}
               tasks={filteredTasks}
+              docResults={docResults}
               projects={projects}
               selectedIndex={selectedIndex}
               onComplete={handleComplete}
               onMove={handleMove}
               onBreakDown={handleBreakDown}
+              onOpenDoc={handleOpenDoc}
               onCreateTask={handleCreateTask}
               onCapture={handleCapture}
               onSelect={setSelectedIndex}

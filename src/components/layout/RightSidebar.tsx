@@ -3,7 +3,7 @@ import { CalendarPanel } from '@/components/calendar/CalendarPanel'
 import { HabitsPanel } from '@/components/obsidian/HabitsPanel'
 import { useCalendar } from '@/hooks/useCalendar'
 import { Separator } from '@/components/ui/separator'
-import { Calendar, Heart } from 'lucide-react'
+import { Calendar, Heart, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { LucideIcon } from 'lucide-react'
 
@@ -38,6 +38,7 @@ export function RightSidebar() {
   const { events, loading } = useCalendar()
   const hasEvents = loading || events.length > 0
 
+  const [collapsed, setCollapsed] = useState(false)
   const [width, setWidth] = useState(DEFAULT_WIDTH)
   const [dragging, setDragging] = useState(false)
   const startX = useRef(0)
@@ -76,22 +77,52 @@ export function RightSidebar() {
 
   return (
     <aside
-      className="relative flex flex-col border-l border-border/20 bg-muted/10 overflow-hidden"
-      style={{ width }}
+      className="relative flex flex-col border-l border-border/20 bg-muted/10 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      style={{ width: collapsed ? 36 : width }}
     >
-      {/* Resize handle */}
-      <div
-        onMouseDown={handleMouseDown}
-        className={cn(
-          'absolute left-0 top-0 bottom-0 z-10 w-1 cursor-col-resize transition-colors',
-          dragging ? 'bg-accent-blue/40' : 'hover:bg-accent-blue/20',
-        )}
-      />
-      <div className="flex-1 overflow-y-auto">
+      {/* Collapsed state — expand button */}
+      {collapsed && (
+        <div className="flex flex-col items-center py-3">
+          <button
+            onClick={() => setCollapsed(false)}
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+            title="Expand sidebar"
+          >
+            <PanelRightOpen className="size-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Expanded state */}
+      {!collapsed && (
+        <>
+          {/* Resize handle */}
+          <div
+            onMouseDown={handleMouseDown}
+            className={cn(
+              'absolute left-0 top-0 bottom-0 z-10 w-px cursor-col-resize transition-colors bg-border/30',
+              dragging ? 'bg-accent-blue/50 w-1' : 'hover:bg-accent-blue/30 hover:w-1',
+            )}
+          />
+
+          {/* Collapse button */}
+          <div className="flex justify-end px-2 pt-2">
+            <button
+              onClick={() => setCollapsed(true)}
+              className="flex size-6 items-center justify-center rounded-md text-muted-foreground/30 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+              title="Collapse sidebar"
+            >
+              <PanelRightClose className="size-3.5" />
+            </button>
+          </div>
+        </>
+      )}
+
+      {!collapsed && <div className="flex-1 overflow-y-auto">
         <div className="flex flex-col">
           {/* Schedule section */}
           {hasEvents && (
-            <div className="p-4">
+            <div className="p-4 pt-2">
               <SectionHeader icon={Calendar} label="Schedule" />
               <CalendarPanel />
             </div>
@@ -123,7 +154,7 @@ export function RightSidebar() {
             </>
           )}
         </div>
-      </div>
+      </div>}
     </aside>
   )
 }

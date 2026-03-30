@@ -4,7 +4,7 @@ import { ArrowLeft, ChevronRight } from 'lucide-react'
 
 function BreadcrumbLabel({ type, id }: { type: string; id: string }) {
   const { task } = useTaskDetail(type === 'task' ? id : null)
-  if (type === 'capture') return <span>Capture</span>
+  if (type === 'capture') return <span>Note</span>
   return <span className="truncate">{task?.content ?? '...'}</span>
 }
 

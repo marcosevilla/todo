@@ -2,12 +2,10 @@ import { useState, useCallback, useEffect } from 'react'
 import { useDetailStore } from '@/stores/detailStore'
 import { getCaptures, convertCaptureToTask, deleteCapture } from '@/services/tauri'
 import { emitTasksChanged } from '@/hooks/useLocalTasks'
-import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { DetailBreadcrumbs } from './DetailBreadcrumbs'
 import { TaskActivityLog } from './TaskActivityLog'
-import { InlineDescription } from './InlineDescription'
 import { PanelRight, X, Trash2, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { taskToast } from '@/lib/taskToast'
@@ -56,10 +54,10 @@ export function CaptureDetailPage() {
     if (!capture) return
     try {
       await deleteCapture(capture.id)
-      toast.success('Capture deleted')
+      toast.success('Note deleted')
       close()
     } catch (e) {
-      toast.error(`Failed to delete: ${e}`)
+      toast.error(`Failed to delete note: ${e}`)
     }
   }, [capture, close])
 
@@ -85,7 +83,7 @@ export function CaptureDetailPage() {
     return (
       <div className="space-y-4">
         <DetailBreadcrumbs />
-        <p className="text-sm text-muted-foreground">Capture not found.</p>
+        <p className="text-sm text-muted-foreground">Note not found.</p>
       </div>
     )
   }
