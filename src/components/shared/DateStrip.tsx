@@ -60,6 +60,7 @@ export function DateStrip({ briefDates, selected, onSelect }: DateStripProps) {
       <div
         ref={scrollRef}
         className="flex-1 flex gap-1 overflow-x-auto scrollbar-none py-1"
+        style={{ scrollSnapType: 'x mandatory' }}
       >
         {dates.map((dateStr) => {
           const { day, weekday, isToday } = formatDatePill(dateStr)
@@ -71,6 +72,7 @@ export function DateStrip({ briefDates, selected, onSelect }: DateStripProps) {
               key={dateStr}
               data-selected={isSelected}
               onClick={() => onSelect(dateStr)}
+              style={{ scrollSnapAlign: 'center' }}
               className={cn(
                 'flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 min-w-[36px] transition-all duration-150',
                 isSelected

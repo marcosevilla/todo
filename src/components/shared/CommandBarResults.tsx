@@ -1,10 +1,14 @@
-import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { PRIORITY_COLORS } from '@/lib/priorities'
 import { Check, Plus, PenLine, FolderInput, Sparkles, FileText, X, Loader2 } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { FocusPlayMenu } from '@/components/focus/FocusPlayMenu'
-import { ProjectPickerMenu } from './ProjectPickerMenu'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
 import type { LocalTask, Project, Document } from '@/services/tauri'
 
 export type BarMode = 'search' | 'task' | 'capture' | 'breakdown' | 'doc'
@@ -250,8 +254,6 @@ function TaskResultRow({
   onMove: (projectId: string) => void
   onBreakDown: () => void
 }) {
-  const [showMoveMenu, setShowMoveMenu] = useState(false)
-
   return (
     <div
       className={cn(
@@ -284,22 +286,32 @@ function TaskResultRow({
           <ActionButton icon={Check} hint="⌥C" title="Complete" onClick={onComplete} className="text-green-500/70 hover:text-green-500" />
           <FocusPlayMenu task={task} />
           <ActionButton icon={Sparkles} hint="⌥B" title="Break down" onClick={onBreakDown} className="text-purple-400/70 hover:text-purple-400" />
-          <div
-            className="relative"
-            onMouseEnter={() => setShowMoveMenu(true)}
-            onMouseLeave={() => setShowMoveMenu(false)}
-          >
-            <ActionButton icon={FolderInput} hint="⌥M" title="Move to project" onClick={() => setShowMoveMenu(!showMoveMenu)} className="text-muted-foreground/50 hover:text-muted-foreground" />
-            {showMoveMenu && (
-              <div className="absolute right-0 bottom-full z-50 mb-1 animate-in fade-in slide-in-from-bottom-1 duration-100">
-                <ProjectPickerMenu
-                  projects={projects}
-                  excludeProjectId={task.project_id}
-                  onSelect={(projectId) => { onMove(projectId); setShowMoveMenu(false) }}
-                />
-              </div>
-            )}
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="flex size-6 items-center justify-center rounded-md transition-colors hover:bg-accent/30 text-muted-foreground/50 hover:text-muted-foreground">
+              <Tooltip>
+                <TooltipTrigger className="flex size-6 items-center justify-center">
+                  <FolderInput className="size-3.5" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  Move to project <kbd className="ml-1 rounded bg-muted px-1 py-0.5 font-mono text-[10px]">⌥M</kbd>
+                </TooltipContent>
+              </Tooltip>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" sideOffset={4} align="end" className="w-36">
+              {projects
+                .filter((p) => p.id !== task.project_id)
+                .map((p) => (
+                  <DropdownMenuItem
+                    key={p.id}
+                    className="gap-2"
+                    onClick={() => onMove(p.id)}
+                  >
+                    <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                    <span className="truncate">{p.name}</span>
+                  </DropdownMenuItem>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )}
     </div>

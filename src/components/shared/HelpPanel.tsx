@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { HelpCircle, X, Keyboard, Map } from 'lucide-react'
-
-// ── Tab types ──
-type Tab = 'shortcuts' | 'roadmap'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 
 // ── Shortcuts data ──
 interface ShortcutRow { key: string; action: string }
@@ -143,7 +141,6 @@ const ROADMAP: RoadmapItem[] = [
 
 export function HelpPanel() {
   const [open, setOpen] = useState(false)
-  const [tab, setTab] = useState<Tab>('shortcuts')
   const [showDone, setShowDone] = useState(false)
 
   const doneCount = ROADMAP.filter((r) => r.done).length
@@ -168,43 +165,32 @@ export function HelpPanel() {
       {open && (
         <div className="fixed bottom-16 right-4 z-30 help-panel-enter">
           <div className="w-80 max-h-[70vh] flex flex-col rounded-xl border border-border/30 bg-popover shadow-xl shadow-black/10 overflow-hidden">
-            {/* Tab switcher */}
-            <div className="flex items-center border-b border-border/20 px-1 pt-1">
-              <button
-                onClick={() => setTab('shortcuts')}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition-colors',
-                  tab === 'shortcuts'
-                    ? 'bg-background text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <Keyboard className="size-3" />
-                Shortcuts
-              </button>
-              <button
-                onClick={() => setTab('roadmap')}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition-colors',
-                  tab === 'roadmap'
-                    ? 'bg-background text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <Map className="size-3" />
-                Roadmap
-                <span className="text-[10px] text-muted-foreground/50 tabular-nums">{doneCount}/{totalCount}</span>
-              </button>
-            </div>
+            <Tabs defaultValue="shortcuts" className="flex flex-col gap-0">
+              {/* Tab switcher */}
+              <div className="border-b border-border/20 px-1 pt-1">
+                <TabsList variant="line" className="h-auto gap-0 bg-transparent p-0">
+                  <TabsTrigger value="shortcuts" className="gap-1.5 rounded-t-lg rounded-b-none px-3 py-2 text-xs">
+                    <Keyboard className="size-3" />
+                    Shortcuts
+                  </TabsTrigger>
+                  <TabsTrigger value="roadmap" className="gap-1.5 rounded-t-lg rounded-b-none px-3 py-2 text-xs">
+                    <Map className="size-3" />
+                    Roadmap
+                    <span className="text-[10px] text-muted-foreground/50 tabular-nums">{doneCount}/{totalCount}</span>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-3">
-              {tab === 'shortcuts' ? (
-                <ShortcutsTab />
-              ) : (
-                <RoadmapTab showDone={showDone} setShowDone={setShowDone} />
-              )}
-            </div>
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-3">
+                <TabsContent value="shortcuts">
+                  <ShortcutsTab />
+                </TabsContent>
+                <TabsContent value="roadmap">
+                  <RoadmapTab showDone={showDone} setShowDone={setShowDone} />
+                </TabsContent>
+              </div>
+            </Tabs>
           </div>
         </div>
       )}

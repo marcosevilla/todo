@@ -2,8 +2,17 @@ import { useState, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { useFocusStore, type FocusConfig } from '@/stores/focusStore'
 import { getSetting } from '@/services/tauri'
-import { Play, Timer, TrendingUp, ChevronRight } from 'lucide-react'
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
+import { Play, Timer, TrendingUp } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 import type { LocalTask } from '@/services/tauri'
 
 const COUNTDOWN_OPTIONS = [
@@ -27,7 +36,6 @@ export function FocusPlayMenu({ task, onOpenChange }: FocusPlayMenuProps) {
     setOpenState(v)
     onOpenChange?.(v)
   }, [onOpenChange])
-  const [hoveredCountdown, setHoveredCountdown] = useState<number | null>(null)
   const [breakMinutes, setBreakMinutes] = useState(5)
   const startFocus = useFocusStore((s) => s.startFocus)
 
@@ -43,7 +51,7 @@ export function FocusPlayMenu({ task, onOpenChange }: FocusPlayMenuProps) {
   const handleStart = useCallback((config: FocusConfig) => {
     startFocus(task, config)
     setOpen(false)
-  }, [task, startFocus])
+  }, [task, startFocus, setOpen])
 
   const handleStopwatch = useCallback(() => {
     handleStart({ timerMode: 'up', targetMinutes: 0, breakMinutes: 0, totalPomodoros: 1 })
@@ -54,79 +62,56 @@ export function FocusPlayMenu({ task, onOpenChange }: FocusPlayMenuProps) {
   }, [handleStart, breakMinutes])
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger
         className={cn(
           'inline-flex size-6 items-center justify-center rounded-md transition-colors',
           'text-accent-blue/60 hover:text-accent-blue hover:bg-accent/20',
         )}
       >
         <Play className="size-3" />
-      </PopoverTrigger>
+      </DropdownMenuTrigger>
 
-      <PopoverContent
+      <DropdownMenuContent
         side="bottom"
         align="end"
         sideOffset={4}
-        className="w-44 gap-0 p-1"
+        className="w-44"
       >
-        {/* Countdown options */}
+        {/* Countdown options with rounds sub-menus */}
         {COUNTDOWN_OPTIONS.map((opt) => (
-          <div
-            key={opt.minutes}
-            className="relative"
-            onMouseEnter={() => setHoveredCountdown(opt.minutes)}
-            onMouseLeave={() => setHoveredCountdown(null)}
-          >
-            <button
-              className={cn(
-                'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors',
-                hoveredCountdown === opt.minutes ? 'bg-accent/40' : 'hover:bg-accent/20',
-              )}
+          <DropdownMenuSub key={opt.minutes}>
+            <DropdownMenuSubTrigger
+              className="gap-2"
               onClick={() => handleCountdown(opt.minutes, 1)}
             >
               <Timer className="size-3.5 text-muted-foreground" />
               <span className="flex-1 text-left">{opt.label}</span>
-              <ChevronRight className="size-3 text-muted-foreground/40" />
-            </button>
-
-            {/* Rounds sub-popover */}
-            {hoveredCountdown === opt.minutes && (
-              <div className="absolute left-full top-0 z-50 ml-1 animate-in fade-in slide-in-from-left-1 duration-100">
-                <div className="w-32 rounded-lg border border-border/50 bg-popover p-1 shadow-lg ring-1 ring-foreground/10">
-                  <button
-                    className="flex w-full items-center rounded-md px-2.5 py-1.5 text-sm hover:bg-accent/20 transition-colors"
-                    onClick={() => handleCountdown(opt.minutes, 1)}
-                  >
-                    No breaks
-                  </button>
-                  {ROUND_OPTIONS.filter((r) => r > 1).map((rounds) => (
-                    <button
-                      key={rounds}
-                      className="flex w-full items-center rounded-md px-2.5 py-1.5 text-sm hover:bg-accent/20 transition-colors"
-                      onClick={() => handleCountdown(opt.minutes, rounds)}
-                    >
-                      {rounds} rounds
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-32">
+              <DropdownMenuItem onClick={() => handleCountdown(opt.minutes, 1)}>
+                No breaks
+              </DropdownMenuItem>
+              {ROUND_OPTIONS.filter((r) => r > 1).map((rounds) => (
+                <DropdownMenuItem
+                  key={rounds}
+                  onClick={() => handleCountdown(opt.minutes, rounds)}
+                >
+                  {rounds} rounds
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         ))}
 
-        {/* Separator */}
-        <div className="mx-1.5 my-1 border-t border-border/30" />
+        <DropdownMenuSeparator />
 
         {/* Stopwatch option */}
-        <button
-          className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm hover:bg-accent/20 transition-colors"
-          onClick={handleStopwatch}
-        >
+        <DropdownMenuItem className="gap-2" onClick={handleStopwatch}>
           <TrendingUp className="size-3.5 text-muted-foreground" />
           <span>Stopwatch</span>
-        </button>
-      </PopoverContent>
-    </Popover>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

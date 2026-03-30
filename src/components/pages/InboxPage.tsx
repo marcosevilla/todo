@@ -23,7 +23,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { taskToast } from '@/lib/taskToast'
-import { ProjectPickerMenu } from '@/components/shared/ProjectPickerMenu'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
 import { Check, PenLine, ArrowRight, FileText, FolderInput, Trash2, Download, Search } from 'lucide-react'
 import type { LocalTask, Capture, Project, DocFolder, Document } from '@/services/tauri'
 
@@ -246,7 +251,6 @@ function InboxTaskRow({
   onDelete: (id: string) => void
   onMove: (id: string, projectId: string) => void
 }) {
-  const [showMoveMenu, setShowMoveMenu] = useState(false)
   const isSelected = useSelectionStore((s) => s.selectedIds.has(task.id))
   const hasSelection = useSelectionStore((s) => s.hasSelection)
   const focusActive = useFocusStore((s) => s.isActive)
@@ -277,36 +281,40 @@ function InboxTaskRow({
       <StatusDropdown taskId={task.id} status={task.status ?? 'todo'} />
 
       {/* Content */}
-      <span
+      <button
         onClick={() => useDetailStore.getState().openTask(task.id)}
-        className="flex-1 min-w-0 truncate text-sm cursor-pointer hover:text-foreground"
+        className="flex-1 min-w-0 truncate text-sm text-left bg-transparent border-none cursor-pointer hover:text-foreground"
       >
         {task.content}
-      </span>
+      </button>
 
       {/* Actions */}
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         {!task.completed && !focusActive && (
           <FocusPlayMenu task={task} />
         )}
-        <div className="relative">
-          <button
-            onClick={() => setShowMoveMenu(!showMoveMenu)}
+        <DropdownMenu>
+          <DropdownMenuTrigger
             className="flex size-6 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
             aria-label="Move to project"
           >
             <FolderInput className="size-3" />
-          </button>
-          {showMoveMenu && (
-            <div className="absolute right-0 bottom-full z-50 mb-1 animate-in fade-in slide-in-from-bottom-1 duration-100">
-              <ProjectPickerMenu
-                projects={projects}
-                excludeProjectId={task.project_id}
-                onSelect={(projectId) => { onMove(task.id, projectId); setShowMoveMenu(false) }}
-              />
-            </div>
-          )}
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" sideOffset={4} align="end" className="w-36">
+            {projects
+              .filter((p) => p.id !== task.project_id)
+              .map((p) => (
+                <DropdownMenuItem
+                  key={p.id}
+                  className="gap-2"
+                  onClick={() => onMove(task.id, p.id)}
+                >
+                  <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                  <span className="truncate">{p.name}</span>
+                </DropdownMenuItem>
+              ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <button
           onClick={() => onDelete(task.id)}
           className="flex size-6 items-center justify-center rounded-md text-destructive/40 hover:text-destructive hover:bg-accent/20 transition-colors"
@@ -359,12 +367,12 @@ function InboxNoteRow({
       <PenLine className="size-4 shrink-0 text-amber-500/60" />
 
       {/* Content */}
-      <span
+      <button
         onClick={() => useDetailStore.getState().openCapture(capture.id)}
-        className="flex-1 min-w-0 truncate text-sm cursor-pointer hover:text-foreground"
+        className="flex-1 min-w-0 truncate text-sm text-left bg-transparent border-none cursor-pointer hover:text-foreground"
       >
         {capture.content}
-      </span>
+      </button>
 
       {/* Actions */}
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">

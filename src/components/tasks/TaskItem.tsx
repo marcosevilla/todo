@@ -126,16 +126,26 @@ export function TaskItem({ task, onContentClick, allIds, focused, className }: T
       )}
 
       {/* Task name */}
-      <span
-        onClick={onContentClick}
-        className={cn(
-          'flex-1 min-w-0 truncate text-sm',
-          (task.completed || task.status === 'complete') && 'text-muted-foreground line-through',
-          onContentClick && 'cursor-pointer hover:text-foreground',
-        )}
-      >
-        {task.content}
-      </span>
+      {onContentClick ? (
+        <button
+          onClick={onContentClick}
+          className={cn(
+            'flex-1 min-w-0 truncate text-sm text-left bg-transparent border-none cursor-pointer hover:text-foreground',
+            (task.completed || task.status === 'complete') && 'text-muted-foreground line-through',
+          )}
+        >
+          {task.content}
+        </button>
+      ) : (
+        <span
+          className={cn(
+            'flex-1 min-w-0 truncate text-sm',
+            (task.completed || task.status === 'complete') && 'text-muted-foreground line-through',
+          )}
+        >
+          {task.content}
+        </span>
+      )}
 
       {/* Right side metadata */}
       <div className="flex shrink-0 items-center gap-2">

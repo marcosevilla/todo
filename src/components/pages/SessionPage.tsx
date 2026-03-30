@@ -2,11 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { readSessionLog } from '@/services/tauri'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { ActivityTimeline } from '@/components/activity/ActivityTimeline'
-
-// ── Tab system ──
-
-type Tab = 'timeline' | 'sessions'
 
 // ── Session log parsing (unchanged) ──
 
@@ -192,38 +189,19 @@ function SessionsTab() {
 // ── Main page ──
 
 export function SessionPage() {
-  const [tab, setTab] = useState<Tab>('timeline')
-
   return (
-    <div className="space-y-4">
-      {/* Tab switcher */}
-      <div className="flex items-center gap-1 rounded-lg bg-muted/40 p-1 w-fit">
-        <button
-          onClick={() => setTab('timeline')}
-          className={cn(
-            'rounded-md px-3 py-1.5 text-sm font-medium transition-all',
-            tab === 'timeline'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          Timeline
-        </button>
-        <button
-          onClick={() => setTab('sessions')}
-          className={cn(
-            'rounded-md px-3 py-1.5 text-sm font-medium transition-all',
-            tab === 'sessions'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          Sessions
-        </button>
-      </div>
+    <Tabs defaultValue="timeline">
+      <TabsList>
+        <TabsTrigger value="timeline">Timeline</TabsTrigger>
+        <TabsTrigger value="sessions">Sessions</TabsTrigger>
+      </TabsList>
 
-      {/* Tab content */}
-      {tab === 'timeline' ? <ActivityTimeline /> : <SessionsTab />}
-    </div>
+      <TabsContent value="timeline">
+        <ActivityTimeline />
+      </TabsContent>
+      <TabsContent value="sessions">
+        <SessionsTab />
+      </TabsContent>
+    </Tabs>
   )
 }

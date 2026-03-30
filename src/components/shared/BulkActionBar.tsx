@@ -1,14 +1,19 @@
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { useProjects } from '@/hooks/useLocalTasks'
 import { deleteLocalTask, deleteCapture, updateTaskStatus, updateLocalTask, convertCaptureToTask } from '@/services/tauri'
 import { emitTasksChanged } from '@/hooks/useLocalTasks'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { ProjectPickerMenu } from './ProjectPickerMenu'
 import { X, Trash2, ArrowRight, FolderInput } from 'lucide-react'
 import { STATUSES } from '@/components/tasks/StatusDropdown'
 import { playCompletionSound } from '@/lib/sound'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
 import type { TaskStatus } from '@/services/tauri'
 
 export function BulkActionBar() {
@@ -19,8 +24,6 @@ export function BulkActionBar() {
   const clear = useSelectionStore((s) => s.clear)
 
   const { projects } = useProjects()
-  const [showStatus, setShowStatus] = useState(false)
-  const [showMove, setShowMove] = useState(false)
 
   const handleDelete = useCallback(async () => {
     const ids = Array.from(selectedIds)
@@ -47,7 +50,6 @@ export function BulkActionBar() {
     toast.success(`Set ${ids.length} task${ids.length !== 1 ? 's' : ''} to ${status.replace('_', ' ')}`)
     emitTasksChanged()
     clear()
-    setShowStatus(false)
   }, [selectedIds, selectionType, clear])
 
   const handleMove = useCallback(async (projectId: string) => {
@@ -60,7 +62,6 @@ export function BulkActionBar() {
     toast.success(`Moved ${ids.length} task${ids.length !== 1 ? 's' : ''} to ${project?.name ?? 'project'}`)
     emitTasksChanged()
     clear()
-    setShowMove(false)
   }, [selectedIds, selectionType, projects, clear])
 
   const handleConvertToTasks = useCallback(async () => {
@@ -91,46 +92,53 @@ export function BulkActionBar() {
         {selectionType === 'task' && (
           <>
             {/* Set status */}
-            <div className="relative">
-              <ActionButton
-                icon={STATUSES[1].icon}
-                label="Status"
-                onClick={() => { setShowStatus(!showStatus); setShowMove(false) }}
-              />
-              {showStatus && (
-                <div className="absolute bottom-full left-0 mb-2 animate-in fade-in slide-in-from-bottom-1 duration-100">
-                  <div className="w-40 rounded-lg border border-border/30 bg-popover p-1 shadow-lg">
-                    {STATUSES.map((s) => {
-                      const SIcon = s.icon
-                      return (
-                        <button
-                          key={s.value}
-                          className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm hover:bg-accent/20 transition-colors"
-                          onClick={() => handleSetStatus(s.value)}
-                        >
-                          <SIcon className={cn('size-4', s.iconColor)} />
-                          {s.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger>
+                <ActionButton
+                  icon={STATUSES[1].icon}
+                  label="Status"
+                  onClick={() => {}}
+                />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" sideOffset={8} className="w-40">
+                {STATUSES.map((s) => {
+                  const SIcon = s.icon
+                  return (
+                    <DropdownMenuItem
+                      key={s.value}
+                      className="gap-2"
+                      onClick={() => handleSetStatus(s.value)}
+                    >
+                      <SIcon className={cn('size-4', s.iconColor)} />
+                      {s.label}
+                    </DropdownMenuItem>
+                  )
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* Move to project */}
-            <div className="relative">
-              <ActionButton
-                icon={FolderInput}
-                label="Move"
-                onClick={() => { setShowMove(!showMove); setShowStatus(false) }}
-              />
-              {showMove && (
-                <div className="absolute bottom-full left-0 mb-2 animate-in fade-in slide-in-from-bottom-1 duration-100">
-                  <ProjectPickerMenu projects={projects} onSelect={handleMove} />
-                </div>
-              )}
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger>
+                <ActionButton
+                  icon={FolderInput}
+                  label="Move"
+                  onClick={() => {}}
+                />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" sideOffset={8} className="w-36">
+                {projects.map((p) => (
+                  <DropdownMenuItem
+                    key={p.id}
+                    className="gap-2"
+                    onClick={() => handleMove(p.id)}
+                  >
+                    <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                    <span className="truncate">{p.name}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         )}
 

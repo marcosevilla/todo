@@ -1,12 +1,17 @@
 import { useState, useCallback } from 'react'
 import { cn } from '@/lib/utils'
-import { Trash2, FolderInput, Sparkles, Play, ChevronRight } from 'lucide-react'
+import { Trash2, FolderInput, Sparkles, Play } from 'lucide-react'
 import { useFocusStore } from '@/stores/focusStore'
 import { breakDownTask, createLocalTask, updateLocalTask, deleteLocalTask, logActivity } from '@/services/tauri'
 import { emitTasksChanged } from '@/hooks/useLocalTasks'
 import { toast } from 'sonner'
 import { taskToast } from '@/lib/taskToast'
-import { ProjectPickerMenu } from '@/components/shared/ProjectPickerMenu'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
 import type { LocalTask, Project } from '@/services/tauri'
 
 interface TaskActionBarProps {
@@ -16,7 +21,6 @@ interface TaskActionBarProps {
 }
 
 export function TaskActionBar({ task, projects, onDeleted }: TaskActionBarProps) {
-  const [showMoveSubmenu, setShowMoveSubmenu] = useState(false)
   const [breaking, setBreaking] = useState(false)
   const focusActive = useFocusStore((s) => s.isActive)
 
@@ -85,24 +89,25 @@ export function TaskActionBar({ task, projects, onDeleted }: TaskActionBarProps)
       />
 
       {/* Move to project */}
-      <div
-        className="relative"
-        onMouseEnter={() => setShowMoveSubmenu(true)}
-        onMouseLeave={() => setShowMoveSubmenu(false)}
-      >
-        <MenuItem icon={FolderInput} label="Move to project" onClick={() => setShowMoveSubmenu(!showMoveSubmenu)}>
-          <ChevronRight className="size-3 text-muted-foreground/40 ml-auto" />
-        </MenuItem>
-        {showMoveSubmenu && (
-          <div className="absolute left-full top-0 z-50 ml-1 animate-in fade-in slide-in-from-left-1 duration-100">
-            <ProjectPickerMenu
-              projects={projects}
-              excludeProjectId={task.project_id}
-              onSelect={handleMove}
-            />
-          </div>
-        )}
-      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger className="w-full">
+          <MenuItem icon={FolderInput} label="Move to project" onClick={() => {}} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="right" sideOffset={4} className="w-36">
+          {projects
+            .filter((p) => p.id !== task.project_id)
+            .map((p) => (
+              <DropdownMenuItem
+                key={p.id}
+                className="gap-2"
+                onClick={() => handleMove(p.id)}
+              >
+                <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                <span className="truncate">{p.name}</span>
+              </DropdownMenuItem>
+            ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {/* Separator */}
       <div className="mx-1.5 my-1 border-t border-border/20" />

@@ -169,6 +169,9 @@ export function Dashboard() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [setCurrentPage, detailTarget, closeDetail, focusActive])
 
+  const hideSidebar = currentPage === 'settings' || currentPage === 'session'
+  const contentMaxW = hideSidebar ? 'max-w-3xl' : 'max-w-2xl'
+
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       {/* Left: Nav sidebar */}
@@ -192,7 +195,7 @@ export function Dashboard() {
             <FocusView />
           ) : detailTarget && detailMode === 'body' ? (
             <main key={`detail-${detailTarget.id}`} className="flex-1 p-6 animate-page-enter">
-              <div className="mx-auto w-full max-w-2xl">
+              <div className={cn('mx-auto w-full', contentMaxW)}>
                 {detailTarget.type === 'task' ? <TaskDetailPage /> : <CaptureDetailPage />}
               </div>
             </main>
@@ -201,7 +204,7 @@ export function Dashboard() {
               {currentPage === 'docs' ? (
                 <PageContent page={currentPage} />
               ) : (
-                <div className="mx-auto w-full max-w-2xl">
+                <div className={cn('mx-auto w-full', contentMaxW)}>
                   <PageContent page={currentPage} />
                 </div>
               )}
@@ -211,7 +214,7 @@ export function Dashboard() {
       </div>
 
       {/* Right: Sidebar — detail view replaces Schedule/Habits when in sidebar mode */}
-      {currentPage !== 'settings' && currentPage !== 'session' && (
+      {!hideSidebar && (
         detailTarget && detailMode === 'sidebar' ? (
           <DetailSidebar />
         ) : (
