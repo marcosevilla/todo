@@ -12,7 +12,7 @@ use tauri::{
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt as AutostartManagerExt};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-use commands::{activity, ai, calendar, capture_routes, captures, docs, focus, local_tasks, obsidian, open_url, priorities, progress, projects, settings, todoist, updater};
+use commands::{activity, ai, calendar, capture_routes, captures, docs, focus, goals, habits, import, local_tasks, obsidian, open_url, priorities, progress, projects, settings, todoist, updater};
 
 /// Show and focus the main window
 fn show_window(app: &tauri::AppHandle) {
@@ -240,6 +240,28 @@ pub fn run() {
             focus::start_focus_session,
             focus::end_focus_session,
             focus::get_active_focus,
+            goals::get_goals,
+            goals::get_goal,
+            goals::create_goal,
+            goals::update_goal,
+            goals::delete_goal,
+            goals::get_milestones,
+            goals::create_milestone,
+            goals::update_milestone,
+            goals::delete_milestone,
+            goals::get_life_areas,
+            goals::create_life_area,
+            goals::update_life_area,
+            goals::delete_life_area,
+            habits::get_habits,
+            habits::create_habit,
+            habits::update_habit,
+            habits::delete_habit,
+            habits::log_habit,
+            habits::unlog_habit,
+            habits::get_habit_logs,
+            habits::get_habit_heatmap,
+            import::import_goals_from_vault,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

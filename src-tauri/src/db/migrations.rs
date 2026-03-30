@@ -257,6 +257,89 @@ CREATE INDEX IF NOT EXISTS idx_action_log_synced ON action_log(synced)
             ALTER TABLE captures ADD COLUMN routed_to TEXT
         "#,
     },
+    Migration {
+        version: 11,
+        description: "Goals, milestones, life areas",
+        sql: r#"
+            CREATE TABLE IF NOT EXISTS life_areas (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                color TEXT NOT NULL,
+                icon TEXT NOT NULL DEFAULT 'Target',
+                position INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            );
+
+            INSERT OR IGNORE INTO life_areas (id, name, color, icon, position) VALUES
+                ('area-career', 'Career', '#3b82f6', 'Briefcase', 0);
+            INSERT OR IGNORE INTO life_areas (id, name, color, icon, position) VALUES
+                ('area-health', 'Health', '#22c55e', 'Heart', 1);
+            INSERT OR IGNORE INTO life_areas (id, name, color, icon, position) VALUES
+                ('area-creative', 'Creative', '#f59e0b', 'Palette', 2);
+            INSERT OR IGNORE INTO life_areas (id, name, color, icon, position) VALUES
+                ('area-financial', 'Financial', '#8b5cf6', 'DollarSign', 3);
+            INSERT OR IGNORE INTO life_areas (id, name, color, icon, position) VALUES
+                ('area-personal', 'Personal', '#ec4899', 'User', 4);
+            INSERT OR IGNORE INTO life_areas (id, name, color, icon, position) VALUES
+                ('area-learning', 'Learning', '#06b6d4', 'GraduationCap', 5);
+
+            CREATE TABLE IF NOT EXISTS goals (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                life_area_id TEXT,
+                start_date TEXT,
+                target_date TEXT,
+                color TEXT,
+                position INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                FOREIGN KEY (life_area_id) REFERENCES life_areas(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS milestones (
+                id TEXT PRIMARY KEY,
+                goal_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                target_date TEXT,
+                completed INTEGER NOT NULL DEFAULT 0,
+                completed_at TEXT,
+                position INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE
+            )
+        "#,
+    },
+    Migration {
+        version: 12,
+        description: "Link projects to goals + habits tables",
+        sql: r#"
+            ALTER TABLE projects ADD COLUMN goal_id TEXT REFERENCES goals(id);
+            ALTER TABLE projects ADD COLUMN milestone_id TEXT REFERENCES milestones(id);
+
+            CREATE TABLE IF NOT EXISTS habits (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                category TEXT,
+                icon TEXT NOT NULL DEFAULT 'Circle',
+                color TEXT NOT NULL DEFAULT '#f59e0b',
+                active INTEGER NOT NULL DEFAULT 1,
+                position INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            );
+
+            CREATE TABLE IF NOT EXISTS habit_logs (
+                id TEXT PRIMARY KEY,
+                habit_id TEXT NOT NULL,
+                date TEXT NOT NULL,
+                intensity INTEGER NOT NULL DEFAULT 5,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                FOREIGN KEY (habit_id) REFERENCES habits(id) ON DELETE CASCADE,
+                UNIQUE(habit_id, date)
+            )
+        "#,
+    },
 ];
 
 pub async fn run_migrations(pool: &SqlitePool) -> Result<(), String> {
