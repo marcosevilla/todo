@@ -1,5 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAppStore } from '@/stores/appStore'
+import { useLayoutStore } from '@/stores/layoutStore'
+import { useDetailStore } from '@/stores/detailStore'
 import { cn } from '@/lib/utils'
 import { Sun, CheckSquare, Inbox, FileText, Target, BookOpen, Settings, Command } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -70,7 +72,9 @@ export function NavSidebar() {
   const currentPage = useAppStore((s) => s.currentPage)
   const setCurrentPage = useAppStore((s) => s.setCurrentPage)
 
-  const [width, setWidth] = useState(MIN_WIDTH)
+  const width = useLayoutStore((s) => s.navWidth)
+  const setNavWidth = useLayoutStore((s) => s.setNavWidth)
+
   const [dragging, setDragging] = useState(false)
   const startX = useRef(0)
   const startWidth = useRef(MIN_WIDTH)
@@ -91,14 +95,15 @@ export function NavSidebar() {
     function handleMouseMove(e: MouseEvent) {
       const delta = e.clientX - startX.current
       const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth.current + delta))
-      setWidth(newWidth)
+      setNavWidth(newWidth)
     }
     function handleMouseUp() {
       setDragging(false)
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
       // Snap to collapsed or expanded
-      setWidth((w) => w < COLLAPSE_THRESHOLD ? MIN_WIDTH : w)
+      const current = useLayoutStore.getState().navWidth
+      setNavWidth(current < COLLAPSE_THRESHOLD ? MIN_WIDTH : current)
     }
     document.addEventListener('mousemove', handleMouseMove)
     document.addEventListener('mouseup', handleMouseUp)
@@ -108,7 +113,19 @@ export function NavSidebar() {
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-  }, [dragging])
+  }, [dragging, setNavWidth])
+
+  const handleNavClick = useCallback((page: typeof currentPage) => {
+    if (currentPage === page) {
+      // Already on this page — if detail is open, close it (pop to root)
+      const detail = useDetailStore.getState()
+      if (detail.target) {
+        detail.close()
+      }
+    } else {
+      setCurrentPage(page)
+    }
+  }, [currentPage, setCurrentPage])
 
   return (
     <nav
@@ -124,7 +141,7 @@ export function NavSidebar() {
             icon={item.icon}
             isActive={currentPage === item.id}
             expanded={expanded}
-            onClick={() => setCurrentPage(item.id)}
+            onClick={() => handleNavClick(item.id)}
           />
         ))}
       </div>
@@ -146,7 +163,7 @@ export function NavSidebar() {
           icon={Settings}
           isActive={currentPage === 'settings'}
           expanded={expanded}
-          onClick={() => setCurrentPage('settings')}
+          onClick={() => handleNavClick('settings')}
         />
       </div>
 

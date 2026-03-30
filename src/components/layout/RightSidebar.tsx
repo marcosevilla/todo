@@ -1,15 +1,13 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { CalendarPanel } from '@/components/calendar/CalendarPanel'
-import { HabitsPanel } from '@/components/obsidian/HabitsPanel'
 import { useCalendar } from '@/hooks/useCalendar'
-import { Separator } from '@/components/ui/separator'
-import { Calendar, Heart, PanelRightClose, PanelRightOpen } from 'lucide-react'
+import { useLayoutStore } from '@/stores/layoutStore'
+import { Calendar, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { LucideIcon } from 'lucide-react'
 
 const MIN_WIDTH = 200
 const MAX_WIDTH = 480
-const DEFAULT_WIDTH = 288 // w-72
 
 function SectionHeader({
   icon: Icon,
@@ -38,11 +36,14 @@ export function RightSidebar() {
   const { events, loading } = useCalendar()
   const hasEvents = loading || events.length > 0
 
-  const [collapsed, setCollapsed] = useState(false)
-  const [width, setWidth] = useState(DEFAULT_WIDTH)
+  const collapsed = useLayoutStore((s) => s.rightCollapsed)
+  const setCollapsed = useLayoutStore((s) => s.setRightCollapsed)
+  const width = useLayoutStore((s) => s.rightWidth)
+  const setRightWidth = useLayoutStore((s) => s.setRightWidth)
+
   const [dragging, setDragging] = useState(false)
   const startX = useRef(0)
-  const startWidth = useRef(DEFAULT_WIDTH)
+  const startWidth = useRef(width)
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -58,7 +59,7 @@ export function RightSidebar() {
     function handleMouseMove(e: MouseEvent) {
       const delta = startX.current - e.clientX // dragging left = wider
       const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth.current + delta))
-      setWidth(newWidth)
+      setRightWidth(newWidth)
     }
     function handleMouseUp() {
       setDragging(false)
@@ -73,7 +74,7 @@ export function RightSidebar() {
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-  }, [dragging])
+  }, [dragging, setRightWidth])
 
   return (
     <aside
@@ -121,38 +122,14 @@ export function RightSidebar() {
       {!collapsed && <div className="flex-1 overflow-y-auto">
         <div className="flex flex-col">
           {/* Schedule section */}
-          {hasEvents && (
-            <div className="p-4 pt-2">
-              <SectionHeader icon={Calendar} label="Schedule" />
+          <div className="p-4 pt-2">
+            <SectionHeader icon={Calendar} label="Schedule" />
+            {hasEvents ? (
               <CalendarPanel />
-            </div>
-          )}
-
-          {/* Divider */}
-          {hasEvents && (
-            <div className="px-4">
-              <Separator />
-            </div>
-          )}
-
-          {/* Habits section */}
-          <div className="p-4">
-            <SectionHeader icon={Heart} label="Habits" />
-            <HabitsPanel />
+            ) : (
+              <EmptyState message="No meetings today — deep work time." />
+            )}
           </div>
-
-          {/* Empty state fallback when no schedule */}
-          {!hasEvents && (
-            <>
-              <div className="px-4">
-                <Separator />
-              </div>
-              <div className="p-4">
-                <SectionHeader icon={Calendar} label="Schedule" />
-                <EmptyState message="No meetings today — deep work time." />
-              </div>
-            </>
-          )}
         </div>
       </div>}
     </aside>

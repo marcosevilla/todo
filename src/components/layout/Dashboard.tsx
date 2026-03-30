@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/stores/appStore'
@@ -80,9 +80,31 @@ export function Dashboard() {
 
   const setCaptureRequested = useAppStore((s) => s.setCaptureRequested)
 
-  // Clear selection on page change
+  // Scroll position restoration
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const scrollPositions = useRef<Record<string, number>>({})
+  const previousPageRef = useRef(currentPage)
+
+  // Clear selection and sync detail store on page change
   useEffect(() => {
     useSelectionStore.getState().clear()
+
+    // Save scroll position of previous page
+    if (scrollRef.current && previousPageRef.current !== currentPage) {
+      scrollPositions.current[previousPageRef.current] = scrollRef.current.scrollTop
+    }
+
+    // Sync detail store to the new page
+    useDetailStore.getState().syncToPage(currentPage)
+
+    // Restore scroll position for the new page (deferred to let React render)
+    requestAnimationFrame(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollPositions.current[currentPage] ?? 0
+      }
+    })
+
+    previousPageRef.current = currentPage
   }, [currentPage])
 
   // Listen for tray "Quick Capture" event
@@ -194,7 +216,7 @@ export function Dashboard() {
         {focusActive && focusCompact && <FocusBanner />}
 
         {/* Page content / Focus view / Detail view */}
-        <div className="flex flex-1 overflow-y-auto">
+        <div ref={scrollRef} className="flex flex-1 overflow-y-auto">
           {focusActive && !focusCompact ? (
             <FocusView />
           ) : detailTarget && detailMode === 'body' ? (
