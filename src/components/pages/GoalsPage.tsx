@@ -104,7 +104,7 @@ function GoalCard({
         </div>
 
         {/* Goal name */}
-        <h3 className="text-sm font-semibold leading-snug tracking-tight truncate">
+        <h3 className="font-heading text-sm font-semibold leading-snug tracking-tight truncate">
           {goal.name}
         </h3>
 
@@ -440,7 +440,7 @@ export function GoalsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-baseline gap-2">
-            <h2 className="text-sm font-semibold">Goals</h2>
+            <h2 className="font-heading text-sm font-semibold">Goals</h2>
             <span className="text-xs text-muted-foreground">
               {filteredGoals.length} goal{filteredGoals.length !== 1 ? 's' : ''}
             </span>

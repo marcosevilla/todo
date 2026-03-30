@@ -23,6 +23,7 @@ import type { UpdateStatus, CalendarFeed, CaptureRoute, Document } from '@/servi
 import { openUrl } from '@/services/tauri'
 import { useAppStore } from '@/stores/appStore'
 import { useTheme } from '@/hooks/useTheme'
+import type { AccentTheme } from '@/hooks/useTheme'
 import { toast } from 'sonner'
 import {
   DropdownMenu,
@@ -165,13 +166,23 @@ function SectionHeader({
 }) {
   return (
     <div className="space-y-1">
-      <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+      <h2 className="font-heading text-base font-semibold tracking-tight">{title}</h2>
       {description && (
         <p className="text-sm text-muted-foreground">{description}</p>
       )}
     </div>
   )
 }
+
+// ── Accent theme definitions ──
+
+const ACCENT_THEMES: { value: AccentTheme; label: string; swatch: string }[] = [
+  { value: 'warm', label: 'Warm', swatch: 'oklch(0.65 0.15 75)' },
+  { value: 'ocean', label: 'Ocean', swatch: 'oklch(0.55 0.18 230)' },
+  { value: 'rose', label: 'Rose', swatch: 'oklch(0.58 0.18 350)' },
+  { value: 'mono', label: 'Mono', swatch: 'oklch(0.45 0 0)' },
+  { value: 'forest', label: 'Forest', swatch: 'oklch(0.50 0.15 155)' },
+]
 
 // ── Color presets for calendar feeds ──
 
@@ -743,7 +754,7 @@ function CaptureRoutesSection() {
 // ── Main Page ──
 
 export function SettingsPage() {
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, accent, setAccent } = useTheme()
   const setSetupComplete = useAppStore((s) => s.setSetupComplete)
   const [fields, setFields] = useState<Record<string, FieldState>>(() => {
     const initial: Record<string, FieldState> = {}
@@ -865,18 +876,64 @@ export function SettingsPage() {
           title="Appearance"
           description="Choose how Daily Triage looks on your machine."
         />
-        <div className="flex items-center gap-1 rounded-lg border p-1">
-          {(['light', 'dark', 'system'] as const).map((value) => (
-            <Button
-              key={value}
-              variant={theme === value ? 'default' : 'outline'}
-              size="sm"
-              className="flex-1 capitalize"
-              onClick={() => setTheme(value)}
-            >
-              {value}
-            </Button>
-          ))}
+
+        {/* Mode selector */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Mode</Label>
+          <div className="flex items-center gap-1 rounded-lg border p-1">
+            {(['light', 'dark', 'system'] as const).map((value) => (
+              <Button
+                key={value}
+                variant={theme === value ? 'default' : 'outline'}
+                size="sm"
+                className="flex-1 capitalize"
+                onClick={() => setTheme(value)}
+              >
+                {value}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Accent theme selector */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Accent</Label>
+          <div className="flex items-center gap-2">
+            {ACCENT_THEMES.map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                className={cn(
+                  'group relative flex size-8 items-center justify-center rounded-full border-2 transition-all',
+                  accent === t.value
+                    ? 'border-foreground scale-110'
+                    : 'border-transparent hover:border-muted-foreground/50',
+                )}
+                style={{ backgroundColor: t.swatch }}
+                onClick={() => setAccent(t.value)}
+                title={t.label}
+              >
+                {accent === t.value && (
+                  <svg className="size-3.5 text-white drop-shadow-sm" viewBox="0 0 16 16" fill="none">
+                    <path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] text-muted-foreground/50">
+            {ACCENT_THEMES.find((t) => t.value === accent)?.label ?? 'Warm'} theme
+          </p>
+        </div>
+
+        {/* Font preview */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Typography</Label>
+          <div className="rounded-lg border p-3 space-y-1">
+            <p className="font-heading text-base font-semibold tracking-tight">Plus Jakarta Sans for headings</p>
+            <p className="text-sm">Inter for body text and UI labels</p>
+            <p className="text-xs font-mono text-muted-foreground">Geist Mono for code</p>
+          </div>
         </div>
       </section>
 

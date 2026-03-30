@@ -371,7 +371,7 @@ export function TasksPage() {
       {/* Header + Filter */}
       <div className="space-y-2 pb-1">
         <div className="flex items-baseline gap-2">
-          <h2 className="text-sm font-semibold">All Tasks</h2>
+          <h2 className="font-heading text-sm font-semibold">All Tasks</h2>
           <span className="text-xs text-muted-foreground">
             {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''}
             {statusFilter !== 'all' && ` · ${statusFilter.replace('_', ' ')}`}

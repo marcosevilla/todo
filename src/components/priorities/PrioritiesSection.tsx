@@ -125,7 +125,7 @@ export function PrioritiesSection({ onGenerated, initialPriorities, compact }: P
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <Sparkles className="size-4 text-accent-blue" />
-          <h3 className="text-sm font-medium">How's your energy?</h3>
+          <h3 className="font-heading text-sm font-medium">How's your energy?</h3>
         </div>
         <p className="text-xs text-muted-foreground">
           Pick your energy level and I'll suggest your top 3 priorities.
@@ -196,7 +196,7 @@ export function PrioritiesSection({ onGenerated, initialPriorities, compact }: P
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className="size-4 text-accent-blue" />
-          <h3 className="text-sm font-medium">Today's priorities</h3>
+          <h3 className="font-heading text-sm font-medium">Today's priorities</h3>
         </div>
         <Button
           variant="ghost"

@@ -251,7 +251,7 @@ export function HabitsSection() {
       <div className="flex items-baseline justify-between">
         <div className="flex items-center gap-2">
           <Flame className="size-3.5 text-amber-500" />
-          <h3 className="text-sm font-semibold">Habits</h3>
+          <h3 className="font-heading text-sm font-semibold">Habits</h3>
           <span className="text-[11px] text-muted-foreground tabular-nums">
             {completedCount}/{activeHabits.length}
           </span>

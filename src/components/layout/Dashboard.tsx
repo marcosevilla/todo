@@ -207,7 +207,7 @@ export function Dashboard() {
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         {/* Header */}
         <header className="flex items-center border-b border-border/20 px-5 py-2" data-tauri-drag-region>
-          <h1 className="text-base font-semibold tracking-tight">
+          <h1 className="font-heading text-base font-semibold tracking-tight">
             {PAGE_TITLES[currentPage] ?? 'Daily Triage'}
           </h1>
         </header>

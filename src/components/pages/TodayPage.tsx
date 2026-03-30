@@ -231,7 +231,7 @@ function ReviewMode({ onComplete }: { onComplete: (priorities: Priority[]) => vo
     <div className="max-w-lg mx-auto space-y-4">
       {/* Greeting */}
       <div className="text-center space-y-1 py-4">
-        <h2 className="text-lg font-semibold tracking-tight">{getGreeting()}</h2>
+        <h2 className="font-heading text-lg font-semibold tracking-tight">{getGreeting()}</h2>
         <div className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
           <Calendar className="size-3.5" />
           <span>{dateStr}</span>
@@ -372,7 +372,7 @@ function DashboardMode({ cachedPriorities }: { cachedPriorities: Priority[] | nu
       {/* Hero */}
       <div className="mb-2 space-y-1">
         <div className="flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold tracking-tight">{getGreeting()}</h2>
+          <h2 className="font-heading text-lg font-semibold tracking-tight">{getGreeting()}</h2>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Calendar className="size-3" />
             <span>{dateStr}</span>

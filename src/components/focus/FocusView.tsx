@@ -88,7 +88,7 @@ export function FocusView() {
         <div className="text-center space-y-6">
           <Coffee className="size-10 mx-auto text-muted-foreground/40" />
           <div>
-            <h2 className="text-lg font-semibold">Take a break</h2>
+            <h2 className="font-heading text-lg font-semibold">Take a break</h2>
             <p className="text-sm text-muted-foreground mt-1">
               Round {currentPomodoro - 1} of {config.totalPomodoros} complete
             </p>
@@ -140,7 +140,7 @@ export function FocusView() {
 
         {/* Task info */}
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold tracking-tight">{task.content}</h2>
+          <h2 className="font-heading text-lg font-semibold tracking-tight">{task.content}</h2>
           {task.description && (
             <p className="text-sm text-muted-foreground">{task.description}</p>
           )}
