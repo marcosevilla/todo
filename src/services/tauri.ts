@@ -701,9 +701,9 @@ export async function createGoal(opts: {
     name: opts.name,
     description: opts.description,
     status: opts.status,
-    life_area_id: opts.lifeAreaId,
-    start_date: opts.startDate,
-    target_date: opts.targetDate,
+    lifeAreaId: opts.lifeAreaId,
+    startDate: opts.startDate,
+    targetDate: opts.targetDate,
     color: opts.color,
   })
 }
@@ -723,9 +723,9 @@ export async function updateGoal(opts: {
     name: opts.name,
     description: opts.description,
     status: opts.status,
-    life_area_id: opts.lifeAreaId,
-    start_date: opts.startDate,
-    target_date: opts.targetDate,
+    lifeAreaId: opts.lifeAreaId,
+    startDate: opts.startDate,
+    targetDate: opts.targetDate,
     color: opts.color,
   })
 }
@@ -736,7 +736,7 @@ export async function deleteGoal(id: string): Promise<void> {
 
 // Milestones
 export async function getMilestones(goalId: string): Promise<Milestone[]> {
-  return invoke<Milestone[]>('get_milestones', { goal_id: goalId })
+  return invoke<Milestone[]>('get_milestones', { goalId })
 }
 
 export async function createMilestone(opts: {
@@ -745,9 +745,9 @@ export async function createMilestone(opts: {
   targetDate?: string
 }): Promise<Milestone> {
   return invoke<Milestone>('create_milestone', {
-    goal_id: opts.goalId,
+    goalId: opts.goalId,
     name: opts.name,
-    target_date: opts.targetDate,
+    targetDate: opts.targetDate,
   })
 }
 
@@ -760,7 +760,7 @@ export async function updateMilestone(opts: {
   return invoke<Milestone>('update_milestone', {
     id: opts.id,
     name: opts.name,
-    target_date: opts.targetDate,
+    targetDate: opts.targetDate,
     completed: opts.completed,
   })
 }
@@ -846,19 +846,19 @@ export async function deleteHabit(id: string): Promise<void> {
 }
 
 export async function logHabit(habitId: string, date?: string, intensity?: number): Promise<HabitLog> {
-  return invoke<HabitLog>('log_habit', { habit_id: habitId, date, intensity })
+  return invoke<HabitLog>('log_habit', { habitId, date, intensity })
 }
 
 export async function unlogHabit(habitId: string, date?: string): Promise<void> {
-  return invoke<void>('unlog_habit', { habit_id: habitId, date })
+  return invoke<void>('unlog_habit', { habitId, date })
 }
 
 export async function getHabitLogs(habitId?: string, days?: number): Promise<HabitLog[]> {
-  return invoke<HabitLog[]>('get_habit_logs', { habit_id: habitId, days })
+  return invoke<HabitLog[]>('get_habit_logs', { habitId, days })
 }
 
 export async function getHabitHeatmap(habitId?: string, days?: number): Promise<HabitHeatmapEntry[]> {
-  return invoke<HabitHeatmapEntry[]>('get_habit_heatmap', { habit_id: habitId, days })
+  return invoke<HabitHeatmapEntry[]>('get_habit_heatmap', { habitId, days })
 }
 
 // Import
