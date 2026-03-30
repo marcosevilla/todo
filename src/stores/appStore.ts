@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { CalendarEvent, TodoistTask } from '@/services/tauri'
 
-type Page = 'today' | 'tasks' | 'inbox' | 'docs' | 'session' | 'settings'
+type Page = 'today' | 'tasks' | 'inbox' | 'docs' | 'goals' | 'session' | 'settings'
 
 interface AppState {
   // Setup

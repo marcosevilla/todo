@@ -15,6 +15,7 @@ import { openUrl, getDailyState, readDailyBrief, listBriefDates } from '@/servic
 import type { Priority, TodoistTaskRow } from '@/services/tauri'
 import { BriefDisplay } from '@/components/shared/BriefDisplay'
 import { DateStrip } from '@/components/shared/DateStrip'
+import { HabitsSection } from '@/components/goals/HabitsSection'
 import { Calendar, ArrowRight, Check } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -405,6 +406,9 @@ function DashboardMode({ cachedPriorities }: { cachedPriorities: Priority[] | nu
       {cachedPriorities && cachedPriorities.length > 0 && (
         <PrioritiesSection initialPriorities={cachedPriorities} />
       )}
+
+      {/* Habits */}
+      <HabitsSection />
 
       {completed > 0 && <ProgressBar completed={completed} total={total} />}
 

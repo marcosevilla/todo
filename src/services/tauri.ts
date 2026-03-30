@@ -597,3 +597,266 @@ export async function endFocusSession(taskId: string, outcome: string, durationS
 export async function getActiveFocus(): Promise<FocusState> {
   return invoke<FocusState>('get_active_focus')
 }
+
+// ── Goals ──
+
+export type GoalStatus = 'not_started' | 'active' | 'paused' | 'achieved' | 'abandoned'
+
+export interface Goal {
+  id: string
+  name: string
+  description: string | null
+  status: GoalStatus
+  life_area_id: string | null
+  start_date: string | null
+  target_date: string | null
+  color: string | null
+  position: number
+  created_at: string
+  updated_at: string
+}
+
+export interface GoalWithProgress extends Goal {
+  progress: number
+  milestone_count: number
+  milestone_completed: number
+  task_count: number
+  task_completed: number
+}
+
+export interface Milestone {
+  id: string
+  goal_id: string
+  name: string
+  target_date: string | null
+  completed: boolean
+  completed_at: string | null
+  position: number
+  created_at: string
+}
+
+export interface LifeArea {
+  id: string
+  name: string
+  color: string
+  icon: string
+  position: number
+  created_at: string
+}
+
+export interface Habit {
+  id: string
+  name: string
+  category: string | null
+  icon: string
+  color: string
+  active: boolean
+  position: number
+  created_at: string
+}
+
+export interface HabitWithStats extends Habit {
+  current_momentum: number
+  today_completed: boolean
+  today_intensity: number
+}
+
+export interface HabitLog {
+  id: string
+  habit_id: string
+  date: string
+  intensity: number
+  created_at: string
+}
+
+export interface HabitHeatmapEntry {
+  date: string
+  intensity: number
+}
+
+// Goals CRUD
+export async function getGoals(): Promise<GoalWithProgress[]> {
+  return invoke<GoalWithProgress[]>('get_goals')
+}
+
+export async function getGoal(id: string): Promise<GoalWithProgress> {
+  return invoke<GoalWithProgress>('get_goal', { id })
+}
+
+export async function createGoal(opts: {
+  name: string
+  description?: string
+  status?: GoalStatus
+  lifeAreaId?: string
+  startDate?: string
+  targetDate?: string
+  color?: string
+}): Promise<Goal> {
+  return invoke<Goal>('create_goal', {
+    name: opts.name,
+    description: opts.description,
+    status: opts.status,
+    lifeAreaId: opts.lifeAreaId,
+    startDate: opts.startDate,
+    targetDate: opts.targetDate,
+    color: opts.color,
+  })
+}
+
+export async function updateGoal(opts: {
+  id: string
+  name?: string
+  description?: string
+  status?: GoalStatus
+  lifeAreaId?: string
+  startDate?: string
+  targetDate?: string
+  color?: string
+}): Promise<Goal> {
+  return invoke<Goal>('update_goal', {
+    id: opts.id,
+    name: opts.name,
+    description: opts.description,
+    status: opts.status,
+    lifeAreaId: opts.lifeAreaId,
+    startDate: opts.startDate,
+    targetDate: opts.targetDate,
+    color: opts.color,
+  })
+}
+
+export async function deleteGoal(id: string): Promise<void> {
+  return invoke<void>('delete_goal', { id })
+}
+
+// Milestones
+export async function getMilestones(goalId: string): Promise<Milestone[]> {
+  return invoke<Milestone[]>('get_milestones', { goalId })
+}
+
+export async function createMilestone(opts: {
+  goalId: string
+  name: string
+  targetDate?: string
+}): Promise<Milestone> {
+  return invoke<Milestone>('create_milestone', {
+    goalId: opts.goalId,
+    name: opts.name,
+    targetDate: opts.targetDate,
+  })
+}
+
+export async function updateMilestone(opts: {
+  id: string
+  name?: string
+  targetDate?: string
+  completed?: boolean
+}): Promise<Milestone> {
+  return invoke<Milestone>('update_milestone', {
+    id: opts.id,
+    name: opts.name,
+    targetDate: opts.targetDate,
+    completed: opts.completed,
+  })
+}
+
+export async function deleteMilestone(id: string): Promise<void> {
+  return invoke<void>('delete_milestone', { id })
+}
+
+// Life Areas
+export async function getLifeAreas(): Promise<LifeArea[]> {
+  return invoke<LifeArea[]>('get_life_areas')
+}
+
+export async function createLifeArea(opts: {
+  name: string
+  color: string
+  icon: string
+}): Promise<LifeArea> {
+  return invoke<LifeArea>('create_life_area', {
+    name: opts.name,
+    color: opts.color,
+    icon: opts.icon,
+  })
+}
+
+export async function updateLifeArea(opts: {
+  id: string
+  name?: string
+  color?: string
+  icon?: string
+}): Promise<LifeArea> {
+  return invoke<LifeArea>('update_life_area', {
+    id: opts.id,
+    name: opts.name,
+    color: opts.color,
+    icon: opts.icon,
+  })
+}
+
+export async function deleteLifeArea(id: string): Promise<void> {
+  return invoke<void>('delete_life_area', { id })
+}
+
+// Habits
+export async function getHabits(): Promise<HabitWithStats[]> {
+  return invoke<HabitWithStats[]>('get_habits')
+}
+
+export async function createHabit(opts: {
+  name: string
+  category?: string
+  icon: string
+  color: string
+}): Promise<Habit> {
+  return invoke<Habit>('create_habit', {
+    name: opts.name,
+    category: opts.category,
+    icon: opts.icon,
+    color: opts.color,
+  })
+}
+
+export async function updateHabit(opts: {
+  id: string
+  name?: string
+  category?: string
+  icon?: string
+  color?: string
+  active?: boolean
+}): Promise<Habit> {
+  return invoke<Habit>('update_habit', {
+    id: opts.id,
+    name: opts.name,
+    category: opts.category,
+    icon: opts.icon,
+    color: opts.color,
+    active: opts.active,
+  })
+}
+
+export async function deleteHabit(id: string): Promise<void> {
+  return invoke<void>('delete_habit', { id })
+}
+
+export async function logHabit(habitId: string, date?: string, intensity?: number): Promise<HabitLog> {
+  return invoke<HabitLog>('log_habit', { habitId, date, intensity })
+}
+
+export async function unlogHabit(habitId: string, date?: string): Promise<void> {
+  return invoke<void>('unlog_habit', { habitId, date })
+}
+
+export async function getHabitLogs(habitId?: string, days?: number): Promise<HabitLog[]> {
+  return invoke<HabitLog[]>('get_habit_logs', { habitId, days })
+}
+
+export async function getHabitHeatmap(habitId?: string, days?: number): Promise<HabitHeatmapEntry[]> {
+  return invoke<HabitHeatmapEntry[]>('get_habit_heatmap', { habitId, days })
+}
+
+// Import
+export async function importGoalsFromVault(): Promise<number> {
+  return invoke<number>('import_goals_from_vault')
+}

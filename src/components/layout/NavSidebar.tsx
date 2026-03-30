@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAppStore } from '@/stores/appStore'
 import { cn } from '@/lib/utils'
-import { Sun, CheckSquare, Inbox, FileText, BookOpen, Settings, Command } from 'lucide-react'
+import { Sun, CheckSquare, Inbox, FileText, Target, BookOpen, Settings, Command } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 
@@ -9,11 +9,12 @@ const MIN_WIDTH = 48
 const MAX_WIDTH = 200
 const COLLAPSE_THRESHOLD = 80 // below this = icon-only mode
 
-const NAV_ITEMS: { id: 'today' | 'tasks' | 'inbox' | 'docs' | 'session'; label: string; icon: LucideIcon }[] = [
+const NAV_ITEMS: { id: 'today' | 'tasks' | 'inbox' | 'docs' | 'goals' | 'session'; label: string; icon: LucideIcon }[] = [
   { id: 'today', label: 'Today', icon: Sun },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare },
   { id: 'inbox', label: 'Inbox', icon: Inbox },
   { id: 'docs', label: 'Docs', icon: FileText },
+  { id: 'goals', label: 'Goals', icon: Target },
   { id: 'session', label: 'Activity', icon: BookOpen },
 ]
 

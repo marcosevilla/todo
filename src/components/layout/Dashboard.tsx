@@ -15,6 +15,7 @@ import { InboxPage } from '@/components/pages/InboxPage'
 import { SessionPage } from '@/components/pages/SessionPage'
 import { SettingsPage } from '@/components/pages/SettingsPage'
 import { DocsPage } from '@/components/pages/DocsPage'
+import { GoalsPage } from '@/components/pages/GoalsPage'
 import { emitTasksChanged } from '@/hooks/useLocalTasks'
 import { useFocusTimer } from '@/hooks/useFocusTimer'
 import { useFocusStore } from '@/stores/focusStore'
@@ -32,11 +33,12 @@ const PAGE_TITLES: Record<string, string> = {
   tasks: 'Tasks',
   inbox: 'Inbox',
   docs: 'Docs',
+  goals: 'Goals',
   session: 'Activity',
   settings: 'Settings',
 }
 
-const PAGES = ['today', 'tasks', 'inbox', 'docs', 'session'] as const
+const PAGES = ['today', 'tasks', 'inbox', 'docs', 'goals', 'session'] as const
 
 function PageContent({ page }: { page: string }) {
   switch (page) {
@@ -48,6 +50,8 @@ function PageContent({ page }: { page: string }) {
       return <InboxPage />
     case 'docs':
       return <DocsPage />
+    case 'goals':
+      return <GoalsPage />
     case 'session':
       return <SessionPage />
     case 'settings':
@@ -149,18 +153,18 @@ export function Dashboard() {
       // Number keys for navigation (only when not typing in an input)
       if (!isInput) {
         const num = parseInt(e.key, 10)
-        if (num >= 1 && num <= 4) {
+        if (num >= 1 && num <= PAGES.length) {
           e.preventDefault()
           setCurrentPage(PAGES[num - 1])
           return
         }
       }
 
-      // Cmd+1-4 for navigation (works even in inputs)
-      if (meta && e.key >= '1' && e.key <= '4') {
+      // Cmd+1-6 for navigation (works even in inputs)
+      if (meta && e.key >= '1' && e.key <= String(PAGES.length)) {
         e.preventDefault()
         const idx = parseInt(e.key, 10) - 1
-        setCurrentPage(PAGES[idx])
+        if (idx < PAGES.length) setCurrentPage(PAGES[idx])
         return
       }
     }
