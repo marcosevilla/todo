@@ -27,6 +27,21 @@ function App() {
     }
   }, [])
 
+  // Auto-hide scrollbars after 2s of inactivity
+  useEffect(() => {
+    const timers = new WeakMap<Element, ReturnType<typeof setTimeout>>()
+    function handleScroll(e: Event) {
+      const el = e.target as Element
+      if (!(el instanceof HTMLElement)) return
+      el.classList.add('is-scrolling')
+      const prev = timers.get(el)
+      if (prev) clearTimeout(prev)
+      timers.set(el, setTimeout(() => el.classList.remove('is-scrolling'), 2000))
+    }
+    document.addEventListener('scroll', handleScroll, true)
+    return () => document.removeEventListener('scroll', handleScroll, true)
+  }, [])
+
   // Log page changes
   const prevPage = useRef(useAppStore.getState().currentPage)
   useEffect(() => {

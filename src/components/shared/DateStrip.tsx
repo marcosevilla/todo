@@ -40,11 +40,17 @@ export function DateStrip({ briefDates, selected, onSelect }: DateStripProps) {
   // Scroll to selected date on mount
   useEffect(() => {
     const el = scrollRef.current?.querySelector('[data-selected="true"]')
-    if (el) el.scrollIntoView({ inline: 'center', behavior: 'smooth' })
+    if (el) el.scrollIntoView({ inline: 'center', behavior: 'instant' })
   }, [selected])
 
+  // Scroll one date pill at a time
   const scroll = (dir: number) => {
-    scrollRef.current?.scrollBy({ left: dir * 200, behavior: 'smooth' })
+    const container = scrollRef.current
+    if (!container) return
+    const pills = container.querySelectorAll('button')
+    if (pills.length === 0) return
+    const pillWidth = pills[0].offsetWidth + 4 // pill width + gap
+    container.scrollBy({ left: dir * pillWidth, behavior: 'instant' })
   }
 
   return (
@@ -59,8 +65,7 @@ export function DateStrip({ briefDates, selected, onSelect }: DateStripProps) {
 
       <div
         ref={scrollRef}
-        className="flex-1 flex gap-1 overflow-x-auto scrollbar-none py-1"
-        style={{ scrollSnapType: 'x mandatory' }}
+        className="flex-1 flex gap-1 overflow-x-hidden py-1"
       >
         {dates.map((dateStr) => {
           const { day, weekday, isToday } = formatDatePill(dateStr)
@@ -74,7 +79,7 @@ export function DateStrip({ briefDates, selected, onSelect }: DateStripProps) {
               onClick={() => onSelect(dateStr)}
               style={{ scrollSnapAlign: 'center' }}
               className={cn(
-                'flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 min-w-[36px] transition-all duration-150',
+                'flex flex-col items-center gap-1 rounded-lg px-3 py-2 min-w-[44px] transition-all duration-150',
                 isSelected
                   ? 'bg-foreground text-background'
                   : isToday
@@ -82,8 +87,8 @@ export function DateStrip({ briefDates, selected, onSelect }: DateStripProps) {
                     : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-accent/20',
               )}
             >
-              <span className="text-[9px] font-medium uppercase">{weekday}</span>
-              <span className="text-sm font-semibold tabular-nums">{day}</span>
+              <span className="text-[10px] font-medium uppercase">{weekday}</span>
+              <span className="text-base font-semibold tabular-nums">{day}</span>
               {hasBrief && !isSelected && (
                 <span className="size-1 rounded-full bg-accent-blue/60" />
               )}

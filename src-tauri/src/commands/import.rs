@@ -147,55 +147,61 @@ fn parse_resolutions(content: &str) -> (Vec<String>, Vec<(String, String)>) {
     let mut in_annual_goals = false;
     let mut current_habit_category: Option<String> = None;
 
+    let mut in_daily_habits = false;
+
     for line in content.lines() {
         let trimmed = line.trim();
 
-        // Detect section headers
+        // Detect markdown headers (### ==Annual==, ### ==Daily Habits==)
         if trimmed.starts_with('#') {
-            let header = trimmed.trim_start_matches('#').trim().to_lowercase();
+            let header = trimmed.trim_start_matches('#').trim().to_lowercase()
+                .replace("==", "").replace("*", "");
 
-            if header.contains("annual goals") {
+            if header.contains("annual") {
                 in_annual_goals = true;
+                in_daily_habits = false;
                 current_habit_category = None;
                 continue;
             }
-
-            // Habit category headers
-            if header == "social" || header == "physical" || header == "digital" {
+            if header.contains("daily habits") || header.contains("daily") {
                 in_annual_goals = false;
-                current_habit_category = Some(
-                    header.chars().next().unwrap().to_uppercase().to_string()
-                        + &header[1..],
-                );
+                in_daily_habits = true;
+                current_habit_category = None;
                 continue;
             }
-
-            // Any other header ends the current section
-            if !header.is_empty() {
+            if header.contains("intentions") || header.contains("rules") || header.contains("monthly") {
                 in_annual_goals = false;
+                in_daily_habits = false;
                 current_habit_category = None;
+                continue;
             }
             continue;
         }
 
-        // Parse annual goals: lines like "1. Goal name" or "2. Goal name"
-        if in_annual_goals {
-            if let Some(rest) = trimmed.strip_prefix(|c: char| c.is_ascii_digit()) {
-                // Could be "1. Name" or "12. Name" — find the dot
-                let after_digits = rest.trim_start_matches(|c: char| c.is_ascii_digit());
-                if let Some(name) = after_digits.strip_prefix('.') {
-                    let name = name.trim();
-                    if !name.is_empty() {
-                        goals.push(name.to_string());
-                    }
+        // Detect habit category lines like ***Social*** or **Social** or *Social*
+        if in_daily_habits {
+            let stripped = trimmed.replace('*', "").to_lowercase();
+            if stripped == "social" || stripped == "physical" || stripped == "digital" {
+                current_habit_category = Some(
+                    stripped.chars().next().unwrap().to_uppercase().to_string() + &stripped[1..],
+                );
+                continue;
+            }
+        }
+
+        // Parse annual goals: checkbox lines like "- [ ] Goal name"
+        if in_annual_goals && trimmed.starts_with("- [") {
+            if let Some(bracket_end) = trimmed.find(']') {
+                let name = trimmed[bracket_end + 1..].trim();
+                if !name.is_empty() {
+                    goals.push(name.to_string());
                 }
             }
         }
 
-        // Parse habits: checkbox lines like "- [ ] Habit name" or "- [x] Habit name"
+        // Parse habits: checkbox lines under a category
         if let Some(ref category) = current_habit_category {
             if trimmed.starts_with("- [") {
-                // Extract text after the checkbox
                 if let Some(bracket_end) = trimmed.find(']') {
                     let name = trimmed[bracket_end + 1..].trim();
                     if !name.is_empty() {

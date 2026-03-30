@@ -8,12 +8,52 @@ import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Flame } from 'lucide-react'
 
+// Map icon string to Lucide component, fallback to emoji based on category/name
+function getHabitEmoji(name: string, category: string | null): string {
+  const n = name.toLowerCase()
+  if (n.includes('stretch')) return '🧘'
+  if (n.includes('read')) return '📖'
+  if (n.includes('walk') || n.includes('step')) return '🚶'
+  if (n.includes('clean')) return '🧹'
+  if (n.includes('photo') || n.includes('video')) return '📸'
+  if (n.includes('build')) return '🔨'
+  if (n.includes('admin')) return '📋'
+  if (n.includes('morning page')) return '✍️'
+  if (n.includes('gratitude')) return '🙏'
+  if (n.includes('learn') || n.includes('ml') || n.includes('ai') || n.includes('coding')) return '🧠'
+  if (n.includes('tiktok') || n.includes('post')) return '📱'
+  if (n.includes('network') || n.includes('reach out')) return '🤝'
+  if (n.includes('scary')) return '🔥'
+  if (n.includes('experience') || n.includes('new')) return '✨'
+  if (n.includes('skincare')) return '🧴'
+  if (n.includes('brush') || n.includes('floss') || n.includes('teeth')) return '🪥'
+  if (n.includes('sunlight') || n.includes('outside')) return '☀️'
+  if (n.includes('family')) return '👨‍👩‍👧'
+  if (n.includes('friend')) return '👋'
+  if (category?.toLowerCase() === 'social') return '💬'
+  if (category?.toLowerCase() === 'physical') return '💪'
+  if (category?.toLowerCase() === 'digital') return '💻'
+  return '⭐'
+}
+
+function renderHabitIcon(icon: string, name: string, category: string | null): string {
+  // If icon is a default placeholder, use emoji instead
+  if (icon === 'Circle' || icon === 'circle' || !icon) {
+    return getHabitEmoji(name, category)
+  }
+  // If it's already an emoji (starts with non-ASCII), use it directly
+  if (icon.codePointAt(0)! > 127) return icon
+  // Otherwise try to use it as emoji fallback
+  return getHabitEmoji(name, category)
+}
+
 // ── Habit Circle ──
 
 function HabitCircle({
   name,
   icon,
   color,
+  category,
   completed,
   momentum,
   onToggle,
@@ -21,10 +61,12 @@ function HabitCircle({
   name: string
   icon: string
   color: string
+  category: string | null
   completed: boolean
   momentum: number
   onToggle: () => void
 }) {
+  const displayIcon = renderHabitIcon(icon, name, category)
   return (
     <div className="flex flex-col items-center gap-1.5">
       <Tooltip>
@@ -42,7 +84,7 @@ function HabitCircle({
           onClick={onToggle}
           aria-label={`${completed ? 'Unmark' : 'Mark'} ${name} as done`}
         >
-          <span className="select-none">{icon}</span>
+          <span className="select-none">{displayIcon}</span>
           {completed && (
             <span
               className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full flex items-center justify-center text-[8px] font-bold text-white"
@@ -271,6 +313,7 @@ export function HabitsSection() {
             name={habit.name}
             icon={habit.icon}
             color={habit.color}
+            category={habit.category}
             completed={habit.today_completed}
             momentum={habit.current_momentum}
             onToggle={() => handleToggle(habit.id, habit.today_completed)}

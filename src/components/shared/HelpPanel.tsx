@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { HelpCircle, X, Keyboard, Map } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -141,16 +141,41 @@ const ROADMAP: RoadmapItem[] = [
 
 export function HelpPanel() {
   const [open, setOpen] = useState(false)
+  const [closing, setClosing] = useState(false)
   const [showDone, setShowDone] = useState(false)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   const doneCount = ROADMAP.filter((r) => r.done).length
   const totalCount = ROADMAP.length
+
+  const closePanel = () => {
+    setClosing(true)
+    setTimeout(() => {
+      setOpen(false)
+      setClosing(false)
+    }, 150)
+  }
+
+  // Click outside to close
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        closePanel()
+      }
+    }
+    window.addEventListener('mousedown', handleClick)
+    return () => window.removeEventListener('mousedown', handleClick)
+  }, [open])
 
   return (
     <>
       {/* Floating button */}
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          if (open) closePanel()
+          else setOpen(true)
+        }}
         className={cn(
           'fixed bottom-4 right-4 z-30 flex size-9 items-center justify-center rounded-full transition-all duration-200',
           'bg-muted/60 text-muted-foreground/50 hover:bg-muted hover:text-muted-foreground hover:shadow-md',
@@ -163,11 +188,19 @@ export function HelpPanel() {
 
       {/* Panel */}
       {open && (
-        <div className="fixed bottom-16 right-4 z-30 help-panel-enter">
-          <div className="w-80 max-h-[70vh] flex flex-col rounded-xl border border-border/30 bg-popover shadow-xl shadow-black/10 overflow-hidden">
-            <Tabs defaultValue="shortcuts" className="flex flex-col gap-0">
+        <div
+          ref={panelRef}
+          className={cn(
+            'fixed bottom-16 right-4 z-30 transition-all duration-150 origin-bottom-right',
+            closing
+              ? 'opacity-0 scale-95'
+              : 'help-panel-enter',
+          )}
+        >
+          <div className="w-80 max-h-[50vh] flex flex-col rounded-xl border border-border/30 bg-popover shadow-xl shadow-black/10 overflow-hidden">
+            <Tabs defaultValue="shortcuts" className="flex flex-col gap-0 min-h-0">
               {/* Tab switcher */}
-              <div className="border-b border-border/20 px-1 pt-1">
+              <div className="border-b border-border/20 px-1 pt-1 shrink-0">
                 <TabsList variant="line" className="h-auto gap-0 bg-transparent p-0">
                   <TabsTrigger value="shortcuts" className="gap-1.5 rounded-t-lg rounded-b-none px-3 py-2 text-xs">
                     <Keyboard className="size-3" />
@@ -182,7 +215,7 @@ export function HelpPanel() {
               </div>
 
               {/* Content */}
-              <div className="flex-1 overflow-y-auto p-3">
+              <div className="overflow-y-auto p-3">
                 <TabsContent value="shortcuts">
                   <ShortcutsTab />
                 </TabsContent>
