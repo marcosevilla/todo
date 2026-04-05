@@ -1,25 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useDataProvider } from '@/services/provider-context'
+import type { LocalTask, Project } from '@/services/tauri'
+import { toast } from 'sonner'
 
 // Simple event bus so all useLocalTasks instances refetch on any mutation
 const TASKS_CHANGED = 'tasks-changed'
 export function emitTasksChanged() {
   window.dispatchEvent(new Event(TASKS_CHANGED))
 }
-import {
-  getLocalTasks,
-  createLocalTask,
-  updateLocalTask,
-  completeLocalTask,
-  uncompleteLocalTask,
-  deleteLocalTask,
-  getProjects,
-  createProject,
-  deleteProject,
-} from '@/services/tauri'
-import type { LocalTask, Project } from '@/services/tauri'
-import { toast } from 'sonner'
 
 export function useLocalTasks(opts?: { projectId?: string; dueDate?: string; includeCompleted?: boolean }) {
+  const dp = useDataProvider()
   const [tasks, setTasks] = useState<LocalTask[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -27,7 +18,7 @@ export function useLocalTasks(opts?: { projectId?: string; dueDate?: string; inc
   const refresh = useCallback(async () => {
     try {
       setError(null)
-      const data = await getLocalTasks({
+      const data = await dp.tasks.list({
         projectId: opts?.projectId,
         dueDate: opts?.dueDate,
         includeCompleted: opts?.includeCompleted ?? true,
@@ -38,7 +29,7 @@ export function useLocalTasks(opts?: { projectId?: string; dueDate?: string; inc
     } finally {
       setLoading(false)
     }
-  }, [opts?.projectId, opts?.dueDate, opts?.includeCompleted])
+  }, [dp, opts?.projectId, opts?.dueDate, opts?.includeCompleted])
 
   useEffect(() => {
     refresh()
@@ -54,7 +45,7 @@ export function useLocalTasks(opts?: { projectId?: string; dueDate?: string; inc
   const addTask = useCallback(
     async (content: string, extra?: { parentId?: string; projectId?: string; priority?: number; dueDate?: string; description?: string }) => {
       try {
-        const task = await createLocalTask({
+        const task = await dp.tasks.create({
           content,
           projectId: extra?.projectId ?? opts?.projectId,
           parentId: extra?.parentId,
@@ -70,7 +61,7 @@ export function useLocalTasks(opts?: { projectId?: string; dueDate?: string; inc
         return null
       }
     },
-    [opts?.projectId],
+    [dp, opts?.projectId],
   )
 
   const complete = useCallback(async (id: string) => {
@@ -83,13 +74,13 @@ export function useLocalTasks(opts?: { projectId?: string; dueDate?: string; inc
       ),
     )
     try {
-      await completeLocalTask(id)
+      await dp.tasks.complete(id)
       emitTasksChanged()
     } catch (e) {
       toast.error(`Failed to complete task: ${e}`)
       refresh()
     }
-  }, [refresh])
+  }, [dp, refresh])
 
   const uncomplete = useCallback(async (id: string) => {
     setTasks((prev) =>
@@ -98,28 +89,28 @@ export function useLocalTasks(opts?: { projectId?: string; dueDate?: string; inc
       ),
     )
     try {
-      await uncompleteLocalTask(id)
+      await dp.tasks.uncomplete(id)
       emitTasksChanged()
     } catch (e) {
       toast.error(`Failed to uncomplete task: ${e}`)
       refresh()
     }
-  }, [refresh])
+  }, [dp, refresh])
 
   const remove = useCallback(async (id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id && t.parent_id !== id))
     try {
-      await deleteLocalTask(id)
+      await dp.tasks.delete(id)
       emitTasksChanged()
     } catch (e) {
       toast.error(`Failed to delete task: ${e}`)
       refresh()
     }
-  }, [refresh])
+  }, [dp, refresh])
 
-  const update = useCallback(async (id: string, opts: { projectId?: string; content?: string; priority?: number; dueDate?: string }) => {
+  const update = useCallback(async (id: string, updateOpts: { projectId?: string; content?: string; priority?: number; dueDate?: string }) => {
     try {
-      const updated = await updateLocalTask({ id, projectId: opts.projectId, content: opts.content, priority: opts.priority, dueDate: opts.dueDate })
+      const updated = await dp.tasks.update({ id, projectId: updateOpts.projectId, content: updateOpts.content, priority: updateOpts.priority, dueDate: updateOpts.dueDate })
       setTasks((prev) => prev.map((t) => t.id === id ? updated : t))
       emitTasksChanged()
       return updated
@@ -128,25 +119,26 @@ export function useLocalTasks(opts?: { projectId?: string; dueDate?: string; inc
       refresh()
       return null
     }
-  }, [refresh])
+  }, [dp, refresh])
 
   return { tasks, loading, error, refresh, addTask, update, complete, uncomplete, remove }
 }
 
 export function useProjects() {
+  const dp = useDataProvider()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
     try {
-      const data = await getProjects()
+      const data = await dp.projects.list()
       setProjects(data)
     } catch {
       // Silently fail — table may not exist on first run before migration
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [dp])
 
   useEffect(() => {
     refresh()
@@ -154,41 +146,41 @@ export function useProjects() {
 
   const addProject = useCallback(async (name: string, color: string) => {
     try {
-      const project = await createProject(name, color)
+      const project = await dp.projects.create(name, color)
       setProjects((prev) => [...prev, project])
       return project
     } catch (e) {
       toast.error(`Failed to create project: ${e}`)
       return null
     }
-  }, [])
+  }, [dp])
 
   const renameProject = useCallback(async (id: string, name: string) => {
     try {
-      await import('@/services/tauri').then((m) => m.updateProject(id, name))
+      await dp.projects.update(id, name)
       setProjects((prev) => prev.map((p) => p.id === id ? { ...p, name } : p))
     } catch (e) {
       toast.error(`Failed to rename project: ${e}`)
     }
-  }, [])
+  }, [dp])
 
   const updateProjectColor = useCallback(async (id: string, color: string) => {
     try {
-      await import('@/services/tauri').then((m) => m.updateProject(id, undefined, color))
+      await dp.projects.update(id, undefined, color)
       setProjects((prev) => prev.map((p) => p.id === id ? { ...p, color } : p))
     } catch (e) {
       toast.error(`Failed to update color: ${e}`)
     }
-  }, [])
+  }, [dp])
 
   const removeProject = useCallback(async (id: string) => {
     try {
-      await deleteProject(id)
+      await dp.projects.delete(id)
       setProjects((prev) => prev.filter((p) => p.id !== id))
     } catch (e) {
       toast.error(`Failed to delete project: ${e}`)
     }
-  }, [])
+  }, [dp])
 
   return { projects, loading, refresh, addProject, renameProject, updateProjectColor, removeProject }
 }

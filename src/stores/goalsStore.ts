@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { getGoals, getLifeAreas, getHabits } from '@/services/tauri'
+import { getDataProvider } from '@/services/provider-context'
 import type { GoalWithProgress, LifeArea, HabitWithStats } from '@/services/tauri'
 
 interface GoalsStore {
@@ -25,7 +25,8 @@ export const useGoalsStore = create<GoalsStore>((set, get) => ({
   loadGoals: async () => {
     set({ goalsLoading: true })
     try {
-      const goals = await getGoals()
+      const dp = getDataProvider()
+      const goals = await dp.goals.list()
       set({ goals, goalsLoading: false })
     } catch {
       set({ goalsLoading: false })
@@ -34,7 +35,8 @@ export const useGoalsStore = create<GoalsStore>((set, get) => ({
 
   loadLifeAreas: async () => {
     try {
-      const lifeAreas = await getLifeAreas()
+      const dp = getDataProvider()
+      const lifeAreas = await dp.goals.getLifeAreas()
       set({ lifeAreas })
     } catch { /* silently fail */ }
   },
@@ -42,7 +44,8 @@ export const useGoalsStore = create<GoalsStore>((set, get) => ({
   loadHabits: async () => {
     set({ habitsLoading: true })
     try {
-      const habits = await getHabits()
+      const dp = getDataProvider()
+      const habits = await dp.habits.list()
       set({ habits, habitsLoading: false })
     } catch {
       set({ habitsLoading: false })

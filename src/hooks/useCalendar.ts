@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAppStore } from '@/stores/appStore'
-import { fetchCalendarEvents, getCachedCalendarEvents } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
 import type { CalendarEvent } from '@/services/tauri'
 import { friendlyError } from '@/lib/errors'
 import { toast } from 'sonner'
@@ -17,6 +17,7 @@ function offsetDate(dateStr: string, days: number): string {
 }
 
 export function useCalendar() {
+  const dp = useDataProvider()
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -34,7 +35,7 @@ export function useCalendar() {
 
       if (!forceRefresh) {
         // Try cache first for fast navigation
-        data = await getCachedCalendarEvents(date)
+        data = await dp.calendar.getCachedEvents(date)
         if (data.length > 0) {
           setEvents(data)
           setLoading(false)
@@ -47,7 +48,7 @@ export function useCalendar() {
       }
 
       // Fall back to network fetch (which caches a 7-day window)
-      data = await fetchCalendarEvents(date)
+      data = await dp.calendar.fetchEvents(date)
       setEvents(data)
       if (date === todayString()) {
         setCalendarEvents(data)
@@ -59,7 +60,7 @@ export function useCalendar() {
     } finally {
       setLoading(false)
     }
-  }, [setCalendarEvents])
+  }, [dp, setCalendarEvents])
 
   const setDate = useCallback((date: string) => {
     setSelectedDate(date)

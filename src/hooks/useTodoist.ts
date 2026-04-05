@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAppStore } from '@/stores/appStore'
-import {
-  fetchTodoistTasks,
-  refreshTodoistTasks,
-  completeTodoistTask,
-  snoozeTodoistTask,
-} from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
 import type { TodoistTaskRow } from '@/services/tauri'
 import { friendlyError, retryOnce } from '@/lib/errors'
 import { toast } from 'sonner'
@@ -31,6 +26,7 @@ function toStoreTasks(data: TodoistTaskRow[]) {
 }
 
 export function useTodoist() {
+  const dp = useDataProvider()
   const [tasks, setTasks] = useState<TodoistTaskRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -56,9 +52,9 @@ export function useTodoist() {
     for (const action of actions) {
       try {
         if (action.type === 'complete') {
-          await completeTodoistTask(action.taskId)
+          await dp.todoist.completeTask(action.taskId)
         } else {
-          await snoozeTodoistTask(action.taskId)
+          await dp.todoist.snoozeTask(action.taskId)
         }
       } catch {
         stillPending.push(action)
@@ -70,13 +66,13 @@ export function useTodoist() {
         toast.success('Pending actions synced successfully')
       }
     }
-  }, [])
+  }, [dp])
 
   // Manual refresh — hits the API directly
   const refresh = useCallback(async () => {
     try {
       setError(null)
-      const data = await refreshTodoistTasks()
+      const data = await dp.todoist.refreshTasks()
       applyData(data)
       // After successful refresh, try to replay pending actions
       setPendingActions((prev) => {
@@ -88,7 +84,7 @@ export function useTodoist() {
     } catch (e) {
       if (mountedRef.current) setError(friendlyError(e))
     }
-  }, [applyData, replayPendingActions])
+  }, [dp, applyData, replayPendingActions])
 
   // On mount: load from cache first, then silently refresh from API
   useEffect(() => {
@@ -98,7 +94,7 @@ export function useTodoist() {
     async function loadCacheThenRefresh() {
       // Step 1: Load cached data instantly
       try {
-        const cached = await fetchTodoistTasks()
+        const cached = await dp.todoist.fetchTasks()
         if (cancelled) return
         applyData(cached)
         setLoading(false)
@@ -110,7 +106,7 @@ export function useTodoist() {
 
       // Step 2: Silently refresh from API in the background
       try {
-        const fresh = await refreshTodoistTasks()
+        const fresh = await dp.todoist.refreshTasks()
         if (cancelled) return
         applyData(fresh)
       } catch {
@@ -124,14 +120,14 @@ export function useTodoist() {
       cancelled = true
       mountedRef.current = false
     }
-  }, [applyData])
+  }, [dp, applyData])
 
   const completeTask = useCallback(
     async (taskId: string) => {
       // Optimistic update — remove from UI immediately
       setTasks((prev) => prev.filter((t) => t.id !== taskId))
       try {
-        await retryOnce(() => completeTodoistTask(taskId))
+        await retryOnce(() => dp.todoist.completeTask(taskId))
       } catch (e) {
         // Retry failed — queue the action and show a toast
         const msg = friendlyError(e)
@@ -142,7 +138,7 @@ export function useTodoist() {
         // the pending queue will sync it on next refresh
       }
     },
-    [],
+    [dp],
   )
 
   const snoozeTask = useCallback(
@@ -150,7 +146,7 @@ export function useTodoist() {
       // Optimistic update — remove from UI immediately
       setTasks((prev) => prev.filter((t) => t.id !== taskId))
       try {
-        await retryOnce(() => snoozeTodoistTask(taskId))
+        await retryOnce(() => dp.todoist.snoozeTask(taskId))
       } catch (e) {
         // Retry failed — queue the action and show a toast
         const msg = friendlyError(e)
@@ -159,7 +155,7 @@ export function useTodoist() {
         setPendingActions((prev) => [...prev, { type: 'snooze', taskId }])
       }
     },
-    [],
+    [dp],
   )
 
   return { tasks, error, loading, refresh, completeTask, snoozeTask, pendingActions }

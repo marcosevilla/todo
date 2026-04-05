@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { startFocusSession, endFocusSession, updateTaskStatus, getSetting } from '@/services/tauri'
+import { getDataProvider } from '@/services/provider-context'
 import type { LocalTask, TaskStatus } from '@/services/tauri'
 
 export type TimerMode = 'up' | 'down'
@@ -83,8 +83,9 @@ export const useFocusStore = create<FocusStore>((set, get) => ({
   },
 
   startFocus: (task, config) => {
-    startFocusSession(task.id, task.content).catch(() => {})
-    updateTaskStatus(task.id, 'in_progress').catch(() => {})
+    const dp = getDataProvider()
+    dp.focus.startSession(task.id, task.content).catch(() => {})
+    dp.tasks.updateStatus(task.id, 'in_progress').catch(() => {})
     set({
       isActive: true,
       isPendingSetup: false,
@@ -119,10 +120,11 @@ export const useFocusStore = create<FocusStore>((set, get) => ({
   },
 
   completeFocus: (nextTask) => {
+    const dp = getDataProvider()
     const { taskId, elapsed } = get()
     if (taskId) {
-      updateTaskStatus(taskId, 'complete').catch(() => {})
-      endFocusSession(taskId, 'focus_completed', elapsed).catch(() => {})
+      dp.tasks.updateStatus(taskId, 'complete').catch(() => {})
+      dp.focus.endSession(taskId, 'focus_completed', elapsed).catch(() => {})
     }
     set({
       showCelebration: true,
@@ -132,21 +134,23 @@ export const useFocusStore = create<FocusStore>((set, get) => ({
   },
 
   abandonFocus: async () => {
+    const dp = getDataProvider()
     const { taskId, elapsed } = get()
     if (taskId) {
-      endFocusSession(taskId, 'focus_abandoned', elapsed).catch(() => {})
+      dp.focus.endSession(taskId, 'focus_abandoned', elapsed).catch(() => {})
       // Set status based on setting (default: todo)
-      const abandonStatus = await getSetting('focus_abandon_status').catch(() => null)
+      const abandonStatus = await dp.settings.get('focus_abandon_status').catch(() => null)
       const status: TaskStatus = (abandonStatus === 'in_progress' ? 'in_progress' : 'todo')
-      updateTaskStatus(taskId, status).catch(() => {})
+      dp.tasks.updateStatus(taskId, status).catch(() => {})
     }
     get().reset()
   },
 
   skipFocus: () => {
+    const dp = getDataProvider()
     const { taskId, elapsed } = get()
     if (taskId) {
-      endFocusSession(taskId, 'focus_skipped', elapsed).catch(() => {})
+      dp.focus.endSession(taskId, 'focus_skipped', elapsed).catch(() => {})
     }
     get().reset()
   },

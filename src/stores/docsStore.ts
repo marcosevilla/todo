@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { getDocFolders, getDocuments, getDocument } from '@/services/tauri'
+import { getDataProvider } from '@/services/provider-context'
 import type { DocFolder, Document } from '@/services/tauri'
 
 interface DocsStore {
@@ -31,14 +31,16 @@ export const useDocsStore = create<DocsStore>((set, get) => ({
 
   loadFolders: async () => {
     try {
-      const folders = await getDocFolders()
+      const dp = getDataProvider()
+      const folders = await dp.docs.getFolders()
       set({ folders })
     } catch { /* silently fail */ }
   },
 
   loadDocuments: async (folderId) => {
     try {
-      const documents = await getDocuments(folderId)
+      const dp = getDataProvider()
+      const documents = await dp.docs.getDocuments(folderId)
       set({ documents })
     } catch { /* silently fail */ }
   },
@@ -55,7 +57,8 @@ export const useDocsStore = create<DocsStore>((set, get) => ({
     }
     set({ selectedDocId: id })
     try {
-      const doc = await getDocument(id)
+      const dp = getDataProvider()
+      const doc = await dp.docs.getDocument(id)
       set({ currentDoc: doc })
     } catch {
       set({ currentDoc: null })
@@ -71,7 +74,8 @@ export const useDocsStore = create<DocsStore>((set, get) => ({
     const docId = get().selectedDocId
     if (docId) {
       try {
-        const doc = await getDocument(docId)
+        const dp = getDataProvider()
+        const doc = await dp.docs.getDocument(docId)
         set({ currentDoc: doc })
       } catch { /* skip */ }
     }

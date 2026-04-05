@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { getSetting, setSetting } from '@/services/tauri'
+import { getDataProvider } from '@/services/provider-context'
 
 // Nav sidebar defaults (from NavSidebar.tsx)
 const NAV_DEFAULT_WIDTH = 48 // MIN_WIDTH — starts collapsed
@@ -47,7 +47,8 @@ export const useLayoutStore = create<LayoutState>((set) => ({
   setNavOrder: (order) => set({ navOrder: order }),
   loadNavOrder: async () => {
     try {
-      const saved = await getSetting('nav_order')
+      const dp = getDataProvider()
+      const saved = await dp.settings.get('nav_order')
       if (saved) {
         const parsed = JSON.parse(saved) as string[]
         // Validate: must contain all default IDs (handle new pages added later)
@@ -66,7 +67,8 @@ export const useLayoutStore = create<LayoutState>((set) => ({
   saveNavOrder: async (order) => {
     set({ navOrder: order })
     try {
-      await setSetting('nav_order', JSON.stringify(order))
+      const dp = getDataProvider()
+      await dp.settings.set('nav_order', JSON.stringify(order))
     } catch {
       // Silent fail — order is still in memory
     }

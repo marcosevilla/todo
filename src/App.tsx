@@ -1,31 +1,32 @@
 import { useEffect, useRef } from 'react'
 import { useAppStore } from '@/stores/appStore'
-import { checkSetupComplete, logActivity } from '@/services/tauri'
 import { SetupDialog } from '@/components/setup/SetupDialog'
 import { Dashboard } from '@/components/layout/Dashboard'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useTheme } from '@/hooks/useTheme'
+import { useDataProvider } from '@/services/provider-context'
 import { Agentation } from 'agentation'
 
 function App() {
   useTheme() // Initialize theme system
+  const dp = useDataProvider()
 
   const setupComplete = useAppStore((s) => s.setupComplete)
   const setSetupComplete = useAppStore((s) => s.setSetupComplete)
 
   useEffect(() => {
-    checkSetupComplete().then(setSetupComplete).catch(() => setSetupComplete(false))
-  }, [setSetupComplete])
+    dp.settings.checkSetupComplete().then(setSetupComplete).catch(() => setSetupComplete(false))
+  }, [dp, setSetupComplete])
 
   // Log app_opened once on mount
   const loggedOpen = useRef(false)
   useEffect(() => {
     if (!loggedOpen.current) {
       loggedOpen.current = true
-      logActivity('app_opened').catch(() => {})
+      dp.activity.log('app_opened').catch(() => {})
     }
-  }, [])
+  }, [dp])
 
   // Auto-hide scrollbars after 2s of inactivity
   useEffect(() => {
@@ -48,11 +49,11 @@ function App() {
     const unsub = useAppStore.subscribe((state) => {
       if (state.currentPage !== prevPage.current) {
         prevPage.current = state.currentPage
-        logActivity('page_viewed', undefined, { page: state.currentPage }).catch(() => {})
+        dp.activity.log('page_viewed', undefined, { page: state.currentPage }).catch(() => {})
       }
     })
     return unsub
-  }, [])
+  }, [dp])
 
   // Still checking
   if (setupComplete === null) {

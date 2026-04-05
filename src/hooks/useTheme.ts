@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getSetting, setSetting } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
 
 type Mode = 'light' | 'dark' | 'system'
 export type AccentTheme = 'warm' | 'ocean' | 'rose' | 'mono' | 'forest'
@@ -27,6 +27,8 @@ function applyAccent(accent: AccentTheme) {
 }
 
 export function useTheme() {
+  const dp = useDataProvider()
+
   const [theme, setThemeState] = useState<Mode>(() => {
     return (localStorage.getItem('theme') as Mode) || 'system'
   })
@@ -39,27 +41,27 @@ export function useTheme() {
     setThemeState(newTheme)
     applyMode(newTheme)
     try {
-      await setSetting('theme', newTheme)
+      await dp.settings.set('theme', newTheme)
     } catch {
       // Silently fail — localStorage is the fallback
     }
-  }, [])
+  }, [dp])
 
   const setAccent = useCallback(async (newAccent: AccentTheme) => {
     setAccentState(newAccent)
     applyAccent(newAccent)
     try {
-      await setSetting('accent_theme', newAccent)
+      await dp.settings.set('accent_theme', newAccent)
     } catch {
       // Silently fail — localStorage is the fallback
     }
-  }, [])
+  }, [dp])
 
   // On mount: read from SQLite, apply
   useEffect(() => {
     Promise.all([
-      getSetting('theme'),
-      getSetting('accent_theme'),
+      dp.settings.get('theme'),
+      dp.settings.get('accent_theme'),
     ]).then(([storedMode, storedAccent]) => {
       const m = (storedMode as Mode) || 'system'
       const a = (storedAccent as AccentTheme) || 'warm'
@@ -71,7 +73,7 @@ export function useTheme() {
       applyMode('system')
       applyAccent('warm')
     })
-  }, [])
+  }, [dp])
 
   // Listen for system theme changes when in 'system' mode
   useEffect(() => {

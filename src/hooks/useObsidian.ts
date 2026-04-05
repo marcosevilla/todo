@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAppStore } from '@/stores/appStore'
-import { readTodayMd, toggleObsidianCheckbox } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
 import type { ParsedTodayMd } from '@/services/tauri'
 import { friendlyError } from '@/lib/errors'
 import { toast } from 'sonner'
 
 export function useObsidian() {
+  const dp = useDataProvider()
   const [todayData, setTodayData] = useState<ParsedTodayMd | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -14,7 +15,7 @@ export function useObsidian() {
   const refresh = useCallback(async () => {
     try {
       setError(null)
-      const data = await readTodayMd()
+      const data = await dp.obsidian.readTodayMd()
       setTodayData(data)
       const summary = [
         ...data.tasks.map((t) => `${t.checked ? '[x]' : '[ ]'} ${t.text}`),
@@ -28,12 +29,12 @@ export function useObsidian() {
     } finally {
       setLoading(false)
     }
-  }, [setObsidianToday])
+  }, [dp, setObsidianToday])
 
   const toggleCheckbox = useCallback(
     async (lineNumber: number) => {
       try {
-        const updated = await toggleObsidianCheckbox('today.md', lineNumber)
+        const updated = await dp.obsidian.toggleCheckbox('today.md', lineNumber)
         setTodayData(updated)
       } catch (e) {
         const msg = friendlyError(e)
@@ -41,7 +42,7 @@ export function useObsidian() {
         toast.error(msg)
       }
     },
-    [],
+    [dp],
   )
 
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getLocalTasks, getProjects } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
 import type { LocalTask, Project } from '@/services/tauri'
 
 interface TaskDetail {
@@ -11,6 +11,7 @@ interface TaskDetail {
 }
 
 export function useTaskDetail(taskId: string | null): TaskDetail {
+  const dp = useDataProvider()
   const [task, setTask] = useState<LocalTask | null>(null)
   const [subtasks, setSubtasks] = useState<LocalTask[]>([])
   const [project, setProject] = useState<Project | null>(null)
@@ -27,7 +28,7 @@ export function useTaskDetail(taskId: string | null): TaskDetail {
 
     try {
       // Fetch all tasks to find this one + its subtasks
-      const allTasks = await getLocalTasks({ includeCompleted: true })
+      const allTasks = await dp.tasks.list({ includeCompleted: true })
       const found = allTasks.find((t) => t.id === taskId) ?? null
       setTask(found)
 
@@ -39,7 +40,7 @@ export function useTaskDetail(taskId: string | null): TaskDetail {
 
       // Find project
       if (found) {
-        const projects = await getProjects()
+        const projects = await dp.projects.list()
         setProject(projects.find((p) => p.id === found.project_id) ?? null)
       }
     } catch {
@@ -48,7 +49,7 @@ export function useTaskDetail(taskId: string | null): TaskDetail {
     } finally {
       setLoading(false)
     }
-  }, [taskId])
+  }, [dp, taskId])
 
   useEffect(() => {
     setLoading(true)
