@@ -1,60 +1,15 @@
-use chrono::Local;
-use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tauri::{AppHandle, Manager};
-use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CaptureRoute {
-    pub id: String,
-    pub prefix: String,
-    pub target_type: String,
-    pub doc_id: Option<String>,
-    pub label: String,
-    pub color: String,
-    pub icon: String,
-    pub position: i64,
-    pub created_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RouteCaptureResult {
-    pub routed_to: String,
-    pub target_type: String,
-    pub created_id: String,
-    pub label: String,
-}
+pub use daily_triage_core::types::{CaptureRoute, RouteCaptureResult};
 
 /// List all capture routes
 #[tauri::command]
 pub async fn get_capture_routes(app: AppHandle) -> Result<Vec<CaptureRoute>, String> {
     let pool = app.state::<SqlitePool>();
-    let rows: Vec<(String, String, String, Option<String>, String, String, String, i64, String)> =
-        sqlx::query_as(
-            "SELECT id, prefix, target_type, doc_id, label, color, icon, position, created_at FROM capture_routes ORDER BY position, created_at",
-        )
-        .fetch_all(pool.inner())
+    daily_triage_core::db::capture_routes::get_capture_routes(pool.inner())
         .await
-        .map_err(|e| e.to_string())?;
-
-    Ok(rows
-        .into_iter()
-        .map(
-            |(id, prefix, target_type, doc_id, label, color, icon, position, created_at)| {
-                CaptureRoute {
-                    id,
-                    prefix,
-                    target_type,
-                    doc_id,
-                    label,
-                    color,
-                    icon,
-                    position,
-                    created_at,
-                }
-            },
-        )
-        .collect())
+        .map_err(|e| e.to_string())
 }
 
 /// Create a new capture route
@@ -69,50 +24,17 @@ pub async fn create_capture_route(
     icon: String,
 ) -> Result<CaptureRoute, String> {
     let pool = app.state::<SqlitePool>();
-    let id = Uuid::new_v4().to_string();
-    let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-
-    let max_pos: i64 =
-        sqlx::query_scalar("SELECT COALESCE(MAX(position), -1) FROM capture_routes")
-            .fetch_one(pool.inner())
-            .await
-            .map_err(|e| e.to_string())?;
-
-    sqlx::query(
-        "INSERT INTO capture_routes (id, prefix, target_type, doc_id, label, color, icon, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    )
-    .bind(&id)
-    .bind(&prefix)
-    .bind(&target_type)
-    .bind(&doc_id)
-    .bind(&label)
-    .bind(&color)
-    .bind(&icon)
-    .bind(max_pos + 1)
-    .bind(&now)
-    .execute(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
-
-    crate::db::activity::log_activity(
+    daily_triage_core::db::capture_routes::create_capture_route(
         pool.inner(),
-        "capture_route_created",
-        Some(&id),
-        Some(serde_json::json!({ "prefix": &prefix, "label": &label })),
+        &prefix,
+        &target_type,
+        doc_id.as_deref(),
+        &label,
+        &color,
+        &icon,
     )
-    .await;
-
-    Ok(CaptureRoute {
-        id,
-        prefix,
-        target_type,
-        doc_id,
-        label,
-        color,
-        icon,
-        position: max_pos + 1,
-        created_at: now,
-    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 /// Update an existing capture route
@@ -128,80 +50,27 @@ pub async fn update_capture_route(
     icon: Option<String>,
 ) -> Result<(), String> {
     let pool = app.state::<SqlitePool>();
-
-    if let Some(ref v) = prefix {
-        sqlx::query("UPDATE capture_routes SET prefix = ? WHERE id = ?")
-            .bind(v)
-            .bind(&id)
-            .execute(pool.inner())
-            .await
-            .map_err(|e| e.to_string())?;
-    }
-    if let Some(ref v) = target_type {
-        sqlx::query("UPDATE capture_routes SET target_type = ? WHERE id = ?")
-            .bind(v)
-            .bind(&id)
-            .execute(pool.inner())
-            .await
-            .map_err(|e| e.to_string())?;
-    }
-    if let Some(ref v) = doc_id {
-        // Allow setting to empty string to clear doc_id
-        let val = if v.is_empty() { None } else { Some(v.as_str()) };
-        sqlx::query("UPDATE capture_routes SET doc_id = ? WHERE id = ?")
-            .bind(val)
-            .bind(&id)
-            .execute(pool.inner())
-            .await
-            .map_err(|e| e.to_string())?;
-    }
-    if let Some(ref v) = label {
-        sqlx::query("UPDATE capture_routes SET label = ? WHERE id = ?")
-            .bind(v)
-            .bind(&id)
-            .execute(pool.inner())
-            .await
-            .map_err(|e| e.to_string())?;
-    }
-    if let Some(ref v) = color {
-        sqlx::query("UPDATE capture_routes SET color = ? WHERE id = ?")
-            .bind(v)
-            .bind(&id)
-            .execute(pool.inner())
-            .await
-            .map_err(|e| e.to_string())?;
-    }
-    if let Some(ref v) = icon {
-        sqlx::query("UPDATE capture_routes SET icon = ? WHERE id = ?")
-            .bind(v)
-            .bind(&id)
-            .execute(pool.inner())
-            .await
-            .map_err(|e| e.to_string())?;
-    }
-
-    Ok(())
+    daily_triage_core::db::capture_routes::update_capture_route(
+        pool.inner(),
+        &id,
+        prefix.as_deref(),
+        target_type.as_deref(),
+        doc_id.as_deref(),
+        label.as_deref(),
+        color.as_deref(),
+        icon.as_deref(),
+    )
+    .await
+    .map_err(|e| e.to_string())
 }
 
 /// Delete a capture route
 #[tauri::command]
 pub async fn delete_capture_route(app: AppHandle, id: String) -> Result<(), String> {
     let pool = app.state::<SqlitePool>();
-    sqlx::query("DELETE FROM capture_routes WHERE id = ?")
-        .bind(&id)
-        .execute(pool.inner())
+    daily_triage_core::db::capture_routes::delete_capture_route(pool.inner(), &id)
         .await
-        .map_err(|e| e.to_string())?;
-
-    crate::db::activity::log_activity(
-        pool.inner(),
-        "capture_route_deleted",
-        Some(&id),
-        None,
-    )
-    .await;
-
-    Ok(())
+        .map_err(|e| e.to_string())
 }
 
 /// Route a capture: detect prefix, create doc note or task, save to captures history
@@ -214,35 +83,10 @@ pub async fn route_capture(
     let pool = app.state::<SqlitePool>();
 
     // Look up the route
-    let row: Option<(String, String, String, Option<String>, String, String, String, i64, String)> =
-        sqlx::query_as(
-            "SELECT id, prefix, target_type, doc_id, label, color, icon, position, created_at FROM capture_routes WHERE prefix = ?",
-        )
-        .bind(&prefix)
-        .fetch_optional(pool.inner())
+    let route = daily_triage_core::db::capture_routes::get_route_by_prefix(pool.inner(), &prefix)
         .await
-        .map_err(|e| e.to_string())?;
-
-    let route = row
-        .map(
-            |(id, prefix, target_type, doc_id, label, color, icon, position, created_at)| {
-                CaptureRoute {
-                    id,
-                    prefix,
-                    target_type,
-                    doc_id,
-                    label,
-                    color,
-                    icon,
-                    position,
-                    created_at,
-                }
-            },
-        )
+        .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("No route found for prefix '{}'", prefix))?;
-
-    let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-    let capture_id = Uuid::new_v4().to_string();
 
     let created_id = if route.target_type == "task" {
         // Create a task in inbox
@@ -265,10 +109,7 @@ pub async fn route_capture(
             // Auto-create the doc with the route label as title
             let doc = super::docs::create_document(app.clone(), route.label.clone(), None).await?;
             // Update the route to link to this doc
-            sqlx::query("UPDATE capture_routes SET doc_id = ? WHERE id = ?")
-                .bind(&doc.id)
-                .bind(&route.id)
-                .execute(pool.inner())
+            daily_triage_core::db::capture_routes::link_route_to_doc(pool.inner(), &route.id, &doc.id)
                 .await
                 .map_err(|e| e.to_string())?;
             doc.id
@@ -280,19 +121,12 @@ pub async fn route_capture(
     };
 
     // Save to captures table for history
-    sqlx::query(
-        "INSERT INTO captures (id, content, source, routed_to, created_at) VALUES (?, ?, 'route', ?, ?)",
-    )
-    .bind(&capture_id)
-    .bind(&content)
-    .bind(&route.label)
-    .bind(&now)
-    .execute(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
+    let capture_id = daily_triage_core::db::captures::save_routed_capture(pool.inner(), &content, &route.label)
+        .await
+        .map_err(|e| e.to_string())?;
 
     // Log activity
-    crate::db::activity::log_activity(
+    daily_triage_core::db::activity::log_activity(
         pool.inner(),
         "capture_routed",
         Some(&capture_id),
