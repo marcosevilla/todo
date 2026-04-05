@@ -2,6 +2,7 @@ use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use crate::db::activity;
+use crate::db::sync;
 use crate::types::Capture;
 
 /// Get captures from SQLite, newest first
@@ -66,14 +67,20 @@ pub async fn create_capture(
     )
     .await;
 
-    Ok(Capture {
+    let capture = Capture {
         id,
         content: content.to_string(),
         source: source.to_string(),
         converted_to_task_id: None,
         routed_to: None,
         created_at: now,
-    })
+    };
+
+    // Sync log: INSERT
+    let snapshot = serde_json::to_string(&capture).unwrap_or_default();
+    sync::append_sync_log(pool, "captures", &capture.id, "INSERT", None, Some(&snapshot)).await.ok();
+
+    Ok(capture)
 }
 
 /// Get a capture by ID (content only)
@@ -106,6 +113,17 @@ pub async fn mark_capture_converted(pool: &SqlitePool, capture_id: &str, task_id
     )
     .await;
 
+    // Sync log: UPDATE
+    let changed = serde_json::json!(["converted_to_task_id"]).to_string();
+    let row: Option<(String, String, String, Option<String>, Option<String>, String)> = sqlx::query_as(
+        "SELECT id, content, source, converted_to_task_id, routed_to, created_at FROM captures WHERE id = ?"
+    ).bind(capture_id).fetch_optional(pool).await.ok().flatten();
+    if let Some((id, content, source, converted_to_task_id, routed_to, created_at)) = row {
+        let capture = Capture { id, content, source, converted_to_task_id, routed_to, created_at };
+        let snapshot = serde_json::to_string(&capture).unwrap_or_default();
+        sync::append_sync_log(pool, "captures", capture_id, "UPDATE", Some(&changed), Some(&snapshot)).await.ok();
+    }
+
     Ok(())
 }
 
@@ -115,6 +133,9 @@ pub async fn delete_capture(pool: &SqlitePool, id: &str) -> crate::Result<()> {
         .bind(id)
         .execute(pool)
         .await?;
+
+    // Sync log: DELETE
+    sync::append_sync_log(pool, "captures", id, "DELETE", None, None).await.ok();
 
     Ok(())
 }
@@ -179,6 +200,18 @@ pub async fn save_routed_capture(
     .bind(&now)
     .execute(pool)
     .await?;
+
+    // Sync log: INSERT
+    let capture = Capture {
+        id: capture_id.clone(),
+        content: content.to_string(),
+        source: "route".to_string(),
+        converted_to_task_id: None,
+        routed_to: Some(label.to_string()),
+        created_at: now,
+    };
+    let snapshot = serde_json::to_string(&capture).unwrap_or_default();
+    sync::append_sync_log(pool, "captures", &capture_id, "INSERT", None, Some(&snapshot)).await.ok();
 
     Ok(capture_id)
 }

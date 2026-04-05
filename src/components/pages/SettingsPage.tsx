@@ -18,8 +18,12 @@ import {
   updateCaptureRoute,
   deleteCaptureRoute,
   getDocuments,
+  syncPush,
+  syncPull,
+  syncGetStatus,
+  syncConfigure,
 } from '@/services/tauri'
-import type { UpdateStatus, CalendarFeed, CaptureRoute, Document } from '@/services/tauri'
+import type { UpdateStatus, CalendarFeed, CaptureRoute, Document, SyncStatus } from '@/services/tauri'
 import { openUrl } from '@/services/tauri'
 import { useAppStore } from '@/stores/appStore'
 import { useTheme } from '@/hooks/useTheme'
@@ -751,6 +755,191 @@ function CaptureRoutesSection() {
   )
 }
 
+// ── Sync Section ──
+
+function SyncSection() {
+  const [status, setStatus] = useState<SyncStatus | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [tursoUrl, setTursoUrl] = useState('')
+  const [tursoToken, setTursoToken] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [url, token, syncStatus] = await Promise.all([
+          getSetting('turso_url'),
+          getSetting('turso_token'),
+          syncGetStatus(),
+        ])
+        if (url) setTursoUrl(url)
+        if (token) setTursoToken(token)
+        setStatus(syncStatus)
+      } catch {
+        // Sync table might not exist on first run before migration
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  const handleSaveConfig = async () => {
+    if (!tursoUrl.trim() || !tursoToken.trim()) {
+      setError('Both URL and token are required')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await syncConfigure(tursoUrl.trim(), tursoToken.trim())
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSyncNow = async () => {
+    setSyncing(true)
+    setError(null)
+    try {
+      const pushed = await syncPush()
+      const pulled = await syncPull()
+      const newStatus = await syncGetStatus()
+      setStatus(newStatus)
+      toast.success(`Synced: ${pushed} pushed, ${pulled} pulled`)
+    } catch (e) {
+      setError(String(e))
+      toast.error(`Sync failed: ${e}`)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  const handleTestConnection = async () => {
+    if (!tursoUrl.trim() || !tursoToken.trim()) {
+      setError('Save Turso URL and token first')
+      return
+    }
+    setTesting(true)
+    setError(null)
+    try {
+      // Push with 0 pending is effectively a connection test
+      await syncPush()
+      toast.success('Connection successful')
+    } catch (e) {
+      setError(`Connection failed: ${e}`)
+      toast.error(`Connection failed: ${e}`)
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <section className="space-y-4">
+        <SectionHeader title="Sync" description="Multi-device sync via Turso." />
+        <Skeleton className="h-8" />
+      </section>
+    )
+  }
+
+  return (
+    <section className="space-y-4">
+      <SectionHeader
+        title="Sync"
+        description="Sync data across devices using Turso (hosted SQLite). Single-user, last-write-wins."
+      />
+
+      {/* Device ID */}
+      {status && (
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">Device ID</span>
+          <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-muted-foreground">
+            {status.device_id.slice(0, 8)}...
+          </code>
+        </div>
+      )}
+
+      {/* Sync status */}
+      {status && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Pending changes</span>
+            <span className="text-sm font-mono">{status.pending_changes}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Last synced</span>
+            <span className="text-sm font-mono">
+              {status.last_sync ?? 'Never'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Turso config */}
+      <div className="space-y-3 rounded-md border p-3">
+        <div className="space-y-1.5">
+          <Label className="text-sm font-medium">Turso URL</Label>
+          <Input
+            placeholder="libsql://your-db-name.turso.io"
+            value={tursoUrl}
+            onChange={(e) => { setTursoUrl(e.target.value); setSaved(false) }}
+          />
+          <p className="text-xs text-muted-foreground">
+            Your Turso database HTTP URL (starts with libsql:// or https://)
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm font-medium">Auth Token</Label>
+          <Input
+            type="password"
+            placeholder="eyJ..."
+            value={tursoToken}
+            onChange={(e) => { setTursoToken(e.target.value); setSaved(false) }}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSaveConfig}
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : saved ? 'Saved' : 'Save'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleTestConnection}
+            disabled={testing || !tursoUrl.trim() || !tursoToken.trim()}
+          >
+            {testing ? 'Testing...' : 'Test Connection'}
+          </Button>
+        </div>
+      </div>
+
+      {/* Sync now button */}
+      <Button
+        size="sm"
+        onClick={handleSyncNow}
+        disabled={syncing || !tursoUrl.trim() || !tursoToken.trim()}
+      >
+        {syncing ? 'Syncing...' : 'Sync Now'}
+      </Button>
+
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </section>
+  )
+}
+
 // ── Main Page ──
 
 export function SettingsPage() {
@@ -993,6 +1182,11 @@ export function SettingsPage() {
 
       {/* Calendars */}
       <CalendarsSection />
+
+      <Separator />
+
+      {/* Sync */}
+      <SyncSection />
 
       <Separator />
 

@@ -2,6 +2,7 @@ use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use crate::db::activity;
+use crate::db::sync;
 use crate::types::{Goal, GoalWithProgress, LifeArea, Milestone};
 
 // --- Helper conversions ---
@@ -199,7 +200,7 @@ pub async fn create_goal(
     )
     .await;
 
-    Ok(Goal {
+    let goal = Goal {
         id,
         name: name.to_string(),
         description: description.map(|s| s.to_string()),
@@ -211,7 +212,13 @@ pub async fn create_goal(
         position: max_pos + 1,
         created_at: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
         updated_at: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-    })
+    };
+
+    // Sync log: INSERT
+    let snapshot = serde_json::to_string(&goal).unwrap_or_default();
+    sync::append_sync_log(pool, "goals", &goal.id, "INSERT", None, Some(&snapshot)).await.ok();
+
+    Ok(goal)
 }
 
 pub async fn update_goal(
@@ -265,15 +272,37 @@ pub async fn update_goal(
 
     if !fields_changed.is_empty() {
         activity::log_activity(pool, "goal_updated", Some(id), Some(serde_json::json!({ "fields_changed": fields_changed }))).await;
+
+        // Sync log: UPDATE
+        let row: Option<(String, String, Option<String>, String, Option<String>, Option<String>, Option<String>, Option<String>, i64, String, String)> =
+            sqlx::query_as(&format!("SELECT {} FROM goals WHERE id = ?", GOAL_SELECT))
+                .bind(id).fetch_optional(pool).await.ok().flatten();
+        if let Some(r) = row {
+            let goal = row_to_goal(r);
+            let changed = serde_json::to_string(&fields_changed).unwrap_or_default();
+            let snapshot = serde_json::to_string(&goal).unwrap_or_default();
+            sync::append_sync_log(pool, "goals", id, "UPDATE", Some(&changed), Some(&snapshot)).await.ok();
+        }
     }
 
     Ok(())
 }
 
 pub async fn delete_goal(pool: &SqlitePool, id: &str) -> crate::Result<()> {
+    // Sync log for milestone deletes
+    let milestone_ids: Vec<(String,)> = sqlx::query_as("SELECT id FROM milestones WHERE goal_id = ?")
+        .bind(id).fetch_all(pool).await.unwrap_or_default();
+    for (mid,) in &milestone_ids {
+        sync::append_sync_log(pool, "milestones", mid, "DELETE", None, None).await.ok();
+    }
+
     sqlx::query("DELETE FROM milestones WHERE goal_id = ?").bind(id).execute(pool).await?;
     sqlx::query("UPDATE projects SET goal_id = NULL, milestone_id = NULL WHERE goal_id = ?").bind(id).execute(pool).await?;
     sqlx::query("DELETE FROM goals WHERE id = ?").bind(id).execute(pool).await?;
+
+    // Sync log: DELETE
+    sync::append_sync_log(pool, "goals", id, "DELETE", None, None).await.ok();
+
     activity::log_activity(pool, "goal_deleted", Some(id), None).await;
     Ok(())
 }
@@ -313,7 +342,7 @@ pub async fn create_milestone(pool: &SqlitePool, goal_id: &str, name: &str, targ
 
     activity::log_activity(pool, "milestone_created", Some(&id), Some(serde_json::json!({ "goal_id": goal_id, "name": name }))).await;
 
-    Ok(Milestone {
+    let milestone = Milestone {
         id,
         goal_id: goal_id.to_string(),
         name: name.to_string(),
@@ -322,15 +351,24 @@ pub async fn create_milestone(pool: &SqlitePool, goal_id: &str, name: &str, targ
         completed_at: None,
         position: max_pos + 1,
         created_at: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-    })
+    };
+
+    // Sync log: INSERT
+    let snapshot = serde_json::to_string(&milestone).unwrap_or_default();
+    sync::append_sync_log(pool, "milestones", &milestone.id, "INSERT", None, Some(&snapshot)).await.ok();
+
+    Ok(milestone)
 }
 
 pub async fn update_milestone(pool: &SqlitePool, id: &str, name: Option<&str>, target_date: Option<&str>, completed: Option<bool>) -> crate::Result<()> {
+    let mut fields_changed = Vec::new();
     if let Some(val) = name {
         sqlx::query("UPDATE milestones SET name = ? WHERE id = ?").bind(val).bind(id).execute(pool).await?;
+        fields_changed.push("name");
     }
     if let Some(val) = target_date {
         sqlx::query("UPDATE milestones SET target_date = ? WHERE id = ?").bind(val).bind(id).execute(pool).await?;
+        fields_changed.push("target_date");
     }
     if let Some(done) = completed {
         if done {
@@ -341,13 +379,33 @@ pub async fn update_milestone(pool: &SqlitePool, id: &str, name: Option<&str>, t
             sqlx::query("UPDATE milestones SET completed = 0, completed_at = NULL WHERE id = ?")
                 .bind(id).execute(pool).await?;
         }
+        fields_changed.push("completed");
+        fields_changed.push("completed_at");
     }
+
+    // Sync log: UPDATE
+    if !fields_changed.is_empty() {
+        let row: Option<(String, String, String, Option<String>, i64, Option<String>, i64, String)> =
+            sqlx::query_as("SELECT id, goal_id, name, target_date, completed, completed_at, position, created_at FROM milestones WHERE id = ?")
+                .bind(id).fetch_optional(pool).await.ok().flatten();
+        if let Some(r) = row {
+            let milestone = row_to_milestone(r);
+            let changed = serde_json::to_string(&fields_changed).unwrap_or_default();
+            let snapshot = serde_json::to_string(&milestone).unwrap_or_default();
+            sync::append_sync_log(pool, "milestones", id, "UPDATE", Some(&changed), Some(&snapshot)).await.ok();
+        }
+    }
+
     Ok(())
 }
 
 pub async fn delete_milestone(pool: &SqlitePool, id: &str) -> crate::Result<()> {
     sqlx::query("UPDATE projects SET milestone_id = NULL WHERE milestone_id = ?").bind(id).execute(pool).await?;
     sqlx::query("DELETE FROM milestones WHERE id = ?").bind(id).execute(pool).await?;
+
+    // Sync log: DELETE
+    sync::append_sync_log(pool, "milestones", id, "DELETE", None, None).await.ok();
+
     activity::log_activity(pool, "milestone_deleted", Some(id), None).await;
     Ok(())
 }
@@ -376,31 +434,59 @@ pub async fn create_life_area(pool: &SqlitePool, name: &str, color: &str, icon: 
         .bind(&id).bind(name).bind(color).bind(icon).bind(max_pos + 1)
         .execute(pool).await?;
 
-    Ok(LifeArea {
+    let life_area = LifeArea {
         id,
         name: name.to_string(),
         color: color.to_string(),
         icon: icon.to_string(),
         position: max_pos + 1,
         created_at: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-    })
+    };
+
+    // Sync log: INSERT
+    let snapshot = serde_json::to_string(&life_area).unwrap_or_default();
+    sync::append_sync_log(pool, "life_areas", &life_area.id, "INSERT", None, Some(&snapshot)).await.ok();
+
+    Ok(life_area)
 }
 
 pub async fn update_life_area(pool: &SqlitePool, id: &str, name: Option<&str>, color: Option<&str>, icon: Option<&str>) -> crate::Result<()> {
+    let mut fields_changed = Vec::new();
     if let Some(val) = name {
         sqlx::query("UPDATE life_areas SET name = ? WHERE id = ?").bind(val).bind(id).execute(pool).await?;
+        fields_changed.push("name");
     }
     if let Some(val) = color {
         sqlx::query("UPDATE life_areas SET color = ? WHERE id = ?").bind(val).bind(id).execute(pool).await?;
+        fields_changed.push("color");
     }
     if let Some(val) = icon {
         sqlx::query("UPDATE life_areas SET icon = ? WHERE id = ?").bind(val).bind(id).execute(pool).await?;
+        fields_changed.push("icon");
     }
+
+    // Sync log: UPDATE
+    if !fields_changed.is_empty() {
+        let row: Option<(String, String, String, String, i64, String)> = sqlx::query_as(
+            "SELECT id, name, color, icon, position, created_at FROM life_areas WHERE id = ?"
+        ).bind(id).fetch_optional(pool).await.ok().flatten();
+        if let Some((lid, lname, lcolor, licon, lposition, lcreated_at)) = row {
+            let la = LifeArea { id: lid, name: lname, color: lcolor, icon: licon, position: lposition, created_at: lcreated_at };
+            let changed = serde_json::to_string(&fields_changed).unwrap_or_default();
+            let snapshot = serde_json::to_string(&la).unwrap_or_default();
+            sync::append_sync_log(pool, "life_areas", id, "UPDATE", Some(&changed), Some(&snapshot)).await.ok();
+        }
+    }
+
     Ok(())
 }
 
 pub async fn delete_life_area(pool: &SqlitePool, id: &str) -> crate::Result<()> {
     sqlx::query("UPDATE goals SET life_area_id = NULL WHERE life_area_id = ?").bind(id).execute(pool).await?;
     sqlx::query("DELETE FROM life_areas WHERE id = ?").bind(id).execute(pool).await?;
+
+    // Sync log: DELETE
+    sync::append_sync_log(pool, "life_areas", id, "DELETE", None, None).await.ok();
+
     Ok(())
 }

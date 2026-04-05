@@ -1,6 +1,7 @@
 use sqlx::SqlitePool;
 
 use crate::db::activity;
+use crate::db::sync;
 use crate::types::{DailyStateResponse, Priority};
 
 /// Check if today's daily review has been completed
@@ -65,6 +66,15 @@ pub async fn save_priorities(
         })),
     )
     .await;
+
+    // Sync log: UPSERT for daily_state
+    let snapshot = serde_json::json!({
+        "date": &today,
+        "energy_level": energy_level,
+        "top_priorities": &priorities_json,
+    });
+    let snap_str = serde_json::to_string(&snapshot).unwrap_or_default();
+    sync::append_sync_log(pool, "daily_state", &today, "UPDATE", Some(&serde_json::json!(["energy_level", "top_priorities"]).to_string()), Some(&snap_str)).await.ok();
 
     Ok(())
 }

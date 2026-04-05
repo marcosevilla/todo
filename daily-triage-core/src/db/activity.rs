@@ -1,6 +1,7 @@
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
+use crate::db::sync;
 use crate::types::{ActivityEntry, ActivitySummary};
 
 /// Log an activity entry. Called internally by other modules.
@@ -25,7 +26,19 @@ pub async fn log_activity(
     .await
     {
         log::warn!("Failed to log activity '{}': {}", action_type, e);
+        return;
     }
+
+    // Sync log: INSERT for activity_log
+    let snapshot = serde_json::json!({
+        "id": &id,
+        "action_type": action_type,
+        "target_id": target_id,
+        "metadata": &metadata_str,
+        "created_at": chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+    });
+    let snap_str = serde_json::to_string(&snapshot).unwrap_or_default();
+    sync::append_sync_log(pool, "activity_log", &id, "INSERT", None, Some(&snap_str)).await.ok();
 }
 
 /// Get activity log entries for a date range with optional filters

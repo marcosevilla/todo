@@ -870,3 +870,27 @@ export interface ImportSummary {
 export async function importGoalsFromVault(): Promise<ImportSummary> {
   return invoke<ImportSummary>('import_goals_from_vault')
 }
+
+// ── Sync ──
+
+export interface SyncStatus {
+  pending_changes: number
+  last_sync: string | null
+  device_id: string
+}
+
+export async function syncPush(): Promise<number> {
+  return invoke<number>('sync_push')
+}
+
+export async function syncPull(): Promise<number> {
+  return invoke<number>('sync_pull')
+}
+
+export async function syncGetStatus(): Promise<SyncStatus> {
+  return invoke<SyncStatus>('sync_get_status')
+}
+
+export async function syncConfigure(tursoUrl: string, tursoToken: string): Promise<void> {
+  return invoke<void>('sync_configure', { tursoUrl, tursoToken })
+}

@@ -2,6 +2,7 @@ use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use crate::db::activity;
+use crate::db::sync;
 use crate::types::LocalTask;
 
 fn row_to_task(
@@ -50,6 +51,21 @@ pub async fn reorder_local_tasks(pool: &SqlitePool, task_ids: &[String]) -> crat
             .bind(id)
             .execute(pool)
             .await?;
+
+        // Sync log: each reordered task is an UPDATE
+        let changed = serde_json::json!(["position"]).to_string();
+        let row: Option<(String, Option<String>, String, Option<String>, String, i64, Option<String>, i64, Option<String>, String, Option<String>, i64, String, String)> =
+            sqlx::query_as(&format!("SELECT {} FROM local_tasks WHERE id = ?", SELECT_COLS))
+                .bind(id)
+                .fetch_optional(pool)
+                .await
+                .ok()
+                .flatten();
+        if let Some(r) = row {
+            let task = row_to_task(r);
+            let snapshot = serde_json::to_string(&task).unwrap_or_default();
+            sync::append_sync_log(pool, "local_tasks", id, "UPDATE", Some(&changed), Some(&snapshot)).await.ok();
+        }
     }
 
     activity::log_activity(
@@ -214,7 +230,13 @@ pub async fn create_local_task(
         .fetch_one(pool)
         .await?;
 
-    Ok(row_to_task(row))
+    let task = row_to_task(row);
+
+    // Sync log: INSERT
+    let snapshot = serde_json::to_string(&task).unwrap_or_default();
+    sync::append_sync_log(pool, "local_tasks", &task.id, "INSERT", None, Some(&snapshot)).await.ok();
+
+    Ok(task)
 }
 
 pub async fn update_local_task(
@@ -316,7 +338,16 @@ pub async fn update_local_task(
         .fetch_one(pool)
         .await?;
 
-    Ok(row_to_task(row))
+    let task = row_to_task(row);
+
+    // Sync log: UPDATE with changed columns
+    if !fields_changed.is_empty() {
+        let changed = serde_json::to_string(&fields_changed).unwrap_or_default();
+        let snapshot = serde_json::to_string(&task).unwrap_or_default();
+        sync::append_sync_log(pool, "local_tasks", id, "UPDATE", Some(&changed), Some(&snapshot)).await.ok();
+    }
+
+    Ok(task)
 }
 
 /// Update task status (backlog, todo, in_progress, blocked, complete)
@@ -377,10 +408,35 @@ pub async fn update_task_status(
     )
     .await;
 
+    // Sync log: UPDATE for status change
+    let row: Option<(String, Option<String>, String, Option<String>, String, i64, Option<String>, i64, Option<String>, String, Option<String>, i64, String, String)> =
+        sqlx::query_as(&format!("SELECT {} FROM local_tasks WHERE id = ?", SELECT_COLS))
+            .bind(id)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
+    if let Some(r) = row {
+        let task = row_to_task(r);
+        let changed = serde_json::json!(["status", "completed", "completed_at"]).to_string();
+        let snapshot = serde_json::to_string(&task).unwrap_or_default();
+        sync::append_sync_log(pool, "local_tasks", id, "UPDATE", Some(&changed), Some(&snapshot)).await.ok();
+    }
+
     Ok(())
 }
 
 pub async fn delete_local_task(pool: &SqlitePool, id: &str) -> crate::Result<()> {
+    // Log sync for subtask deletes
+    let subtask_ids: Vec<(String,)> = sqlx::query_as("SELECT id FROM local_tasks WHERE parent_id = ?")
+        .bind(id)
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default();
+    for (sub_id,) in &subtask_ids {
+        sync::append_sync_log(pool, "local_tasks", sub_id, "DELETE", None, None).await.ok();
+    }
+
     // Delete subtasks first
     sqlx::query("DELETE FROM local_tasks WHERE parent_id = ?")
         .bind(id)
@@ -391,6 +447,9 @@ pub async fn delete_local_task(pool: &SqlitePool, id: &str) -> crate::Result<()>
         .bind(id)
         .execute(pool)
         .await?;
+
+    // Sync log: DELETE
+    sync::append_sync_log(pool, "local_tasks", id, "DELETE", None, None).await.ok();
 
     activity::log_activity(
         pool,

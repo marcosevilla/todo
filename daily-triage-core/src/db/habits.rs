@@ -3,6 +3,7 @@ use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use crate::db::activity;
+use crate::db::sync;
 use crate::types::{Habit, HabitHeatmapEntry, HabitLog, HabitWithStats};
 
 fn row_to_habit(
@@ -141,7 +142,7 @@ pub async fn create_habit(
 
     activity::log_activity(pool, "habit_created", Some(&id), Some(serde_json::json!({ "name": name }))).await;
 
-    Ok(Habit {
+    let habit = Habit {
         id,
         name: name.to_string(),
         category: category.map(|s| s.to_string()),
@@ -150,7 +151,13 @@ pub async fn create_habit(
         active: true,
         position: max_pos + 1,
         created_at: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-    })
+    };
+
+    // Sync log: INSERT
+    let snapshot = serde_json::to_string(&habit).unwrap_or_default();
+    sync::append_sync_log(pool, "habits", &habit.id, "INSERT", None, Some(&snapshot)).await.ok();
+
+    Ok(habit)
 }
 
 pub async fn update_habit(
@@ -162,27 +169,58 @@ pub async fn update_habit(
     color: Option<&str>,
     active: Option<bool>,
 ) -> crate::Result<()> {
+    let mut fields_changed = Vec::new();
     if let Some(val) = name {
         sqlx::query("UPDATE habits SET name = ? WHERE id = ?").bind(val).bind(id).execute(pool).await?;
+        fields_changed.push("name");
     }
     if let Some(val) = category {
         sqlx::query("UPDATE habits SET category = ? WHERE id = ?").bind(val).bind(id).execute(pool).await?;
+        fields_changed.push("category");
     }
     if let Some(val) = icon {
         sqlx::query("UPDATE habits SET icon = ? WHERE id = ?").bind(val).bind(id).execute(pool).await?;
+        fields_changed.push("icon");
     }
     if let Some(val) = color {
         sqlx::query("UPDATE habits SET color = ? WHERE id = ?").bind(val).bind(id).execute(pool).await?;
+        fields_changed.push("color");
     }
     if let Some(val) = active {
         sqlx::query("UPDATE habits SET active = ? WHERE id = ?").bind(val as i64).bind(id).execute(pool).await?;
+        fields_changed.push("active");
     }
+
+    // Sync log: UPDATE
+    if !fields_changed.is_empty() {
+        let row: Option<(String, String, Option<String>, String, String, i64, i64, String)> =
+            sqlx::query_as("SELECT id, name, category, icon, color, active, position, created_at FROM habits WHERE id = ?")
+                .bind(id).fetch_optional(pool).await.ok().flatten();
+        if let Some(r) = row {
+            let habit = row_to_habit(r);
+            let changed = serde_json::to_string(&fields_changed).unwrap_or_default();
+            let snapshot = serde_json::to_string(&habit).unwrap_or_default();
+            sync::append_sync_log(pool, "habits", id, "UPDATE", Some(&changed), Some(&snapshot)).await.ok();
+        }
+    }
+
     Ok(())
 }
 
 pub async fn delete_habit(pool: &SqlitePool, id: &str) -> crate::Result<()> {
+    // Sync log for habit_logs deletes
+    let log_ids: Vec<(String,)> = sqlx::query_as("SELECT id FROM habit_logs WHERE habit_id = ?")
+        .bind(id).fetch_all(pool).await.unwrap_or_default();
+    for (lid,) in &log_ids {
+        sync::append_sync_log(pool, "habit_logs", lid, "DELETE", None, None).await.ok();
+    }
+
     sqlx::query("DELETE FROM habit_logs WHERE habit_id = ?").bind(id).execute(pool).await?;
     sqlx::query("DELETE FROM habits WHERE id = ?").bind(id).execute(pool).await?;
+
+    // Sync log: DELETE
+    sync::append_sync_log(pool, "habits", id, "DELETE", None, None).await.ok();
+
     activity::log_activity(pool, "habit_deleted", Some(id), None).await;
     Ok(())
 }
@@ -200,19 +238,36 @@ pub async fn log_habit(pool: &SqlitePool, habit_id: &str, date: Option<&str>, in
 
     activity::log_activity(pool, "habit_logged", Some(habit_id), Some(serde_json::json!({ "date": &date, "intensity": intensity }))).await;
 
-    Ok(HabitLog {
+    let habit_log = HabitLog {
         id,
         habit_id: habit_id.to_string(),
         date,
         intensity,
         created_at: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-    })
+    };
+
+    // Sync log: INSERT (the delete+insert is effectively a replace)
+    let snapshot = serde_json::to_string(&habit_log).unwrap_or_default();
+    sync::append_sync_log(pool, "habit_logs", &habit_log.id, "INSERT", None, Some(&snapshot)).await.ok();
+
+    Ok(habit_log)
 }
 
 pub async fn unlog_habit(pool: &SqlitePool, habit_id: &str, date: Option<&str>) -> crate::Result<()> {
     let date = date.map(|s| s.to_string()).unwrap_or_else(|| Local::now().format("%Y-%m-%d").to_string());
+
+    // Get the log ID before deleting for sync
+    let log_id: Option<(String,)> = sqlx::query_as("SELECT id FROM habit_logs WHERE habit_id = ? AND date = ?")
+        .bind(habit_id).bind(&date).fetch_optional(pool).await.ok().flatten();
+
     sqlx::query("DELETE FROM habit_logs WHERE habit_id = ? AND date = ?")
         .bind(habit_id).bind(&date).execute(pool).await?;
+
+    // Sync log: DELETE
+    if let Some((lid,)) = log_id {
+        sync::append_sync_log(pool, "habit_logs", &lid, "DELETE", None, None).await.ok();
+    }
+
     Ok(())
 }
 

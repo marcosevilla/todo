@@ -350,6 +350,27 @@ CREATE INDEX IF NOT EXISTS idx_action_log_synced ON action_log(synced)
             CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(date)
         "#,
     },
+    Migration {
+        version: 14,
+        description: "Sync log table and device_id",
+        sql: r#"
+            CREATE TABLE IF NOT EXISTS sync_log (
+                id TEXT PRIMARY KEY,
+                table_name TEXT NOT NULL,
+                row_id TEXT NOT NULL,
+                operation TEXT NOT NULL,
+                changed_columns TEXT,
+                snapshot TEXT,
+                device_id TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                synced INTEGER DEFAULT 0
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_sync_log_synced ON sync_log(synced);
+            CREATE INDEX IF NOT EXISTS idx_sync_log_timestamp ON sync_log(timestamp);
+            CREATE INDEX IF NOT EXISTS idx_sync_log_table_row ON sync_log(table_name, row_id)
+        "#,
+    },
 ];
 
 pub async fn run_migrations(pool: &SqlitePool) -> crate::Result<()> {

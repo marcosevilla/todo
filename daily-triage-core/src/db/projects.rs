@@ -2,6 +2,7 @@ use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use crate::db::activity;
+use crate::db::sync;
 use crate::types::Project;
 
 pub async fn get_projects(pool: &SqlitePool) -> crate::Result<Vec<Project>> {
@@ -50,12 +51,18 @@ pub async fn create_project(
     )
     .await;
 
-    Ok(Project {
+    let project = Project {
         id,
         name: name.to_string(),
         color: color.to_string(),
         position: max_pos + 1,
-    })
+    };
+
+    // Sync log: INSERT
+    let snapshot = serde_json::to_string(&project).unwrap_or_default();
+    sync::append_sync_log(pool, "projects", &project.id, "INSERT", None, Some(&snapshot)).await.ok();
+
+    Ok(project)
 }
 
 pub async fn update_project(
@@ -64,12 +71,14 @@ pub async fn update_project(
     name: Option<&str>,
     color: Option<&str>,
 ) -> crate::Result<()> {
+    let mut fields_changed = Vec::new();
     if let Some(name) = name {
         sqlx::query("UPDATE projects SET name = ? WHERE id = ?")
             .bind(name)
             .bind(id)
             .execute(pool)
             .await?;
+        fields_changed.push("name");
     }
     if let Some(color) = color {
         sqlx::query("UPDATE projects SET color = ? WHERE id = ?")
@@ -77,7 +86,22 @@ pub async fn update_project(
             .bind(id)
             .execute(pool)
             .await?;
+        fields_changed.push("color");
     }
+
+    // Sync log: UPDATE
+    if !fields_changed.is_empty() {
+        let row: Option<(String, String, String, i64)> = sqlx::query_as(
+            "SELECT id, name, color, position FROM projects WHERE id = ?"
+        ).bind(id).fetch_optional(pool).await.ok().flatten();
+        if let Some((pid, pname, pcolor, pposition)) = row {
+            let project = Project { id: pid, name: pname, color: pcolor, position: pposition };
+            let changed = serde_json::to_string(&fields_changed).unwrap_or_default();
+            let snapshot = serde_json::to_string(&project).unwrap_or_default();
+            sync::append_sync_log(pool, "projects", id, "UPDATE", Some(&changed), Some(&snapshot)).await.ok();
+        }
+    }
+
     Ok(())
 }
 
@@ -96,6 +120,9 @@ pub async fn delete_project(pool: &SqlitePool, id: &str) -> crate::Result<()> {
         .bind(id)
         .execute(pool)
         .await?;
+
+    // Sync log: DELETE
+    sync::append_sync_log(pool, "projects", id, "DELETE", None, None).await.ok();
 
     activity::log_activity(
         pool,

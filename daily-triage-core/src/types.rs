@@ -312,6 +312,28 @@ pub struct UpdateStatus {
     pub error: Option<String>,
 }
 
+// ── Sync ──
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SyncStatus {
+    pub pending_changes: i64,
+    pub last_sync: Option<String>,
+    pub device_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SyncLogEntry {
+    pub id: String,
+    pub table_name: String,
+    pub row_id: String,
+    pub operation: String,
+    pub changed_columns: Option<String>,
+    pub snapshot: Option<String>,
+    pub device_id: String,
+    pub timestamp: String,
+    pub synced: bool,
+}
+
 // ── Obsidian ──
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

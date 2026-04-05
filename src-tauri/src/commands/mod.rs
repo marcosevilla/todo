@@ -15,5 +15,6 @@ pub mod priorities;
 pub mod progress;
 pub mod projects;
 pub mod settings;
+pub mod sync;
 pub mod todoist;
 pub mod updater;

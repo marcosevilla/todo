@@ -150,9 +150,10 @@ export function createTauriProvider(): DataProvider {
     },
 
     sync: {
-      push: async () => { throw new Error('Sync not implemented yet — coming in Phase 0c') },
-      pull: async () => { throw new Error('Sync not implemented yet — coming in Phase 0c') },
-      getStatus: async () => { throw new Error('Sync not implemented yet — coming in Phase 0c') },
+      push: tauri.syncPush,
+      pull: tauri.syncPull,
+      getStatus: tauri.syncGetStatus,
+      configure: tauri.syncConfigure,
     },
   }
 }

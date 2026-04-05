@@ -1,6 +1,7 @@
 use sqlx::SqlitePool;
 
 use crate::db::activity;
+use crate::db::sync;
 use crate::types::FocusState;
 
 /// Start a focus session -- persists to daily_state + logs activity
@@ -31,6 +32,16 @@ pub async fn start_focus_session(
     )
     .await;
 
+    // Sync log: UPDATE daily_state
+    let snapshot = serde_json::json!({
+        "date": &today,
+        "focus_task_id": task_id,
+        "focus_started_at": &now,
+    });
+    let snap_str = serde_json::to_string(&snapshot).unwrap_or_default();
+    let changed = serde_json::json!(["focus_task_id", "focus_started_at", "focus_paused_at"]).to_string();
+    sync::append_sync_log(pool, "daily_state", &today, "UPDATE", Some(&changed), Some(&snap_str)).await.ok();
+
     Ok(())
 }
 
@@ -57,6 +68,12 @@ pub async fn end_focus_session(
         Some(serde_json::json!({ "duration_secs": duration_secs })),
     )
     .await;
+
+    // Sync log: UPDATE daily_state (focus cleared)
+    let snapshot = serde_json::json!({ "date": &today });
+    let snap_str = serde_json::to_string(&snapshot).unwrap_or_default();
+    let changed = serde_json::json!(["focus_task_id", "focus_started_at", "focus_paused_at"]).to_string();
+    sync::append_sync_log(pool, "daily_state", &today, "UPDATE", Some(&changed), Some(&snap_str)).await.ok();
 
     Ok(())
 }

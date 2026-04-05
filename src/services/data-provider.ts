@@ -58,6 +58,8 @@ import type {
   HabitLog,
   HabitHeatmapEntry,
   ImportSummary,
+  // Sync
+  SyncStatus,
 } from './tauri'
 
 // Re-export all types so consumers can import from data-provider instead of tauri
@@ -94,6 +96,7 @@ export type {
   HabitLog,
   HabitHeatmapEntry,
   ImportSummary,
+  SyncStatus,
 }
 
 export interface DataProvider {
@@ -329,10 +332,10 @@ export interface DataProvider {
     checkForUpdates(): Promise<UpdateStatus>
   }
 
-  // Sync namespace — stubs for now, filled in Phase 0c
   sync: {
-    push(): Promise<void>
-    pull(): Promise<void>
-    getStatus(): Promise<{ lastSync: string | null; pendingChanges: number }>
+    push(): Promise<number>
+    pull(): Promise<number>
+    getStatus(): Promise<SyncStatus>
+    configure(tursoUrl: string, tursoToken: string): Promise<void>
   }
 }

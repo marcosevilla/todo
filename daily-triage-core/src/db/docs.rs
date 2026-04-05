@@ -2,6 +2,7 @@ use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use crate::db::activity;
+use crate::db::sync;
 use crate::types::{DocFolder, DocNote, Document};
 
 // ── Folder operations ──
@@ -31,7 +32,13 @@ pub async fn create_doc_folder(pool: &SqlitePool, name: &str) -> crate::Result<D
 
     activity::log_activity(pool, "folder_created", Some(&id), Some(serde_json::json!({ "name": name }))).await;
 
-    Ok(DocFolder { id, name: name.to_string(), position: max_pos + 1, created_at: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string() })
+    let folder = DocFolder { id, name: name.to_string(), position: max_pos + 1, created_at: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string() };
+
+    // Sync log: INSERT
+    let snapshot = serde_json::to_string(&folder).unwrap_or_default();
+    sync::append_sync_log(pool, "doc_folders", &folder.id, "INSERT", None, Some(&snapshot)).await.ok();
+
+    Ok(folder)
 }
 
 pub async fn rename_doc_folder(pool: &SqlitePool, id: &str, name: &str) -> crate::Result<()> {
@@ -40,6 +47,18 @@ pub async fn rename_doc_folder(pool: &SqlitePool, id: &str, name: &str) -> crate
         .bind(id)
         .execute(pool)
         .await?;
+
+    // Sync log: UPDATE
+    let row: Option<(String, String, i64, String)> = sqlx::query_as(
+        "SELECT id, name, position, created_at FROM doc_folders WHERE id = ?"
+    ).bind(id).fetch_optional(pool).await.ok().flatten();
+    if let Some((fid, fname, fposition, fcreated_at)) = row {
+        let folder = DocFolder { id: fid, name: fname, position: fposition, created_at: fcreated_at };
+        let changed = serde_json::json!(["name"]).to_string();
+        let snapshot = serde_json::to_string(&folder).unwrap_or_default();
+        sync::append_sync_log(pool, "doc_folders", id, "UPDATE", Some(&changed), Some(&snapshot)).await.ok();
+    }
+
     Ok(())
 }
 
@@ -53,6 +72,10 @@ pub async fn delete_doc_folder(pool: &SqlitePool, id: &str) -> crate::Result<()>
         .bind(id)
         .execute(pool)
         .await?;
+
+    // Sync log: DELETE
+    sync::append_sync_log(pool, "doc_folders", id, "DELETE", None, None).await.ok();
+
     Ok(())
 }
 
@@ -115,7 +138,13 @@ pub async fn create_document(pool: &SqlitePool, title: &str, folder_id: Option<&
 
     activity::log_activity(pool, "doc_created", Some(&id), Some(serde_json::json!({ "title": title }))).await;
 
-    Ok(Document { id, title: title.to_string(), content: String::new(), folder_id: folder_id.map(|s| s.to_string()), position: max_pos + 1, created_at: now.clone(), updated_at: now })
+    let doc = Document { id, title: title.to_string(), content: String::new(), folder_id: folder_id.map(|s| s.to_string()), position: max_pos + 1, created_at: now.clone(), updated_at: now };
+
+    // Sync log: INSERT
+    let snapshot = serde_json::to_string(&doc).unwrap_or_default();
+    sync::append_sync_log(pool, "documents", &doc.id, "INSERT", None, Some(&snapshot)).await.ok();
+
+    Ok(doc)
 }
 
 pub async fn update_document(
@@ -149,12 +178,34 @@ pub async fn update_document(
 
     activity::log_activity(pool, "doc_updated", Some(id), None).await;
 
-    get_document(pool, id).await.and_then(|d| d.ok_or_else(|| crate::Error::Other("Document not found".to_string())))
+    let doc = get_document(pool, id).await.and_then(|d| d.ok_or_else(|| crate::Error::Other("Document not found".to_string())))?;
+
+    // Sync log: UPDATE
+    let mut fields_changed = Vec::new();
+    if title.is_some() { fields_changed.push("title"); }
+    if content.is_some() { fields_changed.push("content"); }
+    if folder_id.is_some() { fields_changed.push("folder_id"); }
+    let changed = serde_json::to_string(&fields_changed).unwrap_or_default();
+    let snapshot = serde_json::to_string(&doc).unwrap_or_default();
+    sync::append_sync_log(pool, "documents", id, "UPDATE", Some(&changed), Some(&snapshot)).await.ok();
+
+    Ok(doc)
 }
 
 pub async fn delete_document(pool: &SqlitePool, id: &str) -> crate::Result<()> {
+    // Sync log for doc_notes deletes
+    let note_ids: Vec<(String,)> = sqlx::query_as("SELECT id FROM doc_notes WHERE doc_id = ?")
+        .bind(id).fetch_all(pool).await.unwrap_or_default();
+    for (nid,) in &note_ids {
+        sync::append_sync_log(pool, "doc_notes", nid, "DELETE", None, None).await.ok();
+    }
+
     sqlx::query("DELETE FROM doc_notes WHERE doc_id = ?").bind(id).execute(pool).await?;
     sqlx::query("DELETE FROM documents WHERE id = ?").bind(id).execute(pool).await?;
+
+    // Sync log: DELETE
+    sync::append_sync_log(pool, "documents", id, "DELETE", None, None).await.ok();
+
     activity::log_activity(pool, "doc_deleted", Some(id), None).await;
     Ok(())
 }
@@ -205,11 +256,21 @@ pub async fn create_doc_note(pool: &SqlitePool, doc_id: &str, content: &str) -> 
         .execute(pool)
         .await?;
 
-    Ok(DocNote { id, doc_id: doc_id.to_string(), content: content.to_string(), position: max_pos + 1, created_at: now })
+    let note = DocNote { id, doc_id: doc_id.to_string(), content: content.to_string(), position: max_pos + 1, created_at: now };
+
+    // Sync log: INSERT
+    let snapshot = serde_json::to_string(&note).unwrap_or_default();
+    sync::append_sync_log(pool, "doc_notes", &note.id, "INSERT", None, Some(&snapshot)).await.ok();
+
+    Ok(note)
 }
 
 pub async fn delete_doc_note(pool: &SqlitePool, id: &str) -> crate::Result<()> {
     sqlx::query("DELETE FROM doc_notes WHERE id = ?").bind(id).execute(pool).await?;
+
+    // Sync log: DELETE
+    sync::append_sync_log(pool, "doc_notes", id, "DELETE", None, None).await.ok();
+
     Ok(())
 }
 
@@ -220,6 +281,17 @@ pub async fn reorder_doc_notes(pool: &SqlitePool, note_ids: &[String]) -> crate:
             .bind(id)
             .execute(pool)
             .await?;
+
+        // Sync log: UPDATE for reorder
+        let row: Option<(String, String, String, i64, String)> = sqlx::query_as(
+            "SELECT id, doc_id, content, position, created_at FROM doc_notes WHERE id = ?"
+        ).bind(id).fetch_optional(pool).await.ok().flatten();
+        if let Some((nid, ndoc_id, ncontent, nposition, ncreated_at)) = row {
+            let note = DocNote { id: nid, doc_id: ndoc_id, content: ncontent, position: nposition, created_at: ncreated_at };
+            let changed = serde_json::json!(["position"]).to_string();
+            let snapshot = serde_json::to_string(&note).unwrap_or_default();
+            sync::append_sync_log(pool, "doc_notes", id, "UPDATE", Some(&changed), Some(&snapshot)).await.ok();
+        }
     }
     Ok(())
 }
