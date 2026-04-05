@@ -55,7 +55,7 @@ A personal daily triage and briefing macOS app built with Tauri 2.0.
 - Versioned migration system in `src-tauri/src/db/migrations.rs`
 - Each migration has a version number, description, and SQL string
 - Migrations run automatically on app startup — append new ones to the `MIGRATIONS` array
-- Current version: **10** (initial schema → calendar feeds → tasks/projects → activity log → focus state → captures → task status → docs → capture routes)
+- Current version: **13** (initial schema → calendar feeds → tasks/projects → activity log → focus state → captures → task status → docs → capture routes → goals/milestones/life_areas → habits/habit_logs + project goal linking → calendar date caching)
 - `schema_version` table tracks what's been applied
 
 ## Key Tables
@@ -65,9 +65,14 @@ A personal daily triage and briefing macOS app built with Tauri 2.0.
 - `captures` — native captures (migrated from Obsidian Quick Captures.md)
 - `activity_log` — timestamped activity events (action_type, target_id, metadata JSON)
 - `capture_routes` — user-configurable prefix routing for captures (prefix, target_type, doc_id, label, color, icon)
+- `goals` — annual/life goals with status, life area, start/target dates, auto-calculated progress
+- `milestones` — binary checkpoints under goals with optional target dates
+- `life_areas` — categories for goals (Career, Health, Creative, Financial, Personal, Learning)
+- `habits` — daily repeatable actions (name, category, icon, color)
+- `habit_logs` — daily check-off records (habit_id, date, intensity 1-5)
 - `daily_state` — per-day energy level, cached AI priorities, focus session state
 - `todoist_tasks` — cached Todoist tasks
-- `calendar_events` / `calendar_feeds` — cached calendar data
+- `calendar_events` / `calendar_feeds` — cached calendar data with 7-day window caching
 
 ## Task Status Workflow
 - Statuses: `backlog` → `todo` → `in_progress` → `blocked` → `complete`
@@ -95,19 +100,13 @@ A personal daily triage and briefing macOS app built with Tauri 2.0.
 
 ## Current State
 
-- **Last session:** 2026-03-29 (14-hour marathon — 3 pillars, detail pages, status system, docs page, brief display)
-- **Completed this session (part 3, 12:30 PM – 2:35 PM):**
-  - A1: Daily Brief Display with date browsing (BriefDisplay + DateStrip components)
-  - Phase F: Docs Page with Tiptap rich text editor, folder tree, doc notes
-  - Command bar `/doc` search for documents
-  - Inbox "Move to Doc" action with folder/doc picker
-  - Task ↔ Doc linking (linked_doc_id field, picker on task detail, clickable link)
-  - Tiptap `@` mentions in docs AND task descriptions (searches both tasks + docs)
-  - Task descriptions upgraded to rich text (Tiptap replaces plain textarea)
-  - Code + UI/UX audit agents ran (findings saved to memory/project_cleanup_backlog.md)
-  - Brief v2 roadmap ideas saved (8 items: time-blocking, habit streaks, meeting prep, etc.)
-  - Mood tracker added to roadmap (replaces energy tracker)
-  - Nav sidebar icon quality + contrast fixes
-  - Fixed auto-save loop bug (description saves causing activity log spam)
-- **Known issues:** Dead code to clean up (see cleanup backlog). Tiptap duplicate link extension warning. `useSave` hook still dead code.
-- **Next up:** Phase B (evening loop), Phase C (goals), code cleanup from audit, UI/UX fixes from audit. See HelpPanel roadmap tab + memory/project_cleanup_backlog.md.
+- **Last session:** 2026-04-04 (mobile architecture planning — no code changes)
+- **Completed this session:**
+  - Comprehensive codebase audit: full inventory of 65 Rust commands, 18 tables, 7 Zustand stores, 10+ hooks, all coupling points
+  - Cross-platform architecture plan written to `docs/MOBILE-ARCHITECTURE.md`
+  - Platform decision: React Native (Expo) for mobile, not Tauri mobile (too immature)
+  - Data sync strategy: custom sync protocol with Turso (hosted SQLite) as cloud rendezvous, last-write-wins for single-user
+  - Desktop structural prep plan: 4 sessions (extract Rust core crate, DataProvider abstraction, sync_log table, monorepo + shared types)
+  - Mobile build plan: 3-5 sessions after desktop prep (scaffold, core pages, sync integration)
+- **Known issues:** Tiptap duplicate link extension warning. Nested button warning in some dropdown triggers. HelpPanel roadmap data is stale. Uncommitted CLAUDE.md change from previous session (migration version update).
+- **Next up:** Session 0a — Extract Rust core into a library crate (`daily-triage-core/`). See `docs/MOBILE-ARCHITECTURE.md` Phase 0 for full plan.
