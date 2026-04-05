@@ -322,4 +322,11 @@ export interface SyncStatus {
   pending_changes: number
   last_sync: string | null
   device_id: string
+  turso_configured: boolean
+  remote_initialized: boolean
+}
+
+export interface SyncResult {
+  pushed: number
+  pulled: number
 }

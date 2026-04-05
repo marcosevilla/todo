@@ -1,9 +1,20 @@
 /**
- * Inbox page — list of captures, most recent first.
+ * Inbox page — list of captures with quick capture input.
  */
 
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
+  Alert,
+} from 'react-native';
 import { useDataProvider } from '../../services/provider-context';
 import type { Capture } from '@daily-triage/types';
 import { colors, spacing, fontSize } from '../../constants/theme';
@@ -27,38 +38,110 @@ export default function InboxPage() {
   const dp = useDataProvider();
   const [captures, setCaptures] = useState<Capture[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const items = await dp.captures.list(50);
-        setCaptures(items);
-      } catch (e) {
-        console.error('Failed to load captures:', e);
-      } finally {
-        setLoading(false);
-      }
+  const loadData = useCallback(async () => {
+    try {
+      const items = await dp.captures.list(50);
+      setCaptures(items);
+    } catch (e) {
+      console.error('Failed to load captures:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    load();
   }, [dp]);
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadData();
+  }, [loadData]);
+
+  const saveCapture = useCallback(async () => {
+    const content = inputValue.trim();
+    if (!content || saving) return;
+
+    setSaving(true);
+    try {
+      await dp.captures.create(content, 'mobile');
+      setInputValue('');
+      loadData();
+    } catch (e) {
+      console.error('Failed to save capture:', e);
+    } finally {
+      setSaving(false);
+    }
+  }, [dp, inputValue, saving, loadData]);
+
+  const deleteCapture = useCallback(
+    (capture: Capture) => {
+      Alert.alert(
+        'Delete capture?',
+        capture.content.slice(0, 60) + (capture.content.length > 60 ? '...' : ''),
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await dp.captures.delete(capture.id);
+                loadData();
+              } catch (e) {
+                console.error('Failed to delete capture:', e);
+              }
+            },
+          },
+        ]
+      );
+    },
+    [dp, loadData]
+  );
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {/* Quick capture input */}
+      <View style={styles.inputBar}>
+        <TextInput
+          style={styles.input}
+          placeholder="Quick capture..."
+          placeholderTextColor={colors.textMuted}
+          value={inputValue}
+          onChangeText={setInputValue}
+          onSubmitEditing={saveCapture}
+          returnKeyType="done"
+          multiline={false}
+        />
+        <TouchableOpacity
+          style={[styles.saveButton, !inputValue.trim() && styles.saveButtonDisabled]}
+          onPress={saveCapture}
+          disabled={!inputValue.trim() || saving}
+        >
+          <Text style={styles.saveButtonText}>
+            {saving ? '...' : 'Save'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Captures list */}
+      {loading ? (
         <View style={styles.center}>
           <Text style={styles.loadingText}>Loading captures...</Text>
         </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      {captures.length === 0 ? (
+      ) : captures.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyText}>Inbox is empty</Text>
           <Text style={styles.emptySubtext}>
-            Captures will appear here once synced
+            Type above to capture a thought
           </Text>
         </View>
       ) : (
@@ -66,15 +149,28 @@ export default function InboxPage() {
           data={captures}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.accent}
+            />
+          }
           renderItem={({ item }) => (
-            <View style={styles.captureCard}>
+            <TouchableOpacity
+              style={styles.captureCard}
+              onLongPress={() => deleteCapture(item)}
+              activeOpacity={0.8}
+            >
               <Text style={styles.captureContent}>{item.content}</Text>
               <View style={styles.captureMeta}>
                 <Text style={styles.timestamp}>
                   {formatTimestamp(item.created_at)}
                 </Text>
                 {item.source !== 'manual' && (
-                  <Text style={styles.source}>{item.source}</Text>
+                  <View style={styles.sourceBadge}>
+                    <Text style={styles.sourceText}>{item.source}</Text>
+                  </View>
                 )}
                 {item.routed_to && (
                   <View style={styles.routeBadge}>
@@ -82,11 +178,11 @@ export default function InboxPage() {
                   </View>
                 )}
               </View>
-            </View>
+            </TouchableOpacity>
           )}
         />
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -100,6 +196,43 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  // Input bar
+  inputBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.bgCard,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.border,
+    gap: spacing.sm,
+  },
+  input: {
+    flex: 1,
+    height: 40,
+    backgroundColor: colors.bgSurface,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    color: colors.text,
+    fontSize: fontSize.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  saveButton: {
+    backgroundColor: colors.accent,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  saveButtonDisabled: {
+    opacity: 0.4,
+  },
+  saveButtonText: {
+    color: '#000',
+    fontWeight: '600',
+    fontSize: fontSize.md,
+  },
+  // List
   list: {
     padding: spacing.md,
     gap: spacing.sm,
@@ -124,10 +257,15 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textMuted,
   },
-  source: {
+  sourceBadge: {
+    backgroundColor: colors.bgHover,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  sourceText: {
     fontSize: fontSize.xs,
-    color: colors.textMuted,
-    opacity: 0.7,
+    color: colors.textSecondary,
   },
   routeBadge: {
     backgroundColor: colors.accentMuted,

@@ -1,11 +1,13 @@
 /**
  * Root layout — initializes database and wraps with DataProvider.
+ * Uses SafeAreaProvider for proper inset handling on all devices.
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initDatabase } from '../services/database';
 import { createSqliteProvider } from '../services/sqlite-provider';
 import { DataProviderRoot } from '../services/provider-context';
@@ -31,29 +33,36 @@ export default function RootLayout() {
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>Database error: {error}</Text>
-        <StatusBar style="light" />
-      </View>
+      <SafeAreaProvider>
+        <View style={styles.center}>
+          <Text style={styles.errorText}>Database error: {error}</Text>
+          <StatusBar style="light" />
+        </View>
+      </SafeAreaProvider>
     );
   }
 
   if (!provider) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.loadingText}>Loading...</Text>
-        <StatusBar style="light" />
-      </View>
+      <SafeAreaProvider>
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.accent} size="small" />
+          <Text style={styles.loadingText}>Loading...</Text>
+          <StatusBar style="light" />
+        </View>
+      </SafeAreaProvider>
     );
   }
 
   return (
-    <DataProviderRoot provider={provider}>
-      <View style={styles.container}>
-        <Slot />
-        <StatusBar style="light" />
-      </View>
-    </DataProviderRoot>
+    <SafeAreaProvider>
+      <DataProviderRoot provider={provider}>
+        <View style={styles.container}>
+          <Slot />
+          <StatusBar style="light" />
+        </View>
+      </DataProviderRoot>
+    </SafeAreaProvider>
   );
 }
 
@@ -67,6 +76,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.bg,
+    gap: 12,
   },
   loadingText: {
     color: colors.textMuted,

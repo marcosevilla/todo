@@ -1,11 +1,19 @@
 /**
- * Today page — greeting + today's tasks.
+ * Today page — greeting, today's tasks with completion toggle, habits with tap-to-log.
  */
 
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+} from 'react-native';
 import { useDataProvider } from '../../services/provider-context';
-import type { LocalTask } from '@daily-triage/types';
+import type { LocalTask, HabitWithStats } from '@daily-triage/types';
 import { colors, spacing, fontSize } from '../../constants/theme';
 
 function getGreeting(): string {
@@ -22,24 +30,88 @@ const priorityColors: Record<number, string> = {
   4: colors.priority4,
 };
 
+const STATUS_CYCLE: Record<string, string> = {
+  todo: 'in_progress',
+  in_progress: 'complete',
+  backlog: 'todo',
+  blocked: 'todo',
+};
+
+const statusIcons: Record<string, string> = {
+  backlog: '○',
+  todo: '◎',
+  in_progress: '◉',
+  blocked: '⊘',
+  complete: '●',
+};
+
 export default function TodayPage() {
   const dp = useDataProvider();
   const [tasks, setTasks] = useState<LocalTask[]>([]);
+  const [habits, setHabits] = useState<HabitWithStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadData = useCallback(async () => {
+    try {
+      const [allTasks, allHabits] = await Promise.all([
+        dp.tasks.list({ includeCompleted: false }),
+        dp.habits.list(),
+      ]);
+      setTasks(allTasks);
+      setHabits(allHabits);
+    } catch (e) {
+      console.error('Failed to load data:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [dp]);
 
   useEffect(() => {
-    async function load() {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadData();
+  }, [loadData]);
+
+  const toggleTaskStatus = useCallback(
+    async (task: LocalTask) => {
       try {
-        const all = await dp.tasks.list({ includeCompleted: false });
-        setTasks(all);
+        if (task.status === 'complete') {
+          await dp.tasks.uncomplete(task.id);
+        } else {
+          const nextStatus = STATUS_CYCLE[task.status] || 'complete';
+          await dp.tasks.updateStatus(task.id, nextStatus as LocalTask['status']);
+        }
+        // Reload after mutation
+        const updated = await dp.tasks.list({ includeCompleted: false });
+        setTasks(updated);
       } catch (e) {
-        console.error('Failed to load tasks:', e);
-      } finally {
-        setLoading(false);
+        console.error('Failed to toggle task:', e);
       }
-    }
-    load();
-  }, [dp]);
+    },
+    [dp]
+  );
+
+  const toggleHabit = useCallback(
+    async (habit: HabitWithStats) => {
+      try {
+        if (habit.today_completed) {
+          await dp.habits.unlog(habit.id);
+        } else {
+          await dp.habits.log(habit.id);
+        }
+        const updated = await dp.habits.list();
+        setHabits(updated);
+      } catch (e) {
+        console.error('Failed to toggle habit:', e);
+      }
+    },
+    [dp]
+  );
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -48,12 +120,58 @@ export default function TodayPage() {
   });
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.accent}
+        />
+      }
+    >
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.greeting}>{getGreeting()}</Text>
         <Text style={styles.date}>{today}</Text>
       </View>
 
+      {/* Habits Section */}
+      {habits.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Habits</Text>
+          <View style={styles.habitsRow}>
+            {habits.map((habit) => (
+              <TouchableOpacity
+                key={habit.id}
+                style={[
+                  styles.habitChip,
+                  habit.today_completed && styles.habitChipDone,
+                ]}
+                onPress={() => toggleHabit(habit)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.habitName,
+                    habit.today_completed && styles.habitNameDone,
+                  ]}
+                >
+                  {habit.name}
+                </Text>
+                {habit.current_momentum > 0 && (
+                  <Text style={styles.habitMomentum}>
+                    {habit.current_momentum}/7
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Tasks Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>
           Open tasks{' '}
@@ -72,32 +190,40 @@ export default function TodayPage() {
             </Text>
           </View>
         ) : (
-          <FlatList
-            data={tasks}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <View style={styles.taskRow}>
-                <View
-                  style={[
-                    styles.statusDot,
-                    { backgroundColor: priorityColors[item.priority] || colors.priority1 },
-                  ]}
-                />
-                <View style={styles.taskContent}>
-                  <Text style={styles.taskText} numberOfLines={1}>
-                    {item.content}
-                  </Text>
-                  {item.due_date && (
-                    <Text style={styles.taskMeta}>{item.due_date}</Text>
+          tasks.map((task) => (
+            <TouchableOpacity
+              key={task.id}
+              style={styles.taskRow}
+              onPress={() => toggleTaskStatus(task)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.statusIcon,
+                  {
+                    color:
+                      priorityColors[task.priority] || colors.priority1,
+                  },
+                ]}
+              >
+                {statusIcons[task.status] || '○'}
+              </Text>
+              <View style={styles.taskContent}>
+                <Text style={styles.taskText} numberOfLines={1}>
+                  {task.content}
+                </Text>
+                <View style={styles.taskMetaRow}>
+                  <Text style={styles.taskStatus}>{task.status.replace('_', ' ')}</Text>
+                  {task.due_date && (
+                    <Text style={styles.taskMeta}>{task.due_date}</Text>
                   )}
                 </View>
               </View>
-            )}
-            contentContainerStyle={styles.list}
-          />
+            </TouchableOpacity>
+          ))
         )}
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -105,6 +231,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  contentContainer: {
+    paddingBottom: spacing.xl,
   },
   header: {
     paddingHorizontal: spacing.lg,
@@ -122,8 +251,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   section: {
-    flex: 1,
     paddingHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
   },
   sectionTitle: {
     fontSize: fontSize.sm,
@@ -137,9 +266,40 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontWeight: '400',
   },
-  list: {
-    gap: 2,
+  // Habits
+  habitsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
+  habitChip: {
+    backgroundColor: colors.bgCard,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  habitChipDone: {
+    backgroundColor: colors.accentMuted,
+    borderColor: colors.accent,
+  },
+  habitName: {
+    fontSize: fontSize.sm,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  habitNameDone: {
+    color: colors.accent,
+  },
+  habitMomentum: {
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+  },
+  // Tasks
   taskRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -149,11 +309,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: spacing.xs,
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  statusIcon: {
+    fontSize: 16,
     marginRight: 12,
+    width: 20,
+    textAlign: 'center',
   },
   taskContent: {
     flex: 1,
@@ -162,10 +322,19 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.text,
   },
+  taskMetaRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: 2,
+  },
+  taskStatus: {
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    textTransform: 'capitalize',
+  },
   taskMeta: {
     fontSize: fontSize.xs,
     color: colors.textMuted,
-    marginTop: 2,
   },
   placeholder: {
     paddingVertical: spacing.xl,

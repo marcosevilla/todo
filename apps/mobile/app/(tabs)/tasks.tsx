@@ -1,5 +1,6 @@
 /**
  * Tasks page — project list with task counts, expandable to show tasks.
+ * Includes task creation (FAB + inline input) and status toggling.
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -8,10 +9,14 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
+  TextInput,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
 } from 'react-native';
 import { useDataProvider } from '../../services/provider-context';
-import type { Project, LocalTask } from '@daily-triage/types';
+import type { Project, LocalTask, TaskStatus } from '@daily-triage/types';
 import { colors, spacing, fontSize } from '../../constants/theme';
 
 const priorityColors: Record<number, string> = {
@@ -29,6 +34,13 @@ const statusIcons: Record<string, string> = {
   complete: '●',
 };
 
+const STATUS_CYCLE: Record<string, TaskStatus> = {
+  backlog: 'todo',
+  todo: 'in_progress',
+  in_progress: 'complete',
+  blocked: 'todo',
+};
+
 interface ProjectWithTasks extends Project {
   tasks: LocalTask[];
 }
@@ -38,30 +50,41 @@ export default function TasksPage() {
   const [projects, setProjects] = useState<ProjectWithTasks[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTaskContent, setNewTaskContent] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  const loadData = useCallback(async () => {
+    try {
+      const projectList = await dp.projects.list();
+      const withTasks: ProjectWithTasks[] = [];
+
+      for (const p of projectList) {
+        const tasks = await dp.tasks.list({
+          projectId: p.id,
+          includeCompleted: false,
+        });
+        withTasks.push({ ...p, tasks });
+      }
+
+      setProjects(withTasks);
+    } catch (e) {
+      console.error('Failed to load projects:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [dp]);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const projectList = await dp.projects.list();
-        const withTasks: ProjectWithTasks[] = [];
+    loadData();
+  }, [loadData]);
 
-        for (const p of projectList) {
-          const tasks = await dp.tasks.list({
-            projectId: p.id,
-            includeCompleted: false,
-          });
-          withTasks.push({ ...p, tasks });
-        }
-
-        setProjects(withTasks);
-      } catch (e) {
-        console.error('Failed to load projects:', e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [dp]);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadData();
+  }, [loadData]);
 
   const toggleProject = useCallback(
     (id: string) => {
@@ -69,6 +92,36 @@ export default function TasksPage() {
     },
     []
   );
+
+  const toggleTaskStatus = useCallback(
+    async (task: LocalTask) => {
+      try {
+        const nextStatus = STATUS_CYCLE[task.status] || 'complete';
+        await dp.tasks.updateStatus(task.id, nextStatus);
+        loadData();
+      } catch (e) {
+        console.error('Failed to update task status:', e);
+      }
+    },
+    [dp, loadData]
+  );
+
+  const createTask = useCallback(async () => {
+    const content = newTaskContent.trim();
+    if (!content || creating) return;
+
+    setCreating(true);
+    try {
+      await dp.tasks.create({ content, projectId: 'inbox' });
+      setNewTaskContent('');
+      setShowCreate(false);
+      loadData();
+    } catch (e) {
+      console.error('Failed to create task:', e);
+    } finally {
+      setCreating(false);
+    }
+  }, [dp, newTaskContent, creating, loadData]);
 
   if (loading) {
     return (
@@ -81,11 +134,46 @@ export default function TasksPage() {
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {/* Create task input */}
+      {showCreate && (
+        <View style={styles.createBar}>
+          <TextInput
+            style={styles.createInput}
+            placeholder="What needs doing?"
+            placeholderTextColor={colors.textMuted}
+            value={newTaskContent}
+            onChangeText={setNewTaskContent}
+            onSubmitEditing={createTask}
+            returnKeyType="done"
+            autoFocus
+          />
+          <TouchableOpacity
+            style={[styles.createSubmit, !newTaskContent.trim() && styles.createSubmitDisabled]}
+            onPress={createTask}
+            disabled={!newTaskContent.trim() || creating}
+          >
+            <Text style={styles.createSubmitText}>
+              {creating ? '...' : 'Add'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <FlatList
         data={projects}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+          />
+        }
         renderItem={({ item: project }) => (
           <View style={styles.projectCard}>
             <TouchableOpacity
@@ -108,7 +196,12 @@ export default function TasksPage() {
             {expandedId === project.id && project.tasks.length > 0 && (
               <View style={styles.taskList}>
                 {project.tasks.map((task) => (
-                  <View key={task.id} style={styles.taskRow}>
+                  <TouchableOpacity
+                    key={task.id}
+                    style={styles.taskRow}
+                    onPress={() => toggleTaskStatus(task)}
+                    activeOpacity={0.7}
+                  >
                     <Text
                       style={[
                         styles.statusIcon,
@@ -124,11 +217,16 @@ export default function TasksPage() {
                       <Text style={styles.taskText} numberOfLines={2}>
                         {task.content}
                       </Text>
-                      {task.due_date && (
-                        <Text style={styles.taskMeta}>{task.due_date}</Text>
-                      )}
+                      <View style={styles.taskMetaRow}>
+                        <Text style={styles.taskStatusLabel}>
+                          {task.status.replace('_', ' ')}
+                        </Text>
+                        {task.due_date && (
+                          <Text style={styles.taskMeta}>{task.due_date}</Text>
+                        )}
+                      </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
@@ -146,7 +244,18 @@ export default function TasksPage() {
           </View>
         }
       />
-    </View>
+
+      {/* FAB for creating tasks */}
+      {!showCreate && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => setShowCreate(true)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.fabText}>+</Text>
+        </TouchableOpacity>
+      )}
+    </KeyboardAvoidingView>
   );
 }
 
@@ -161,6 +270,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.xl * 2,
   },
+  // Create bar
+  createBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.bgCard,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.border,
+    gap: spacing.sm,
+  },
+  createInput: {
+    flex: 1,
+    height: 40,
+    backgroundColor: colors.bgSurface,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    color: colors.text,
+    fontSize: fontSize.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  createSubmit: {
+    backgroundColor: colors.accent,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  createSubmitDisabled: {
+    opacity: 0.4,
+  },
+  createSubmitText: {
+    color: '#000',
+    fontWeight: '600',
+    fontSize: fontSize.md,
+  },
+  // List
   list: {
     padding: spacing.md,
     gap: spacing.sm,
@@ -211,6 +357,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginRight: 10,
     marginTop: 2,
+    width: 18,
   },
   taskContent: {
     flex: 1,
@@ -220,10 +367,19 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 20,
   },
+  taskMetaRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: 2,
+  },
+  taskStatusLabel: {
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    textTransform: 'capitalize',
+  },
   taskMeta: {
     fontSize: fontSize.xs,
     color: colors.textMuted,
-    marginTop: 2,
   },
   loadingText: {
     color: colors.textMuted,
@@ -236,5 +392,29 @@ const styles = StyleSheet.create({
   emptyProject: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
+  },
+  // FAB
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    bottom: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+    // Shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  fabText: {
+    fontSize: 28,
+    color: '#000',
+    fontWeight: '600',
+    lineHeight: 30,
   },
 });

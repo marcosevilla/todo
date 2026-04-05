@@ -1,9 +1,15 @@
 /**
- * Settings page — app version, sync status, database info.
+ * Settings page — app version, sync status, database info, sync_log count.
  */
 
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  RefreshControl,
+} from 'react-native';
 import { useDataProvider } from '../../services/provider-context';
 import { getDatabase } from '../../services/database';
 import { colors, spacing, fontSize } from '../../constants/theme';
@@ -20,49 +26,69 @@ export default function SettingsPage() {
     lastSync: string | null;
   } | null>(null);
   const [tables, setTables] = useState<TableCount[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        // Sync status
-        const status = await dp.sync.getStatus();
-        setSyncStatus({
-          pending: status.pending_changes,
-          lastSync: status.last_sync,
-        });
+  const loadData = useCallback(async () => {
+    try {
+      // Sync status
+      const status = await dp.sync.getStatus();
+      setSyncStatus({
+        pending: status.pending_changes,
+        lastSync: status.last_sync,
+      });
 
-        // Table counts
-        const db = getDatabase();
-        const tableNames = [
-          'local_tasks',
-          'projects',
-          'captures',
-          'goals',
-          'habits',
-          'calendar_events',
-          'documents',
-        ];
-        const counts: TableCount[] = [];
-        for (const name of tableNames) {
-          try {
-            const row = await db.getFirstAsync<{ cnt: number }>(
-              `SELECT COUNT(*) as cnt FROM ${name}`
-            );
-            counts.push({ name, count: row?.cnt ?? 0 });
-          } catch {
-            counts.push({ name, count: 0 });
-          }
+      // Table counts
+      const db = getDatabase();
+      const tableNames = [
+        'local_tasks',
+        'projects',
+        'captures',
+        'goals',
+        'habits',
+        'habit_logs',
+        'sync_log',
+        'calendar_events',
+        'documents',
+      ];
+      const counts: TableCount[] = [];
+      for (const name of tableNames) {
+        try {
+          const row = await db.getFirstAsync<{ cnt: number }>(
+            `SELECT COUNT(*) as cnt FROM ${name}`
+          );
+          counts.push({ name, count: row?.cnt ?? 0 });
+        } catch {
+          counts.push({ name, count: 0 });
         }
-        setTables(counts);
-      } catch (e) {
-        console.error('Failed to load settings data:', e);
       }
+      setTables(counts);
+    } catch (e) {
+      console.error('Failed to load settings data:', e);
+    } finally {
+      setRefreshing(false);
     }
-    load();
   }, [dp]);
 
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadData();
+  }, [loadData]);
+
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.accent}
+        />
+      }
+    >
       {/* App Info */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>App</Text>
@@ -80,6 +106,7 @@ export default function SettingsPage() {
           <SettingsRow
             label="Pending changes"
             value={String(syncStatus?.pending ?? '--')}
+            highlight={syncStatus != null && syncStatus.pending > 0}
           />
           <SettingsRow
             label="Last sync"
@@ -93,24 +120,37 @@ export default function SettingsPage() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Database</Text>
         <View style={styles.card}>
-          {tables.map((t) => (
+          {tables.map((t, i) => (
             <SettingsRow
               key={t.name}
               label={t.name.replace(/_/g, ' ')}
               value={String(t.count)}
+              isLast={i === tables.length - 1}
             />
           ))}
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
-function SettingsRow({ label, value }: { label: string; value: string }) {
+function SettingsRow({
+  label,
+  value,
+  highlight,
+  isLast,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+  isLast?: boolean;
+}) {
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, isLast && styles.rowLast]}>
       <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
+      <Text style={[styles.rowValue, highlight && styles.rowValueHighlight]}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -147,6 +187,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: colors.border,
   },
+  rowLast: {
+    borderBottomWidth: 0,
+  },
   rowLabel: {
     fontSize: fontSize.md,
     color: colors.text,
@@ -155,5 +198,9 @@ const styles = StyleSheet.create({
   rowValue: {
     fontSize: fontSize.md,
     color: colors.textMuted,
+  },
+  rowValueHighlight: {
+    color: colors.accent,
+    fontWeight: '600',
   },
 });

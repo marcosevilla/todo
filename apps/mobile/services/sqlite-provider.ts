@@ -1,8 +1,8 @@
 /**
  * SqliteProvider — Mobile implementation of DataProvider using expo-sqlite.
  *
- * Phase 1b: Read methods implemented, mutations are stubs.
- * Phase 1c: Will add full mutation support.
+ * Phase 1b: Read methods implemented.
+ * Phase 1c: Mutations with sync_log support.
  */
 
 import type { DataProvider } from './data-provider';
@@ -13,9 +13,12 @@ import type {
   Capture,
   Habit,
   HabitWithStats,
+  HabitLog,
   GoalWithProgress,
+  TaskStatus,
 } from '@daily-triage/types';
 import { getDatabase } from './database';
+import { generateUUID, appendSyncLog } from './sync-utils';
 
 const stub = (name: string) => {
   console.warn(`[SqliteProvider] ${name} is not yet implemented (stub)`);
@@ -36,11 +39,19 @@ export function createSqliteProvider(): DataProvider {
         const db = getDatabase();
         const row = await db.getFirstAsync<{ value: string }>(
           'SELECT value FROM settings WHERE key = ?',
-          key
+          [key]
         );
         return row?.value ?? null;
       },
-      set: (key, value) => stub(`settings.set(${key})`),
+      async set(key: string, value: string) {
+        const db = getDatabase();
+        const now = new Date().toISOString();
+        await db.runAsync(
+          "INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)",
+          [key, value, now]
+        );
+        appendSyncLog('settings', key, 'UPDATE', ['value'], { key, value });
+      },
       async getAll() {
         const db = getDatabase();
         return db.getAllAsync<Setting>('SELECT key, value FROM settings');
@@ -72,16 +83,46 @@ export function createSqliteProvider(): DataProvider {
     captures: {
       async list(limit?: number, _includeConverted?: boolean) {
         const db = getDatabase();
-        const sql = limit
-          ? 'SELECT * FROM captures ORDER BY created_at DESC LIMIT ?'
-          : 'SELECT * FROM captures ORDER BY created_at DESC';
-        return limit
-          ? db.getAllAsync<Capture>(sql, limit)
-          : db.getAllAsync<Capture>(sql);
+        if (limit) {
+          return db.getAllAsync<Capture>(
+            'SELECT * FROM captures ORDER BY created_at DESC LIMIT ?',
+            [limit]
+          );
+        }
+        return db.getAllAsync<Capture>(
+          'SELECT * FROM captures ORDER BY created_at DESC'
+        );
       },
-      create: () => stub('captures.create'),
+      async create(content: string, source?: string) {
+        const db = getDatabase();
+        const id = generateUUID();
+        const src = source ?? 'manual';
+        const now = new Date().toISOString();
+
+        await db.runAsync(
+          `INSERT INTO captures (id, content, source, created_at)
+           VALUES (?, ?, ?, ?)`,
+          [id, content, src, now]
+        );
+
+        const capture: Capture = {
+          id,
+          content,
+          source: src,
+          converted_to_task_id: null,
+          routed_to: null,
+          created_at: now,
+        };
+
+        appendSyncLog('captures', id, 'INSERT', null, capture as unknown as Record<string, unknown>);
+        return capture;
+      },
       convertToTask: () => stub('captures.convertToTask'),
-      delete: () => stub('captures.delete'),
+      async delete(id: string) {
+        const db = getDatabase();
+        await db.runAsync('DELETE FROM captures WHERE id = ?', [id]);
+        appendSyncLog('captures', id, 'DELETE', null, null);
+      },
       readQuickCaptures: () => stub('captures.readQuickCaptures'),
       writeQuickCapture: () => stub('captures.writeQuickCapture'),
     },
@@ -101,7 +142,27 @@ export function createSqliteProvider(): DataProvider {
           'SELECT id, name, color, position FROM projects ORDER BY position'
         );
       },
-      create: () => stub('projects.create'),
+      async create(name: string, color: string) {
+        const db = getDatabase();
+        const id = generateUUID();
+        const now = new Date().toISOString();
+
+        // Get next position
+        const row = await db.getFirstAsync<{ maxPos: number }>(
+          'SELECT COALESCE(MAX(position), -1) as maxPos FROM projects'
+        );
+        const position = (row?.maxPos ?? -1) + 1;
+
+        await db.runAsync(
+          `INSERT INTO projects (id, name, color, position, created_at)
+           VALUES (?, ?, ?, ?, ?)`,
+          [id, name, color, position, now]
+        );
+
+        const project: Project = { id, name, color, position };
+        appendSyncLog('projects', id, 'INSERT', null, project as unknown as Record<string, unknown>);
+        return project;
+      },
       update: () => stub('projects.update'),
       delete: () => stub('projects.delete'),
     },
@@ -126,18 +187,189 @@ export function createSqliteProvider(): DataProvider {
 
         sql += ' ORDER BY position';
 
-        const rows = await db.getAllAsync<Omit<LocalTask, 'completed'> & { completed: number }>(sql, ...params);
+        const rows = await db.getAllAsync<Omit<LocalTask, 'completed'> & { completed: number }>(
+          sql,
+          params
+        );
         return rows.map((r) => ({
           ...r,
           completed: Boolean(r.completed),
         }));
       },
-      create: () => stub('tasks.create'),
-      update: () => stub('tasks.update'),
-      updateStatus: () => stub('tasks.updateStatus'),
-      complete: () => stub('tasks.complete'),
-      uncomplete: () => stub('tasks.uncomplete'),
-      delete: () => stub('tasks.delete'),
+
+      async create(opts) {
+        const db = getDatabase();
+        const id = generateUUID();
+        const now = new Date().toISOString();
+        const projectId = opts.projectId ?? 'inbox';
+        const priority = opts.priority ?? 1;
+        const status: TaskStatus = 'todo';
+
+        // Get next position
+        const row = await db.getFirstAsync<{ maxPos: number }>(
+          'SELECT COALESCE(MAX(position), -1) as maxPos FROM local_tasks WHERE project_id = ?',
+          [projectId]
+        );
+        const position = (row?.maxPos ?? -1) + 1;
+
+        await db.runAsync(
+          `INSERT INTO local_tasks (id, parent_id, content, description, project_id, priority, due_date, completed, status, position, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
+          [
+            id,
+            opts.parentId ?? null,
+            opts.content,
+            opts.description ?? null,
+            projectId,
+            priority,
+            opts.dueDate ?? null,
+            status,
+            position,
+            now,
+            now,
+          ]
+        );
+
+        const task: LocalTask = {
+          id,
+          parent_id: opts.parentId ?? null,
+          content: opts.content,
+          description: opts.description ?? null,
+          project_id: projectId,
+          priority,
+          due_date: opts.dueDate ?? null,
+          completed: false,
+          completed_at: null,
+          status,
+          linked_doc_id: null,
+          position,
+          created_at: now,
+          updated_at: now,
+        };
+
+        appendSyncLog('local_tasks', id, 'INSERT', null, task as unknown as Record<string, unknown>);
+        return task;
+      },
+
+      async update(opts) {
+        const db = getDatabase();
+        const now = new Date().toISOString();
+        const changedColumns: string[] = ['updated_at'];
+        const sets: string[] = ['updated_at = ?'];
+        const params: (string | number | null)[] = [now];
+
+        if (opts.content !== undefined) {
+          sets.push('content = ?');
+          params.push(opts.content);
+          changedColumns.push('content');
+        }
+        if (opts.description !== undefined) {
+          sets.push('description = ?');
+          params.push(opts.description);
+          changedColumns.push('description');
+        }
+        if (opts.projectId !== undefined) {
+          sets.push('project_id = ?');
+          params.push(opts.projectId);
+          changedColumns.push('project_id');
+        }
+        if (opts.priority !== undefined) {
+          sets.push('priority = ?');
+          params.push(opts.priority);
+          changedColumns.push('priority');
+        }
+        if (opts.dueDate !== undefined) {
+          sets.push('due_date = ?');
+          params.push(opts.dueDate);
+          changedColumns.push('due_date');
+        }
+        if (opts.clearDueDate) {
+          sets.push('due_date = NULL');
+          changedColumns.push('due_date');
+        }
+
+        params.push(opts.id);
+
+        await db.runAsync(
+          `UPDATE local_tasks SET ${sets.join(', ')} WHERE id = ?`,
+          params
+        );
+
+        // Fetch updated task
+        const row = await db.getFirstAsync<Omit<LocalTask, 'completed'> & { completed: number }>(
+          'SELECT * FROM local_tasks WHERE id = ?',
+          [opts.id]
+        );
+
+        if (!row) throw new Error(`Task ${opts.id} not found`);
+
+        const task: LocalTask = { ...row, completed: Boolean(row.completed) };
+        appendSyncLog('local_tasks', opts.id, 'UPDATE', changedColumns, task as unknown as Record<string, unknown>);
+        return task;
+      },
+
+      async updateStatus(id: string, status: TaskStatus, _note?: string) {
+        const db = getDatabase();
+        const now = new Date().toISOString();
+        const completed = status === 'complete' ? 1 : 0;
+        const completedAt = status === 'complete' ? now : null;
+
+        await db.runAsync(
+          `UPDATE local_tasks SET status = ?, completed = ?, completed_at = ?, updated_at = ? WHERE id = ?`,
+          [status, completed, completedAt, now, id]
+        );
+
+        appendSyncLog('local_tasks', id, 'UPDATE', ['status', 'completed', 'completed_at', 'updated_at'], {
+          id,
+          status,
+          completed,
+          completed_at: completedAt,
+          updated_at: now,
+        });
+      },
+
+      async complete(id: string) {
+        const db = getDatabase();
+        const now = new Date().toISOString();
+
+        await db.runAsync(
+          `UPDATE local_tasks SET status = 'complete', completed = 1, completed_at = ?, updated_at = ? WHERE id = ?`,
+          [now, now, id]
+        );
+
+        appendSyncLog('local_tasks', id, 'UPDATE', ['status', 'completed', 'completed_at', 'updated_at'], {
+          id,
+          status: 'complete',
+          completed: 1,
+          completed_at: now,
+          updated_at: now,
+        });
+      },
+
+      async uncomplete(id: string) {
+        const db = getDatabase();
+        const now = new Date().toISOString();
+
+        await db.runAsync(
+          `UPDATE local_tasks SET status = 'todo', completed = 0, completed_at = NULL, updated_at = ? WHERE id = ?`,
+          [now, id]
+        );
+
+        appendSyncLog('local_tasks', id, 'UPDATE', ['status', 'completed', 'completed_at', 'updated_at'], {
+          id,
+          status: 'todo',
+          completed: 0,
+          completed_at: null,
+          updated_at: now,
+        });
+      },
+
+      async delete(id: string) {
+        const db = getDatabase();
+        await db.runAsync('DELETE FROM local_tasks WHERE id = ?', [id]);
+        appendSyncLog('local_tasks', id, 'DELETE', null, null);
+      },
+
       reorder: () => stub('tasks.reorder'),
     },
 
@@ -182,7 +414,7 @@ export function createSqliteProvider(): DataProvider {
           date: string;
           energy_level: string | null;
           top_priorities: string | null;
-        }>('SELECT * FROM daily_state WHERE date = ?', today);
+        }>('SELECT * FROM daily_state WHERE date = ?', [today]);
 
         return {
           date: today,
@@ -244,13 +476,18 @@ export function createSqliteProvider(): DataProvider {
         for (const h of habits) {
           const log = await db.getFirstAsync<{ intensity: number }>(
             'SELECT intensity FROM habit_logs WHERE habit_id = ? AND date = ?',
-            h.id,
-            today
+            [h.id, today]
+          );
+          // Count logs from last 7 days for momentum
+          const momentumRow = await db.getFirstAsync<{ cnt: number }>(
+            `SELECT COUNT(*) as cnt FROM habit_logs
+             WHERE habit_id = ? AND date >= date('now', '-7 days')`,
+            [h.id]
           );
           result.push({
             ...h,
             active: Boolean(h.active),
-            current_momentum: 0,
+            current_momentum: momentumRow?.cnt ?? 0,
             today_completed: !!log,
             today_intensity: log?.intensity ?? 0,
           });
@@ -260,8 +497,52 @@ export function createSqliteProvider(): DataProvider {
       create: () => stub('habits.create'),
       update: () => stub('habits.update'),
       delete: () => stub('habits.delete'),
-      log: () => stub('habits.log'),
-      unlog: () => stub('habits.unlog'),
+
+      async log(habitId: string, date?: string, intensity?: number) {
+        const db = getDatabase();
+        const id = generateUUID();
+        const logDate = date ?? new Date().toISOString().split('T')[0];
+        const logIntensity = intensity ?? 5;
+        const now = new Date().toISOString();
+
+        await db.runAsync(
+          `INSERT OR REPLACE INTO habit_logs (id, habit_id, date, intensity, created_at)
+           VALUES (?, ?, ?, ?, ?)`,
+          [id, habitId, logDate, logIntensity, now]
+        );
+
+        const habitLog: HabitLog = {
+          id,
+          habit_id: habitId,
+          date: logDate,
+          intensity: logIntensity,
+          created_at: now,
+        };
+
+        appendSyncLog('habit_logs', id, 'INSERT', null, habitLog as unknown as Record<string, unknown>);
+        return habitLog;
+      },
+
+      async unlog(habitId: string, date?: string) {
+        const db = getDatabase();
+        const logDate = date ?? new Date().toISOString().split('T')[0];
+
+        // Find the log entry first for sync
+        const existing = await db.getFirstAsync<{ id: string }>(
+          'SELECT id FROM habit_logs WHERE habit_id = ? AND date = ?',
+          [habitId, logDate]
+        );
+
+        await db.runAsync(
+          'DELETE FROM habit_logs WHERE habit_id = ? AND date = ?',
+          [habitId, logDate]
+        );
+
+        if (existing) {
+          appendSyncLog('habit_logs', existing.id, 'DELETE', null, null);
+        }
+      },
+
       getLogs: () => stub('habits.getLogs'),
       getHeatmap: () => stub('habits.getHeatmap'),
     },
@@ -293,6 +574,8 @@ export function createSqliteProvider(): DataProvider {
           pending_changes: row?.cnt ?? 0,
           last_sync: null,
           device_id: 'mobile',
+          turso_configured: false,
+          remote_initialized: false,
         };
       },
       configure: () => stub('sync.configure'),

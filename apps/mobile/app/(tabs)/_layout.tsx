@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet, Platform } from 'react-native';
 import { colors } from '../../constants/theme';
 
 function TabIcon({ icon, focused }: { icon: string; focused: boolean }) {
@@ -20,10 +20,16 @@ export default function TabLayout() {
       screenOptions={{
         headerStyle: {
           backgroundColor: colors.bg,
+          // Remove bottom border/shadow on the header
+          ...(Platform.OS === 'ios'
+            ? { shadowColor: 'transparent' }
+            : { elevation: 0 }),
         },
+        headerShadowVisible: false,
         headerTintColor: colors.text,
         headerTitleStyle: {
           fontWeight: '600',
+          color: colors.text,
         },
         tabBarStyle: {
           backgroundColor: colors.tabBar,
@@ -35,6 +41,9 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '500',
+        },
+        sceneStyle: {
+          backgroundColor: colors.bg,
         },
       }}
     >
