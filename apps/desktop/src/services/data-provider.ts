@@ -2,52 +2,35 @@
  * DataProvider — platform-agnostic interface for all data operations.
  *
  * Desktop: implemented by TauriProvider (delegates to invoke() wrappers)
- * Mobile:  will be implemented by ExpoProvider (delegates to expo-sqlite)
+ * Mobile:  implemented by SqliteProvider (delegates to expo-sqlite)
  *
  * The interface mirrors the current tauri.ts API surface exactly.
- * Types are re-exported from tauri.ts for now — they'll move to a
- * shared package in Phase 0d.
+ * Types are imported from @daily-triage/types shared package.
  */
 
 import type {
-  // Settings
   Setting,
-  // Obsidian
   ParsedTodayMd,
-  // Todoist
   TodoistTaskRow,
-  // Calendar
   CalendarEvent,
   CalendarFeed,
-  // Quick Captures (legacy)
   QuickCapture,
-  // Priorities / Daily State
   Priority,
   DailyState,
-  // Projects
   Project,
-  // Local Tasks
   LocalTask,
   TaskStatus,
-  // Updater
   UpdateStatus,
-  // Progress
   SaveResult,
-  // Activity
   ActivityEntry,
   ActivitySummary,
-  // Captures
   Capture,
-  // Capture Routes
   CaptureRoute,
   RouteCaptureResult,
-  // Docs
   DocFolder,
   Document,
   DocNote,
-  // Focus
   FocusState,
-  // Goals
   Goal,
   GoalWithProgress,
   GoalStatus,
@@ -58,9 +41,8 @@ import type {
   HabitLog,
   HabitHeatmapEntry,
   ImportSummary,
-  // Sync
   SyncStatus,
-} from './tauri'
+} from '@daily-triage/types'
 
 // Re-export all types so consumers can import from data-provider instead of tauri
 export type {

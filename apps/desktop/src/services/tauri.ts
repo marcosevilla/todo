@@ -1,10 +1,81 @@
 import { invoke } from '@tauri-apps/api/core'
 
+// Re-export all types from the shared package so existing imports continue to work
+export type {
+  Setting,
+  CheckboxItem,
+  ParsedTodayMd,
+  TodoistTask,
+  TodoistTaskRow,
+  CalendarEvent,
+  CalendarFeed,
+  QuickCapture,
+  Priority,
+  DailyState,
+  Project,
+  TaskStatus,
+  LocalTask,
+  UpdateStatus,
+  SaveResult,
+  ActivityEntry,
+  ActivitySummary,
+  Capture,
+  CaptureRoute,
+  RouteCaptureResult,
+  DocFolder,
+  Document,
+  DocNote,
+  FocusState,
+  GoalStatus,
+  Goal,
+  GoalWithProgress,
+  Milestone,
+  LifeArea,
+  Habit,
+  HabitWithStats,
+  HabitLog,
+  HabitHeatmapEntry,
+  ImportSummary,
+  SyncStatus,
+} from '@daily-triage/types'
+
+import type {
+  Setting,
+  ParsedTodayMd,
+  TodoistTaskRow,
+  CalendarEvent,
+  CalendarFeed,
+  QuickCapture,
+  Priority,
+  DailyState,
+  Project,
+  TaskStatus,
+  LocalTask,
+  UpdateStatus,
+  SaveResult,
+  ActivityEntry,
+  ActivitySummary,
+  Capture,
+  CaptureRoute,
+  RouteCaptureResult,
+  DocFolder,
+  Document,
+  DocNote,
+  FocusState,
+  GoalStatus,
+  Goal,
+  GoalWithProgress,
+  Milestone,
+  LifeArea,
+  Habit,
+  HabitWithStats,
+  HabitLog,
+  HabitHeatmapEntry,
+  ImportSummary,
+  SyncStatus,
+} from '@daily-triage/types'
+
 // ── Settings ──
-export interface Setting {
-  key: string
-  value: string
-}
 
 export async function checkSetupComplete(): Promise<boolean> {
   return invoke<boolean>('check_setup_complete')
@@ -27,17 +98,6 @@ export async function clearAllSettings(): Promise<void> {
 }
 
 // ── Obsidian ──
-export interface CheckboxItem {
-  line_number: number
-  checked: boolean
-  text: string
-}
-
-export interface ParsedTodayMd {
-  tasks: CheckboxItem[]
-  habits_core: CheckboxItem[]
-  habits_bonus: CheckboxItem[]
-}
 
 export async function readTodayMd(): Promise<ParsedTodayMd> {
   return invoke<ParsedTodayMd>('read_today_md')
@@ -54,34 +114,6 @@ export async function toggleObsidianCheckbox(
 }
 
 // ── Todoist ──
-
-/** Store-ready type with boolean conversions (from TodoistTaskRow) */
-export interface TodoistTask {
-  id: string
-  content: string
-  description: string | null
-  project_id: string | null
-  project_name: string | null
-  priority: number
-  due_date: string | null
-  due_is_recurring: boolean
-  is_completed: boolean
-  todoist_url: string | null
-}
-
-/** Raw row type from SQLite/Rust (integers for booleans) */
-export interface TodoistTaskRow {
-  id: string
-  content: string
-  description: string | null
-  project_id: string | null
-  project_name: string | null
-  priority: number
-  due_date: string | null
-  due_is_recurring: number
-  is_completed: number
-  todoist_url: string | null
-}
 
 export async function fetchTodoistTasks(): Promise<TodoistTaskRow[]> {
   return invoke<TodoistTaskRow[]>('fetch_todoist_tasks')
@@ -100,27 +132,6 @@ export async function snoozeTodoistTask(taskId: string): Promise<void> {
 }
 
 // ── Calendar ──
-export interface CalendarEvent {
-  id: string
-  summary: string
-  description: string | null
-  location: string | null
-  start_time: string
-  end_time: string
-  all_day: boolean
-  meeting_url: string | null
-  date: string | null
-  feed_label: string | null
-  feed_color: string | null
-}
-
-export interface CalendarFeed {
-  id: string
-  label: string
-  url: string
-  color: string
-  enabled: number
-}
 
 export async function fetchCalendarEvents(date?: string): Promise<CalendarEvent[]> {
   return invoke<CalendarEvent[]>('fetch_calendar_events', { date })
@@ -162,10 +173,6 @@ export async function listBriefDates(): Promise<string[]> {
 }
 
 // ── Quick Captures ──
-export interface QuickCapture {
-  timestamp: string | null
-  content: string
-}
 
 export async function readQuickCaptures(): Promise<QuickCapture[]> {
   return invoke<QuickCapture[]>('read_quick_captures')
@@ -176,18 +183,6 @@ export async function writeQuickCapture(content: string): Promise<QuickCapture> 
 }
 
 // ── Priorities ──
-export interface Priority {
-  title: string
-  source: string
-  reasoning: string
-}
-
-export interface DailyState {
-  date: string
-  energy_level: string | null
-  priorities: Priority[] | null
-  review_complete: boolean
-}
 
 export async function getDailyState(): Promise<DailyState> {
   return invoke<DailyState>('get_daily_state')
@@ -208,12 +203,6 @@ export async function generatePriorities(
 }
 
 // ── Projects ──
-export interface Project {
-  id: string
-  name: string
-  color: string
-  position: number
-}
 
 export async function getProjects(): Promise<Project[]> {
   return invoke<Project[]>('get_projects')
@@ -232,24 +221,6 @@ export async function deleteProject(id: string): Promise<void> {
 }
 
 // ── Local Tasks ──
-export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'blocked' | 'complete'
-
-export interface LocalTask {
-  id: string
-  parent_id: string | null
-  content: string
-  description: string | null
-  project_id: string
-  priority: number
-  due_date: string | null
-  completed: boolean
-  completed_at: string | null
-  status: TaskStatus
-  linked_doc_id: string | null
-  position: number
-  created_at: string
-  updated_at: string
-}
 
 export async function getLocalTasks(opts?: {
   projectId?: string
@@ -319,23 +290,12 @@ export async function openUrl(url: string): Promise<void> {
 }
 
 // ── Updater ──
-export interface UpdateStatus {
-  current_version: string
-  latest_version: string | null
-  update_available: boolean
-  release_url: string | null
-  error: string | null
-}
 
 export async function checkForUpdates(): Promise<UpdateStatus> {
   return invoke<UpdateStatus>('check_for_updates')
 }
 
 // ── Progress ──
-export interface SaveResult {
-  snapshot_id: number
-  session_log_path: string
-}
 
 export async function saveProgress(
   tasksCompleted: string,
@@ -350,19 +310,6 @@ export async function saveProgress(
 }
 
 // ── Activity Log ──
-
-export interface ActivityEntry {
-  id: string
-  action_type: string
-  target_id: string | null
-  metadata: Record<string, unknown> | null
-  created_at: string
-}
-
-export interface ActivitySummary {
-  action_type: string
-  count: number
-}
 
 export async function logActivity(
   actionType: string,
@@ -394,15 +341,6 @@ export async function getActivitySummary(date: string): Promise<ActivitySummary[
 
 // ── Captures ──
 
-export interface Capture {
-  id: string
-  content: string
-  source: string
-  converted_to_task_id: string | null
-  routed_to: string | null
-  created_at: string
-}
-
 export async function getCaptures(limit?: number, includeConverted?: boolean): Promise<Capture[]> {
   return invoke<Capture[]>('get_captures', { limit, includeConverted })
 }
@@ -424,25 +362,6 @@ export async function importObsidianCaptures(): Promise<number> {
 }
 
 // ── Capture Routes ──
-
-export interface CaptureRoute {
-  id: string
-  prefix: string
-  target_type: 'doc' | 'task'
-  doc_id: string | null
-  label: string
-  color: string
-  icon: string
-  position: number
-  created_at: string
-}
-
-export interface RouteCaptureResult {
-  routed_to: string
-  target_type: string
-  created_id: string
-  label: string
-}
 
 export async function getCaptureRoutes(): Promise<CaptureRoute[]> {
   return invoke<CaptureRoute[]>('get_capture_routes')
@@ -495,31 +414,6 @@ export async function routeCapture(prefix: string, content: string): Promise<Rou
 }
 
 // ── Docs ──
-
-export interface DocFolder {
-  id: string
-  name: string
-  position: number
-  created_at: string
-}
-
-export interface Document {
-  id: string
-  title: string
-  content: string
-  folder_id: string | null
-  position: number
-  created_at: string
-  updated_at: string
-}
-
-export interface DocNote {
-  id: string
-  doc_id: string
-  content: string
-  position: number
-  created_at: string
-}
 
 export async function getDocFolders(): Promise<DocFolder[]> {
   return invoke<DocFolder[]>('get_doc_folders')
@@ -585,12 +479,6 @@ export async function breakDownTask(taskContent: string, taskDescription?: strin
 
 // ── Focus Mode ──
 
-export interface FocusState {
-  task_id: string | null
-  started_at: string | null
-  paused_at: string | null
-}
-
 export async function startFocusSession(taskId: string, taskContent: string): Promise<void> {
   return invoke<void>('start_focus_session', { taskId, taskContent })
 }
@@ -604,80 +492,6 @@ export async function getActiveFocus(): Promise<FocusState> {
 }
 
 // ── Goals ──
-
-export type GoalStatus = 'not_started' | 'active' | 'paused' | 'achieved' | 'abandoned'
-
-export interface Goal {
-  id: string
-  name: string
-  description: string | null
-  status: GoalStatus
-  life_area_id: string | null
-  start_date: string | null
-  target_date: string | null
-  color: string | null
-  position: number
-  created_at: string
-  updated_at: string
-}
-
-export interface GoalWithProgress extends Goal {
-  progress: number
-  milestone_count: number
-  milestone_completed: number
-  task_count: number
-  task_completed: number
-}
-
-export interface Milestone {
-  id: string
-  goal_id: string
-  name: string
-  target_date: string | null
-  completed: boolean
-  completed_at: string | null
-  position: number
-  created_at: string
-}
-
-export interface LifeArea {
-  id: string
-  name: string
-  color: string
-  icon: string
-  position: number
-  created_at: string
-}
-
-export interface Habit {
-  id: string
-  name: string
-  category: string | null
-  icon: string
-  color: string
-  active: boolean
-  position: number
-  created_at: string
-}
-
-export interface HabitWithStats extends Habit {
-  current_momentum: number
-  today_completed: boolean
-  today_intensity: number
-}
-
-export interface HabitLog {
-  id: string
-  habit_id: string
-  date: string
-  intensity: number
-  created_at: string
-}
-
-export interface HabitHeatmapEntry {
-  date: string
-  intensity: number
-}
 
 // Goals CRUD
 export async function getGoals(): Promise<GoalWithProgress[]> {
@@ -862,22 +676,11 @@ export async function getHabitHeatmap(habitId?: string, days?: number): Promise<
 }
 
 // Import
-export interface ImportSummary {
-  goals_created: number
-  habits_created: number
-}
-
 export async function importGoalsFromVault(): Promise<ImportSummary> {
   return invoke<ImportSummary>('import_goals_from_vault')
 }
 
 // ── Sync ──
-
-export interface SyncStatus {
-  pending_changes: number
-  last_sync: string | null
-  device_id: string
-}
 
 export async function syncPush(): Promise<number> {
   return invoke<number>('sync_push')
