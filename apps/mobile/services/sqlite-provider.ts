@@ -19,6 +19,7 @@ import type {
 } from '@daily-triage/types';
 import { getDatabase } from './database';
 import { generateUUID, appendSyncLog } from './sync-utils';
+import * as sync from './sync';
 
 const stub = (name: string) => {
   console.warn(`[SqliteProvider] ${name} is not yet implemented (stub)`);
@@ -563,22 +564,21 @@ export function createSqliteProvider(): DataProvider {
     },
 
     sync: {
-      push: () => stub('sync.push'),
-      pull: () => stub('sync.pull'),
-      async getStatus() {
+      push: () => sync.push(),
+      pull: () => sync.pull(),
+      getStatus: () => sync.getSyncStatus(),
+      async configure(tursoUrl: string, tursoToken: string) {
         const db = getDatabase();
-        const row = await db.getFirstAsync<{ cnt: number }>(
-          'SELECT COUNT(*) as cnt FROM sync_log WHERE synced = 0'
+        const now = new Date().toISOString();
+        await db.runAsync(
+          "INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('turso_url', ?, ?)",
+          [tursoUrl, now]
         );
-        return {
-          pending_changes: row?.cnt ?? 0,
-          last_sync: null,
-          device_id: 'mobile',
-          turso_configured: false,
-          remote_initialized: false,
-        };
+        await db.runAsync(
+          "INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('turso_token', ?, ?)",
+          [tursoToken, now]
+        );
       },
-      configure: () => stub('sync.configure'),
     },
   };
 }

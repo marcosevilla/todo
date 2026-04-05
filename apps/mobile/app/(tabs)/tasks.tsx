@@ -16,6 +16,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useDataProvider } from '../../services/provider-context';
+import { fullSync } from '../../services/sync';
 import type { Project, LocalTask, TaskStatus } from '@daily-triage/types';
 import { colors, spacing, fontSize } from '../../constants/theme';
 
@@ -81,8 +82,13 @@ export default function TasksPage() {
     loadData();
   }, [loadData]);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    try {
+      await fullSync();
+    } catch (e) {
+      console.warn('[tasks] Sync on refresh failed:', e);
+    }
     loadData();
   }, [loadData]);
 

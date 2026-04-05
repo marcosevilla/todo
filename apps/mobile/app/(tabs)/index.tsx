@@ -13,6 +13,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useDataProvider } from '../../services/provider-context';
+import { fullSync } from '../../services/sync';
 import type { LocalTask, HabitWithStats } from '@daily-triage/types';
 import { colors, spacing, fontSize } from '../../constants/theme';
 
@@ -72,8 +73,13 @@ export default function TodayPage() {
     loadData();
   }, [loadData]);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    try {
+      await fullSync();
+    } catch (e) {
+      console.warn('[today] Sync on refresh failed:', e);
+    }
     loadData();
   }, [loadData]);
 

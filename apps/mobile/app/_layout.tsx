@@ -12,6 +12,7 @@ import { initDatabase } from '../services/database';
 import { createSqliteProvider } from '../services/sqlite-provider';
 import { DataProviderRoot } from '../services/provider-context';
 import type { DataProvider } from '../services/data-provider';
+import { backgroundSync } from '../services/sync';
 import { colors } from '../constants/theme';
 
 export default function RootLayout() {
@@ -30,6 +31,13 @@ export default function RootLayout() {
     }
     init();
   }, []);
+
+  // Auto-sync on app open (non-blocking)
+  useEffect(() => {
+    if (provider) {
+      backgroundSync();
+    }
+  }, [provider]);
 
   if (error) {
     return (
