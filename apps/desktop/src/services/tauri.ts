@@ -705,3 +705,7 @@ export async function syncTestConnection(tursoUrl: string, tursoToken: string): 
 export async function syncInitializeRemote(): Promise<void> {
   return invoke<void>('sync_initialize_remote')
 }
+
+export async function syncSeedExisting(): Promise<number> {
+  return invoke<number>('sync_seed_existing')
+}

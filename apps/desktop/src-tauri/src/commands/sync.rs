@@ -96,3 +96,11 @@ pub async fn sync_initialize_remote(app: AppHandle) -> Result<(), String> {
         .await
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn sync_seed_existing(app: AppHandle) -> Result<u64, String> {
+    let pool = app.state::<SqlitePool>();
+    daily_triage_core::db::sync::seed_existing_data(pool.inner())
+        .await
+        .map_err(|e| e.to_string())
+}

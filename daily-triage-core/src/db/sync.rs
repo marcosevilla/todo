@@ -1,4 +1,4 @@
-use sqlx::SqlitePool;
+use sqlx::{SqlitePool, Column, Row};
 use uuid::Uuid;
 use chrono::Utc;
 
@@ -819,6 +819,113 @@ pub async fn get_sync_status(pool: &SqlitePool) -> crate::Result<SyncStatus> {
         turso_configured,
         remote_initialized,
     })
+}
+
+/// Seed sync_log with all existing data that predates sync tracking.
+/// This creates INSERT entries for every row in every synced table that
+/// doesn't already have a sync_log entry. Run once after enabling sync.
+pub async fn seed_existing_data(pool: &SqlitePool) -> crate::Result<u64> {
+    let device_id = get_or_create_device_id(pool).await?;
+    let tables_with_id = [
+        "local_tasks", "projects", "captures", "goals", "milestones",
+        "habits", "habit_logs", "documents", "doc_folders", "doc_notes",
+        "capture_routes", "life_areas", "calendar_feeds", "activity_log",
+    ];
+
+    let mut count: u64 = 0;
+
+    for table in &tables_with_id {
+        // Get all rows that don't have a sync_log entry yet
+        let sql = format!(
+            "SELECT id FROM {} WHERE id NOT IN (SELECT row_id FROM sync_log WHERE table_name = ?)",
+            table
+        );
+        let rows: Vec<(String,)> = sqlx::query_as(&sql)
+            .bind(*table)
+            .fetch_all(pool)
+            .await?;
+
+        for (row_id,) in &rows {
+            // Fetch the full row as JSON snapshot
+            let row_sql = format!("SELECT * FROM {} WHERE id = ?", table);
+            let row_data: Option<sqlx::sqlite::SqliteRow> = sqlx::query(&row_sql)
+                .bind(row_id)
+                .fetch_optional(pool)
+                .await?;
+
+            if let Some(row) = row_data {
+                let columns = row.columns();
+                let mut map = serde_json::Map::new();
+                for col in columns {
+                    let name = col.name();
+                    let val: Option<String> = row.try_get(name).unwrap_or(None);
+                    match val {
+                        Some(v) => { map.insert(name.to_string(), serde_json::Value::String(v)); }
+                        None => { map.insert(name.to_string(), serde_json::Value::Null); }
+                    }
+                }
+                let snapshot = serde_json::to_string(&serde_json::Value::Object(map)).unwrap_or_default();
+
+                let id = Uuid::new_v4().to_string();
+                let timestamp = Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+
+                sqlx::query(
+                    "INSERT INTO sync_log (id, table_name, row_id, operation, changed_columns, snapshot, device_id, timestamp, synced)
+                     VALUES (?, ?, ?, 'INSERT', NULL, ?, ?, ?, 0)"
+                )
+                .bind(&id).bind(*table).bind(row_id)
+                .bind(&snapshot).bind(&device_id).bind(&timestamp)
+                .execute(pool)
+                .await?;
+
+                count += 1;
+            }
+        }
+    }
+
+    // Also seed daily_state (uses 'date' as PK, not 'id')
+    let ds_rows: Vec<(String,)> = sqlx::query_as(
+        "SELECT date FROM daily_state WHERE date NOT IN (SELECT row_id FROM sync_log WHERE table_name = 'daily_state')"
+    )
+    .fetch_all(pool)
+    .await?;
+
+    for (date,) in &ds_rows {
+        let row_data: Option<sqlx::sqlite::SqliteRow> = sqlx::query("SELECT * FROM daily_state WHERE date = ?")
+            .bind(date)
+            .fetch_optional(pool)
+            .await?;
+
+        if let Some(row) = row_data {
+            let columns = row.columns();
+            let mut map = serde_json::Map::new();
+            for col in columns {
+                let name = col.name();
+                let val: Option<String> = row.try_get(name).unwrap_or(None);
+                match val {
+                    Some(v) => { map.insert(name.to_string(), serde_json::Value::String(v)); }
+                    None => { map.insert(name.to_string(), serde_json::Value::Null); }
+                }
+            }
+            let snapshot = serde_json::to_string(&serde_json::Value::Object(map)).unwrap_or_default();
+
+            let id = Uuid::new_v4().to_string();
+            let timestamp = Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+
+            sqlx::query(
+                "INSERT INTO sync_log (id, table_name, row_id, operation, changed_columns, snapshot, device_id, timestamp, synced)
+                 VALUES (?, 'daily_state', ?, 'INSERT', NULL, ?, ?, ?, 0)"
+            )
+            .bind(&id).bind(date)
+            .bind(&snapshot).bind(&device_id).bind(&timestamp)
+            .execute(pool)
+            .await?;
+
+            count += 1;
+        }
+    }
+
+    Ok(count)
 }
 
 /// Get unsynced sync log entries (for diagnostics).

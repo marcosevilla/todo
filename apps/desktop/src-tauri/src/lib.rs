@@ -272,6 +272,7 @@ pub fn run() {
             sync::sync_configure,
             sync::sync_test_connection,
             sync::sync_initialize_remote,
+            sync::sync_seed_existing,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

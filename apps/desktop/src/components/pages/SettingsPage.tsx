@@ -24,6 +24,7 @@ import {
   syncConfigure,
   syncTestConnection,
   syncInitializeRemote,
+  syncSeedExisting,
 } from '@/services/tauri'
 import type { UpdateStatus, CalendarFeed, CaptureRoute, Document, SyncStatus } from '@/services/tauri'
 import { openUrl } from '@/services/tauri'
@@ -993,13 +994,31 @@ function SyncSection() {
       )}
 
       {/* Sync actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Button
           size="sm"
           onClick={handleSyncNow}
           disabled={syncing || !isConfigured || !isInitialized}
         >
           {syncing ? 'Syncing...' : 'Sync Now'}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={async () => {
+            try {
+              setError(null)
+              const count = await syncSeedExisting()
+              setSyncResult(`Seeded ${count} existing records to sync log`)
+              await refreshStatus()
+              setTimeout(() => setSyncResult(null), 5000)
+            } catch (e) {
+              setError(`Seed failed: ${e}`)
+            }
+          }}
+          disabled={syncing || !isConfigured}
+        >
+          Seed Existing Data
         </Button>
         {syncResult && (
           <span className="text-xs text-muted-foreground">{syncResult}</span>
