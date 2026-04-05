@@ -319,6 +319,8 @@ pub struct SyncStatus {
     pub pending_changes: i64,
     pub last_sync: Option<String>,
     pub device_id: String,
+    pub turso_configured: bool,
+    pub remote_initialized: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

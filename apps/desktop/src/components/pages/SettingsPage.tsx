@@ -22,6 +22,8 @@ import {
   syncPull,
   syncGetStatus,
   syncConfigure,
+  syncTestConnection,
+  syncInitializeRemote,
 } from '@/services/tauri'
 import type { UpdateStatus, CalendarFeed, CaptureRoute, Document, SyncStatus } from '@/services/tauri'
 import { openUrl } from '@/services/tauri'
@@ -762,11 +764,22 @@ function SyncSection() {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [testing, setTesting] = useState(false)
+  const [initializing, setInitializing] = useState(false)
   const [tursoUrl, setTursoUrl] = useState('')
   const [tursoToken, setTursoToken] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [syncResult, setSyncResult] = useState<string | null>(null)
+
+  const refreshStatus = async () => {
+    try {
+      const newStatus = await syncGetStatus()
+      setStatus(newStatus)
+    } catch {
+      // ignore
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -788,6 +801,12 @@ function SyncSection() {
     load()
   }, [])
 
+  // Auto-refresh pending changes every 30s
+  useEffect(() => {
+    const interval = setInterval(refreshStatus, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
   const handleSaveConfig = async () => {
     if (!tursoUrl.trim() || !tursoToken.trim()) {
       setError('Both URL and token are required')
@@ -798,6 +817,7 @@ function SyncSection() {
     try {
       await syncConfigure(tursoUrl.trim(), tursoToken.trim())
       setSaved(true)
+      await refreshStatus()
       setTimeout(() => setSaved(false), 2000)
     } catch (e) {
       setError(String(e))
@@ -809,12 +829,15 @@ function SyncSection() {
   const handleSyncNow = async () => {
     setSyncing(true)
     setError(null)
+    setSyncResult(null)
     try {
       const pushed = await syncPush()
       const pulled = await syncPull()
-      const newStatus = await syncGetStatus()
-      setStatus(newStatus)
-      toast.success(`Synced: ${pushed} pushed, ${pulled} pulled`)
+      await refreshStatus()
+      const msg = `Pushed ${pushed}, pulled ${pulled}`
+      setSyncResult(msg)
+      toast.success(`Synced: ${msg}`)
+      setTimeout(() => setSyncResult(null), 5000)
     } catch (e) {
       setError(String(e))
       toast.error(`Sync failed: ${e}`)
@@ -831,14 +854,28 @@ function SyncSection() {
     setTesting(true)
     setError(null)
     try {
-      // Push with 0 pending is effectively a connection test
-      await syncPush()
+      await syncTestConnection(tursoUrl.trim(), tursoToken.trim())
       toast.success('Connection successful')
     } catch (e) {
       setError(`Connection failed: ${e}`)
       toast.error(`Connection failed: ${e}`)
     } finally {
       setTesting(false)
+    }
+  }
+
+  const handleInitializeRemote = async () => {
+    setInitializing(true)
+    setError(null)
+    try {
+      await syncInitializeRemote()
+      await refreshStatus()
+      toast.success('Remote database initialized')
+    } catch (e) {
+      setError(`Initialization failed: ${e}`)
+      toast.error(`Initialization failed: ${e}`)
+    } finally {
+      setInitializing(false)
     }
   }
 
@@ -851,6 +888,9 @@ function SyncSection() {
     )
   }
 
+  const isConfigured = status?.turso_configured ?? false
+  const isInitialized = status?.remote_initialized ?? false
+
   return (
     <section className="space-y-4">
       <SectionHeader
@@ -858,22 +898,31 @@ function SyncSection() {
         description="Sync data across devices using Turso (hosted SQLite). Single-user, last-write-wins."
       />
 
-      {/* Device ID */}
-      {status && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Device ID</span>
-          <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-muted-foreground">
-            {status.device_id.slice(0, 8)}...
-          </code>
-        </div>
-      )}
+      {/* Connection status badge */}
+      <div className="flex items-center gap-2">
+        <span className={cn(
+          'size-2 rounded-full',
+          isConfigured && isInitialized ? 'bg-green-500' : isConfigured ? 'bg-amber-500' : 'bg-muted-foreground/30',
+        )} />
+        <span className="text-sm text-muted-foreground">
+          {isConfigured && isInitialized ? 'Connected' : isConfigured ? 'Configured — needs initialization' : 'Not configured'}
+        </span>
+      </div>
 
-      {/* Sync status */}
+      {/* Device ID + stats */}
       {status && (
         <div className="space-y-1">
           <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Device ID</span>
+            <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-muted-foreground">
+              {status.device_id.slice(0, 8)}...
+            </code>
+          </div>
+          <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Pending changes</span>
-            <span className="text-sm font-mono">{status.pending_changes}</span>
+            <span className={cn('text-sm font-mono', status.pending_changes > 0 && 'text-amber-500')}>
+              {status.pending_changes}
+            </span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Last synced</span>
@@ -926,14 +975,36 @@ function SyncSection() {
         </div>
       </div>
 
-      {/* Sync now button */}
-      <Button
-        size="sm"
-        onClick={handleSyncNow}
-        disabled={syncing || !tursoUrl.trim() || !tursoToken.trim()}
-      >
-        {syncing ? 'Syncing...' : 'Sync Now'}
-      </Button>
+      {/* Initialize Remote Database — only shown when configured but not initialized */}
+      {isConfigured && !isInitialized && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+          <p className="text-sm text-muted-foreground">
+            Remote database needs to be initialized with the app schema before syncing.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleInitializeRemote}
+            disabled={initializing}
+          >
+            {initializing ? 'Initializing...' : 'Initialize Remote Database'}
+          </Button>
+        </div>
+      )}
+
+      {/* Sync actions */}
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          onClick={handleSyncNow}
+          disabled={syncing || !isConfigured || !isInitialized}
+        >
+          {syncing ? 'Syncing...' : 'Sync Now'}
+        </Button>
+        {syncResult && (
+          <span className="text-xs text-muted-foreground">{syncResult}</span>
+        )}
+      </div>
 
       {error && <p className="text-xs text-destructive">{error}</p>}
     </section>

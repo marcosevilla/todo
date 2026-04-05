@@ -154,6 +154,8 @@ export function createTauriProvider(): DataProvider {
       pull: tauri.syncPull,
       getStatus: tauri.syncGetStatus,
       configure: tauri.syncConfigure,
+      testConnection: tauri.syncTestConnection,
+      initializeRemote: tauri.syncInitializeRemote,
     },
   }
 }

@@ -319,5 +319,7 @@ export interface DataProvider {
     pull(): Promise<number>
     getStatus(): Promise<SyncStatus>
     configure(tursoUrl: string, tursoToken: string): Promise<void>
+    testConnection(tursoUrl: string, tursoToken: string): Promise<void>
+    initializeRemote(): Promise<void>
   }
 }

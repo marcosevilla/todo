@@ -697,3 +697,11 @@ export async function syncGetStatus(): Promise<SyncStatus> {
 export async function syncConfigure(tursoUrl: string, tursoToken: string): Promise<void> {
   return invoke<void>('sync_configure', { tursoUrl, tursoToken })
 }
+
+export async function syncTestConnection(tursoUrl: string, tursoToken: string): Promise<void> {
+  return invoke<void>('sync_test_connection', { tursoUrl, tursoToken })
+}
+
+export async function syncInitializeRemote(): Promise<void> {
+  return invoke<void>('sync_initialize_remote')
+}

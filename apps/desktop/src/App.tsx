@@ -28,6 +28,26 @@ function App() {
     }
   }, [dp])
 
+  // Auto-sync on launch: push then pull if Turso is configured
+  const syncedOnLaunch = useRef(false)
+  useEffect(() => {
+    if (syncedOnLaunch.current) return
+    syncedOnLaunch.current = true
+
+    dp.sync.getStatus().then((status) => {
+      if (status.turso_configured && status.remote_initialized) {
+        // Non-blocking: fire and forget
+        dp.sync.push()
+          .then(() => dp.sync.pull())
+          .catch((e) => {
+            console.warn('Auto-sync on launch failed:', e)
+          })
+      }
+    }).catch(() => {
+      // Sync not available yet, skip
+    })
+  }, [dp])
+
   // Auto-hide scrollbars after 2s of inactivity
   useEffect(() => {
     const timers = new WeakMap<Element, ReturnType<typeof setTimeout>>()

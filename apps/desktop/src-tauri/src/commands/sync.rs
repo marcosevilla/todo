@@ -65,3 +65,34 @@ pub async fn sync_configure(
         .map_err(|e| e.to_string())?;
     Ok(())
 }
+
+#[tauri::command]
+pub async fn sync_test_connection(
+    _app: AppHandle,
+    turso_url: String,
+    turso_token: String,
+) -> Result<(), String> {
+    // Test connection without needing saved settings
+    daily_triage_core::db::sync::test_connection(&turso_url, &turso_token)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn sync_initialize_remote(app: AppHandle) -> Result<(), String> {
+    let pool = app.state::<SqlitePool>();
+
+    let turso_url = daily_triage_core::db::settings::get_setting(pool.inner(), "turso_url")
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Turso URL not configured. Go to Settings > Sync to set it up.".to_string())?;
+
+    let turso_token = daily_triage_core::db::settings::get_setting(pool.inner(), "turso_token")
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Turso token not configured. Go to Settings > Sync to set it up.".to_string())?;
+
+    daily_triage_core::db::sync::initialize_remote(pool.inner(), &turso_url, &turso_token)
+        .await
+        .map_err(|e| e.to_string())
+}
