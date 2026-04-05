@@ -1,5 +1,8 @@
 mod commands;
+// db and parsers modules re-export from daily-triage-core for backward compatibility
+#[allow(unused)]
 mod db;
+#[allow(unused)]
 mod parsers;
 
 use sqlx::sqlite::SqlitePoolOptions;
@@ -151,8 +154,8 @@ pub fn run() {
                     .await
                     .expect("failed to connect to database");
 
-                // Run migrations
-                db::migrations::run_migrations(&pool)
+                // Run migrations from core crate
+                daily_triage_core::db::migrations::run_migrations(&pool)
                     .await
                     .expect("failed to run migrations");
 

@@ -1,13 +1,8 @@
 use chrono::Local;
-use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tauri::{AppHandle, Manager};
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SaveResult {
-    pub snapshot_id: i64,
-    pub session_log_path: String,
-}
+pub use daily_triage_core::types::SaveResult;
 
 /// Save progress: snapshot to SQLite + append session entry to Obsidian vault
 #[tauri::command]
@@ -20,34 +15,17 @@ pub async fn save_progress(
     let pool = app.state::<SqlitePool>();
     let now = Local::now();
 
-    // 1. Save snapshot to SQLite
-    let result = sqlx::query(
-        "INSERT INTO progress_snapshots (tasks_completed, tasks_open, tasks_deferred, created_at)
-         VALUES (?, ?, ?, ?)",
+    // 1. Save snapshot to SQLite + update daily_state
+    let snapshot_id = daily_triage_core::db::daily_state::save_progress_snapshot(
+        pool.inner(),
+        &tasks_completed,
+        &tasks_open,
+        &tasks_deferred,
     )
-    .bind(&tasks_completed)
-    .bind(&tasks_open)
-    .bind(&tasks_deferred)
-    .bind(now.format("%Y-%m-%d %H:%M:%S").to_string())
-    .execute(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
 
-    let snapshot_id = result.last_insert_rowid();
-
-    // 2. Update daily_state
-    let today = now.format("%Y-%m-%d").to_string();
-    sqlx::query(
-        "INSERT INTO daily_state (date, last_saved_at)
-         VALUES (?, datetime('now'))
-         ON CONFLICT(date) DO UPDATE SET last_saved_at = datetime('now')",
-    )
-    .bind(&today)
-    .execute(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
-
-    // 3. Write session log to Obsidian vault
+    // 2. Write session log to Obsidian vault (Tauri-specific: needs vault path)
     let vault_path = get_vault_path(&app).await?;
     let session_file = format!(
         "{}/journal/sessions/Session {}.md",
@@ -55,20 +33,17 @@ pub async fn save_progress(
         now.format("%Y-%m-%d")
     );
 
-    // Ensure sessions directory exists
     let sessions_dir = format!("{}/journal/sessions", vault_path);
     tokio::fs::create_dir_all(&sessions_dir)
         .await
         .map_err(|e| format!("Failed to create sessions dir: {}", e))?;
 
-    // Build session entry
     let time_str = now.format("%-I:%M %p").to_string();
     let completed_list: Vec<String> = serde_json::from_str(&tasks_completed).unwrap_or_default();
     let open_list: Vec<String> = serde_json::from_str(&tasks_open).unwrap_or_default();
 
     let mut entry = String::new();
 
-    // If file doesn't exist, write frontmatter + header
     let file_exists = tokio::fs::metadata(&session_file).await.is_ok();
     if !file_exists {
         entry.push_str(&format!(
@@ -78,7 +53,6 @@ pub async fn save_progress(
         ));
     }
 
-    // Append entry
     entry.push_str(&format!("\n---\n\n## {} — Daily Triage\n\n", time_str));
     entry.push_str("`#triage`\n\n");
 
@@ -100,7 +74,6 @@ pub async fn save_progress(
 
     entry.push_str("> Logged from Daily Triage app\n");
 
-    // Append to file
     let mut existing = if file_exists {
         tokio::fs::read_to_string(&session_file)
             .await
@@ -123,13 +96,9 @@ pub async fn save_progress(
 /// Resolve vault path from settings
 async fn get_vault_path(app: &AppHandle) -> Result<String, String> {
     let pool = app.state::<SqlitePool>();
-    let row: Option<(String,)> =
-        sqlx::query_as("SELECT value FROM settings WHERE key = 'obsidian_vault_path'")
-            .fetch_optional(pool.inner())
-            .await
-            .map_err(|e| e.to_string())?;
-    let path = row
-        .map(|r| r.0)
+    let path = daily_triage_core::db::settings::get_setting(pool.inner(), "obsidian_vault_path")
+        .await
+        .map_err(|e| e.to_string())?
         .ok_or_else(|| "Obsidian vault path not configured".to_string())?;
     if path.starts_with('~') {
         let home = dirs::home_dir().ok_or("Cannot determine home directory")?;
