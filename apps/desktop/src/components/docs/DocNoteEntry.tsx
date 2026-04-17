@@ -1,5 +1,5 @@
 import { Trash2 } from 'lucide-react'
-import type { DocNote } from '@/services/tauri'
+import type { DocNote } from '@daily-triage/types'
 
 interface DocNoteEntryProps {
   note: DocNote

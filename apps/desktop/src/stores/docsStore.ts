@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { getDataProvider } from '@/services/provider-context'
-import type { DocFolder, Document } from '@/services/tauri'
+import type { DocFolder, Document } from '@daily-triage/types'
 
 interface DocsStore {
   folders: DocFolder[]

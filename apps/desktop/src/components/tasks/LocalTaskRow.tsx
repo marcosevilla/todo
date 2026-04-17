@@ -8,7 +8,7 @@ import { useDetailStore } from '@/stores/detailStore'
 import { FocusPlayMenu } from '@/components/focus/FocusPlayMenu'
 import { TaskItem } from './TaskItem'
 import { TaskEditor } from './TaskEditor'
-import type { LocalTask, Project } from '@/services/tauri'
+import type { LocalTask, Project } from '@daily-triage/types'
 
 interface LocalTaskRowProps {
   task: LocalTask

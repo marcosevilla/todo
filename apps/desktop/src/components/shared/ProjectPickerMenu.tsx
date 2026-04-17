@@ -1,4 +1,4 @@
-import type { Project } from '@/services/tauri'
+import type { Project } from '@daily-triage/types'
 
 interface ProjectPickerMenuProps {
   projects: Project[]

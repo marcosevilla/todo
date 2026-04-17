@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAppStore } from '@/stores/appStore'
 import { useDataProvider } from '@/services/provider-context'
-import type { TodoistTaskRow } from '@/services/tauri'
+import type { TodoistTaskRow } from '@daily-triage/types'
 import { friendlyError, retryOnce } from '@/lib/errors'
 import { toast } from 'sonner'
 

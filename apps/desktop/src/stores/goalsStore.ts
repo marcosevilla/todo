@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { getDataProvider } from '@/services/provider-context'
-import type { GoalWithProgress, LifeArea, HabitWithStats } from '@/services/tauri'
+import type { GoalWithProgress, LifeArea, HabitWithStats } from '@daily-triage/types'
 
 interface GoalsStore {
   goals: GoalWithProgress[]

@@ -3,7 +3,7 @@ import { PRIORITY_COLORS } from '@/lib/priorities'
 import { Check } from 'lucide-react'
 import { StatusDropdown } from './StatusDropdown'
 import { useSelectionStore } from '@/stores/selectionStore'
-import type { TaskStatus } from '@/services/tauri'
+import type { TaskStatus } from '@daily-triage/types'
 import { format, parseISO, isToday, isTomorrow, isPast } from 'date-fns'
 
 // ── Priority Indicator ──

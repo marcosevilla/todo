@@ -9,7 +9,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
-import type { LocalTask, Project, Document } from '@/services/tauri'
+import type { LocalTask, Project, Document } from '@daily-triage/types'
 
 export type BarMode = 'search' | 'task' | 'capture' | 'breakdown' | 'doc'
 

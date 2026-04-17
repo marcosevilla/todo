@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useDataProvider } from '@/services/provider-context'
-import type { LocalTask, Project } from '@/services/tauri'
+import type { LocalTask, Project } from '@daily-triage/types'
 
 interface TaskDetail {
   task: LocalTask | null

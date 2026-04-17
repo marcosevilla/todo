@@ -12,7 +12,7 @@ import { STATUSES } from '@/components/tasks/StatusDropdown'
 import { ProjectSidebar } from '@/components/tasks/ProjectSidebar'
 import { ProjectDetailPage } from '@/components/tasks/ProjectDetailPage'
 import { useLayoutStore } from '@/stores/layoutStore'
-import type { TaskStatus, LocalTask, TodoistTaskRow } from '@/services/tauri'
+import type { TaskStatus, LocalTask, TodoistTaskRow } from '@daily-triage/types'
 
 // ── Inline Task Creator ──
 
@@ -70,7 +70,7 @@ function ProjectSection({
   onDelete: (id: string) => void
   onAddSubtask: (parentId: string, content: string) => void
   onUpdated?: () => void
-  allProjects: import('@/services/tauri').Project[]
+  allProjects: import('@daily-triage/types').Project[]
   defaultOpen: boolean
 }) {
   const topLevel = tasks.filter((t) => !t.parent_id)
@@ -123,7 +123,7 @@ function AllTasksView({
   todoistLoading,
   snoozeTodoist,
 }: {
-  projects: import('@/services/tauri').Project[]
+  projects: import('@daily-triage/types').Project[]
   filteredTasks: LocalTask[]
   statusFilter: TaskStatus | 'all'
   setStatusFilter: (v: TaskStatus | 'all') => void

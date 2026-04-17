@@ -1,4 +1,4 @@
-import type { CaptureRoute } from '@/services/tauri'
+import type { CaptureRoute } from '@daily-triage/types'
 
 export interface ParsedRoute {
   route: CaptureRoute | null

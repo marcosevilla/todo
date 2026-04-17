@@ -4,7 +4,7 @@ import { STATUSES } from '@/components/tasks/StatusDropdown'
 import { cn } from '@/lib/utils'
 import { ArrowLeft, Plus } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import type { Project, LocalTask, TaskStatus } from '@/services/tauri'
+import type { Project, LocalTask, TaskStatus } from '@daily-triage/types'
 
 // ── Inline Task Creator ──
 

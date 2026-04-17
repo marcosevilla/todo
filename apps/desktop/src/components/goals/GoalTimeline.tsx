@@ -1,6 +1,6 @@
 import { useRef, useEffect, useMemo, useCallback } from 'react'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
-import type { GoalWithProgress, LifeArea } from '@/services/tauri'
+import type { GoalWithProgress, LifeArea } from '@daily-triage/types'
 
 const DAY_WIDTH = 3
 const ROW_HEIGHT = 40

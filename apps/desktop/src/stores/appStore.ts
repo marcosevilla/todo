@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { CalendarEvent, TodoistTask } from '@/services/tauri'
+import type { CalendarEvent, TodoistTask } from '@daily-triage/types'
 
 export type Page = 'today' | 'tasks' | 'inbox' | 'docs' | 'goals' | 'session' | 'settings'
 

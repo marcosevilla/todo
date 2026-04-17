@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { getDataProvider } from '@/services/provider-context'
-import type { LocalTask, TaskStatus } from '@/services/tauri'
+import type { LocalTask, TaskStatus } from '@daily-triage/types'
 
 export type TimerMode = 'up' | 'down'
 
