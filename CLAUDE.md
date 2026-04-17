@@ -3,36 +3,46 @@
 A personal daily triage and briefing macOS app built with Tauri 2.0.
 
 ## Tech Stack
-- **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS v4 + shadcn/ui (base-nova style)
-- **Backend:** Rust (Tauri 2.0)
-- **Database:** SQLite via sqlx (not tauri-plugin-sql)
-- **State:** Zustand (appStore, focusStore, detailStore)
+- **Frontend (desktop):** React 19 + TypeScript + Vite + Tailwind CSS v4 + shadcn/ui (base-nova style)
+- **Frontend (mobile):** React Native (Expo) + TypeScript + StyleSheet
+- **Backend:** Rust (Tauri 2.0) + `daily-triage-core` library crate
+- **Database:** SQLite via sqlx (desktop) / expo-sqlite (mobile)
+- **Sync:** Custom sync protocol via Turso (hosted libSQL) — last-write-wins, single-user
+- **State:** Zustand (appStore, focusStore, detailStore) via DataProvider abstraction
 - **AI:** Claude Haiku via Anthropic API (priorities generation, task breakdown)
 
 ## Commands
-- `npm run dev` — Start Vite dev server only (frontend)
-- `npm run tauri dev` — Start full Tauri app (frontend + Rust backend)
-- `npm run build` — Build frontend for production
-- `npm run tauri build` — Build distributable .app
+- `cd apps/desktop && npm run tauri dev` — Start full Tauri desktop app
+- `cd apps/mobile && npx expo start` — Start Expo mobile dev server
+- `cd apps/desktop && npm run build` — Build desktop frontend for production
+- `cd apps/desktop && npm run tauri build` — Build distributable .app
 - **No test suite yet** — no unit or integration tests
 
-## Project Structure
-- `src/` — React frontend (components, hooks, stores, services)
-- `src-tauri/` — Rust backend (commands, db, parsers)
-- `src/components/ui/` — shadcn/ui primitives (auto-generated, don't edit manually)
-- `src/components/layout/` — Dashboard, NavSidebar, RightSidebar
-- `src/components/pages/` — Top-level page components (Today, Tasks, Inbox, Activity, Settings)
-- `src/components/tasks/` — TaskItem, LocalTaskRow, TaskEditor, QuickCreateDialog, StatusDropdown, InboxTaskItem
-- `src/components/focus/` — FocusView, FocusBanner, FocusCelebration, FocusPlayMenu, FocusResumeDialog
-- `src/components/detail/` — TaskDetailPage, CaptureDetailPage, DetailSidebar, DetailBreadcrumbs, InlineTitle, InlineDescription, TaskActionBar, TaskActivityLog
-- `src/components/activity/` — ActivityTimeline
-- `src/components/shared/` — CommandBar, CommandBarResults, HelpPanel, CollapsibleSection
-- `src/components/priorities/` — PrioritiesSection (energy selector + display)
-- `src/components/{calendar,todoist,obsidian}/` — Feature components
-- `src/stores/` — appStore.ts, focusStore.ts, detailStore.ts
-- `src/hooks/` — useLocalTasks, useFocusTimer, useFocusQueue, useTaskDetail, useCalendar, useObsidian, etc.
-- `src/lib/` — utils.ts, sound.ts, taskToast.ts
-- `docs/buildplan.md` — Feature prioritization and build plan
+## Project Structure (Monorepo)
+```
+daily-triage/
+├── apps/
+│   ├── desktop/              (Tauri desktop app)
+│   │   ├── src/              (React frontend)
+│   │   ├── src-tauri/        (Rust backend — thin command wrappers)
+│   │   ├── package.json
+│   │   └── vite.config.ts
+│   └── mobile/               (Expo React Native app)
+│       ├── app/              (expo-router file-based pages)
+│       ├── services/         (database, sync, providers)
+│       ├── constants/        (theme)
+│       └── package.json
+├── packages/
+│   └── types/                (shared TypeScript types — @daily-triage/types)
+├── daily-triage-core/        (Rust library crate — all business logic)
+│   ├── src/db/               (tasks, projects, captures, goals, habits, docs, sync, etc.)
+│   ├── src/api/              (todoist, anthropic, calendar, updater)
+│   ├── src/parsers/          (ical, markdown)
+│   └── src/types.rs          (all domain types)
+├── docs/                     (architecture docs, research)
+├── Cargo.toml                (Rust workspace root)
+└── package.json              (npm workspace root)
+```
 
 ## Architecture Rules
 - All API calls happen in Rust, never in the React frontend (CORS + security)
@@ -44,18 +54,18 @@ A personal daily triage and briefing macOS app built with Tauri 2.0.
 - Activity logging via `crate::db::activity::log_activity()` — fire-and-forget, never fails user-facing commands
 
 ## Adding a Rust Command
-1. Create or edit the file in `src-tauri/src/commands/` (one file per domain)
-2. Export the module in `src-tauri/src/commands/mod.rs`
-3. Import it in `src-tauri/src/lib.rs` (`use commands::{..., your_module}`)
-4. Register each `#[tauri::command]` function in the `invoke_handler![]` macro in `lib.rs`
-5. Add the TypeScript wrapper in `src/services/tauri.ts`
+1. Add the business logic function in `daily-triage-core/src/db/<domain>.rs`
+2. Create a thin Tauri wrapper in `apps/desktop/src-tauri/src/commands/<domain>.rs`
+3. Export the module in `apps/desktop/src-tauri/src/commands/mod.rs`
+4. Import it in `apps/desktop/src-tauri/src/lib.rs`
+5. Register in the `invoke_handler![]` macro in `lib.rs`
+6. Add TypeScript wrapper in `apps/desktop/src/services/tauri.ts`
 
 ## Database Migrations
-- SQLite managed via sqlx (raw queries, no ORM)
-- Versioned migration system in `src-tauri/src/db/migrations.rs`
-- Each migration has a version number, description, and SQL string
-- Migrations run automatically on app startup — append new ones to the `MIGRATIONS` array
-- Current version: **13** (initial schema → calendar feeds → tasks/projects → activity log → focus state → captures → task status → docs → capture routes → goals/milestones/life_areas → habits/habit_logs + project goal linking → calendar date caching)
+- SQLite managed via sqlx (desktop Rust) and expo-sqlite (mobile TypeScript)
+- Versioned migration system in `daily-triage-core/src/db/migrations.rs` (Rust) and `apps/mobile/services/database.ts` (TypeScript mirror)
+- Both platforms share the same schema — keep migrations in sync
+- Current version: **14** (v1-13: core schema + v14: sync_log table + device_id)
 - `schema_version` table tracks what's been applied
 
 ## Key Tables
@@ -73,6 +83,7 @@ A personal daily triage and briefing macOS app built with Tauri 2.0.
 - `daily_state` — per-day energy level, cached AI priorities, focus session state
 - `todoist_tasks` — cached Todoist tasks
 - `calendar_events` / `calendar_feeds` — cached calendar data with 7-day window caching
+- `sync_log` — change tracking for cross-device sync (table_name, row_id, operation, snapshot, device_id, timestamp)
 
 ## Task Status Workflow
 - Statuses: `backlog` → `todo` → `in_progress` → `blocked` → `complete`
@@ -98,15 +109,33 @@ A personal daily triage and briefing macOS app built with Tauri 2.0.
 - Don't add guilt-inducing UI (streaks, "you've been away" messages)
 - Don't use `<button>` inside `<TooltipTrigger>` — causes nested button crash in Tauri webview
 
+## Architecture: DataProvider Abstraction
+- `DataProvider` interface (`services/data-provider.ts`) decouples frontend from Tauri invoke
+- Desktop: `TauriProvider` delegates to `services/tauri.ts` invoke wrappers
+- Mobile: `SqliteProvider` talks directly to expo-sqlite
+- Stores access provider via `getDataProvider()` (module-level, not React context)
+- ~24 desktop components still import from tauri.ts directly (works fine, just not abstracted yet)
+
+## Sync Protocol
+- Every mutation appends to `sync_log` (fire-and-forget, never blocks the mutation)
+- Push: send unsynced entries + data mutations to Turso via HTTP pipeline API
+- Pull: fetch remote entries, apply with LWW conflict resolution (skip if local is newer)
+- "Seed Existing Data" command backfills sync_log for pre-existing data
+- Turso URL format: `libsql://<db>-<org>.turso.io` (auto-normalized to https)
+- Remote schema initialization runs once (creates all 16 tables on Turso)
+
 ## Current State
 
-- **Last session:** 2026-04-04 (mobile architecture planning — no code changes)
+- **Last session:** 2026-04-04 (massive build session — full cross-platform infrastructure + mobile app)
 - **Completed this session:**
-  - Comprehensive codebase audit: full inventory of 65 Rust commands, 18 tables, 7 Zustand stores, 10+ hooks, all coupling points
-  - Cross-platform architecture plan written to `docs/MOBILE-ARCHITECTURE.md`
-  - Platform decision: React Native (Expo) for mobile, not Tauri mobile (too immature)
-  - Data sync strategy: custom sync protocol with Turso (hosted SQLite) as cloud rendezvous, last-write-wins for single-user
-  - Desktop structural prep plan: 4 sessions (extract Rust core crate, DataProvider abstraction, sync_log table, monorepo + shared types)
-  - Mobile build plan: 3-5 sessions after desktop prep (scaffold, core pages, sync integration)
-- **Known issues:** Tiptap duplicate link extension warning. Nested button warning in some dropdown triggers. HelpPanel roadmap data is stale. Uncommitted CLAUDE.md change from previous session (migration version update).
-- **Next up:** Session 0a — Extract Rust core into a library crate (`daily-triage-core/`). See `docs/MOBILE-ARCHITECTURE.md` Phase 0 for full plan.
+  - Phase 0a: Extracted Rust core into `daily-triage-core/` library crate (25+ types, 11 DB modules, 4 API modules)
+  - Phase 0b: Created DataProvider abstraction, decoupled 4 stores + 7 hooks from Tauri
+  - Phase 0c: Added sync foundation — sync_log table (migration v14), mutation tracking across all 12 domain modules, Turso HTTP client
+  - Phase 0d+1a: Monorepo restructure (`apps/desktop/`, `apps/mobile/`, `packages/types/`) + Expo mobile scaffold with 4 tab pages
+  - Phase 1c: Mobile mutations (task CRUD, captures, habit logging) + blank screen fix + sync_log appends
+  - Phase 2: Desktop Turso sync (push/pull with data mutations, remote init, test connection, auto-sync on launch)
+  - Phase 2b: Mobile Turso sync (full port of push/pull to TypeScript, Settings UI, background sync)
+  - Seed existing data command for backfilling pre-sync data into sync_log
+  - Metro + Babel config fixes for Expo monorepo support
+- **Known issues:** Tiptap duplicate link extension warning. HelpPanel roadmap data is stale. First sync push is slow with large datasets (all entries in one pipeline). ~24 desktop components still import directly from tauri.ts.
+- **Next up:** Phase 3 polish (notifications, focus timer on mobile, swipe actions, haptics). Evening review flow. Goals detail page.
