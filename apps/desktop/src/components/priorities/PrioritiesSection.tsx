@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAppStore } from '@/stores/appStore'
-import { generatePriorities } from '@/services/tauri'
-import type { Priority } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
+import type { Priority } from '@daily-triage/types'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
+import { Meta } from '@/components/shared/typography'
 import { toast } from 'sonner'
 import { Sparkles, RefreshCw, Battery, BatteryMedium, BatteryLow } from 'lucide-react'
 
@@ -51,17 +52,17 @@ function PriorityCard({ priority, index }: { priority: Priority; index: number }
 
   return (
     <div className="flex gap-3 py-2.5">
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-meta font-semibold text-muted-foreground">
         {index + 1}
       </span>
       <div className="flex-1 min-w-0 space-y-1">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-medium leading-snug">{priority.title}</p>
-          <Badge variant="secondary" className={cn('text-[10px] px-1.5 py-0', sourceStyle)}>
+          <p className="text-body font-medium leading-snug">{priority.title}</p>
+          <Badge variant="secondary" className={cn('text-label px-1.5 py-0', sourceStyle)}>
             {priority.source}
           </Badge>
         </div>
-        <p className="text-xs text-muted-foreground leading-relaxed">{priority.reasoning}</p>
+        <Meta as="p" className="leading-relaxed">{priority.reasoning}</Meta>
       </div>
     </div>
   )
@@ -74,6 +75,7 @@ interface PrioritiesSectionProps {
 }
 
 export function PrioritiesSection({ onGenerated, initialPriorities, compact }: PrioritiesSectionProps) {
+  const dp = useDataProvider()
   const calendarEvents = useAppStore((s) => s.calendarEvents)
   const todoistTasks = useAppStore((s) => s.todoistTasks)
   const obsidianToday = useAppStore((s) => s.obsidianToday)
@@ -94,7 +96,7 @@ export function PrioritiesSection({ onGenerated, initialPriorities, compact }: P
     setError(null)
 
     try {
-      const result = await generatePriorities(
+      const result = await dp.dailyState.generatePriorities(
         level,
         buildCalendarSummary(calendarEvents),
         buildTasksSummary(todoistTasks),
@@ -113,7 +115,7 @@ export function PrioritiesSection({ onGenerated, initialPriorities, compact }: P
     } finally {
       setLoading(false)
     }
-  }, [calendarEvents, todoistTasks, obsidianToday, onGenerated])
+  }, [calendarEvents, todoistTasks, obsidianToday, onGenerated, dp])
 
   const regenerate = useCallback(() => {
     if (energy) generate(energy)
@@ -125,11 +127,9 @@ export function PrioritiesSection({ onGenerated, initialPriorities, compact }: P
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <Sparkles className="size-4 text-accent-blue" />
-          <h3 className="font-heading text-sm font-medium">How's your energy?</h3>
+          <h3 className="text-body-strong">How's your energy?</h3>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Pick your energy level and I'll suggest your top 3 priorities.
-        </p>
+        <Meta as="p">Pick your energy level and I'll suggest your top 3 priorities.</Meta>
         <div className="flex gap-2">
           {ENERGY_OPTIONS.map((opt) => {
             const Icon = opt.icon
@@ -157,7 +157,7 @@ export function PrioritiesSection({ onGenerated, initialPriorities, compact }: P
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <Sparkles className="size-4 text-accent-blue animate-pulse" />
-          <h3 className="text-sm font-medium">Thinking...</h3>
+          <h3 className="text-body font-medium">Thinking...</h3>
         </div>
         <div className="space-y-3">
           {[...Array(3)].map((_, i) => (
@@ -180,9 +180,9 @@ export function PrioritiesSection({ onGenerated, initialPriorities, compact }: P
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <Sparkles className="size-4 text-destructive" />
-          <h3 className="text-sm font-medium">Couldn't generate priorities</h3>
+          <h3 className="text-body font-medium">Couldn't generate priorities</h3>
         </div>
-        <p className="text-xs text-muted-foreground">{error}</p>
+        <Meta as="p">{error}</Meta>
         <Button variant="outline" size="sm" onClick={() => setEnergy(null)}>
           Try again
         </Button>
@@ -196,7 +196,7 @@ export function PrioritiesSection({ onGenerated, initialPriorities, compact }: P
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className="size-4 text-accent-blue" />
-          <h3 className="font-heading text-sm font-medium">Today's priorities</h3>
+          <h3 className="text-body-strong">Today's priorities</h3>
         </div>
         <Button
           variant="ghost"
@@ -215,12 +215,12 @@ export function PrioritiesSection({ onGenerated, initialPriorities, compact }: P
       </div>
 
       <div className="flex items-center gap-2 pt-1">
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-label text-muted-foreground">
           Energy: {energy ?? 'set'}
         </span>
         <button
           onClick={() => { setPriorities(null); setEnergy(null) }}
-          className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          className="text-label text-muted-foreground hover:text-foreground transition-colors"
         >
           Change
         </button>

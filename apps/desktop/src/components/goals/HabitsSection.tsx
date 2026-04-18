@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { useGoalsStore } from '@/stores/goalsStore'
-import { logHabit, unlogHabit, getHabitHeatmap } from '@/services/tauri'
-import type { HabitHeatmapEntry } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
+import type { HabitHeatmapEntry } from '@daily-triage/types'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -158,7 +158,7 @@ function HabitCircle({
           )}
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <div className="text-xs">
+          <div className="text-meta">
             <div className="font-medium">{name}</div>
             <div className="opacity-70">{completed ? 'Done today' : 'Not done yet'}</div>
           </div>
@@ -283,7 +283,7 @@ function HabitHeatmap({ data }: { data: HabitHeatmapEntry[] }) {
                 }}
               />
               <TooltipContent side="top">
-                <div className="text-[10px]">
+                <div className="text-label">
                   <div>{cell.date}</div>
                   {cell.intensity > 0 && <div className="opacity-70">{cell.intensity} activities</div>}
                 </div>
@@ -299,6 +299,7 @@ function HabitHeatmap({ data }: { data: HabitHeatmapEntry[] }) {
 // ── Habits Section ──
 
 export function HabitsSection() {
+  const dp = useDataProvider()
   const habits = useGoalsStore((s) => s.habits)
   const habitsLoading = useGoalsStore((s) => s.habitsLoading)
   const loadHabits = useGoalsStore((s) => s.loadHabits)
@@ -308,26 +309,26 @@ export function HabitsSection() {
 
   useEffect(() => {
     loadHabits()
-    getHabitHeatmap(undefined, 365)
+    dp.habits.getHeatmap(undefined, 365)
       .then(setHeatmapData)
       .catch(() => {})
       .finally(() => setHeatmapLoading(false))
-  }, [loadHabits])
+  }, [loadHabits, dp])
 
   const handleToggle = useCallback(async (habitId: string, currentlyCompleted: boolean) => {
     try {
       if (currentlyCompleted) {
-        await unlogHabit(habitId)
+        await dp.habits.unlog(habitId)
       } else {
-        await logHabit(habitId)
+        await dp.habits.log(habitId)
       }
       await loadHabits()
       // Refresh heatmap
-      getHabitHeatmap(undefined, 365).then(setHeatmapData).catch(() => {})
+      dp.habits.getHeatmap(undefined, 365).then(setHeatmapData).catch(() => {})
     } catch (e) {
       console.error('Habit toggle failed:', e)
     }
-  }, [loadHabits])
+  }, [loadHabits, dp])
 
   const activeHabits = habits.filter((h) => h.active)
   const completedCount = activeHabits.filter((h) => h.today_completed).length
@@ -358,13 +359,13 @@ export function HabitsSection() {
       <div className="flex items-baseline justify-between">
         <div className="flex items-center gap-2">
           <Flame className="size-3.5 text-amber-500" />
-          <h3 className="font-heading text-sm font-semibold">Habits</h3>
-          <span className="text-[11px] text-muted-foreground tabular-nums">
+          <h3 className="text-body-strong">Habits</h3>
+          <span className="text-label text-muted-foreground tabular-nums">
             {completedCount}/{activeHabits.length}
           </span>
         </div>
         {avgMomentum > 0 && (
-          <span className="text-[10px] text-muted-foreground">
+          <span className="text-label text-muted-foreground">
             {avgMomentum}% momentum
           </span>
         )}

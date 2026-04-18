@@ -1,11 +1,8 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { useGoalsStore } from '@/stores/goalsStore'
-import {
-  createGoal,
-  importGoalsFromVault,
-} from '@/services/tauri'
-import type { GoalWithProgress, GoalStatus, LifeArea } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
+import type { GoalWithProgress, GoalStatus, LifeArea } from '@daily-triage/types'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -39,6 +36,7 @@ import {
   Calendar,
 } from 'lucide-react'
 import { GoalTimeline } from '@/components/goals/GoalTimeline'
+import { PageHeader } from '@/components/shared/PageHeader'
 
 // ── Status Config ──
 
@@ -86,27 +84,25 @@ function GoalCard({
         <div className="flex items-center justify-between">
           {area ? (
             <span
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-label font-medium"
               style={{
                 backgroundColor: `${area.color}15`,
                 color: area.color,
               }}
             >
-              <span className="text-xs">{area.icon}</span>
+              <span className="text-meta">{area.icon}</span>
               {area.name}
             </span>
           ) : (
             <span />
           )}
-          <Badge variant="secondary" className={cn('text-[10px]', statusColor(goal.status))}>
+          <Badge variant="secondary" className={cn('text-label', statusColor(goal.status))}>
             {statusLabel(goal.status)}
           </Badge>
         </div>
 
         {/* Goal name */}
-        <h3 className="font-heading text-sm font-semibold leading-snug tracking-tight truncate">
-          {goal.name}
-        </h3>
+        <h3 className="text-body-strong truncate">{goal.name}</h3>
 
         {/* Progress bar */}
         <div className="flex items-center gap-2">
@@ -122,13 +118,13 @@ function GoalCard({
               }}
             />
           </div>
-          <span className="text-[11px] font-medium text-muted-foreground tabular-nums shrink-0">
+          <span className="text-label font-medium text-muted-foreground tabular-nums shrink-0">
             {progressLabel}
           </span>
         </div>
 
         {/* Stats row */}
-        <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-3 text-label text-muted-foreground">
           {goal.milestone_count > 0 && (
             <span className="tabular-nums">
               {goal.milestone_completed}/{goal.milestone_count} milestones
@@ -169,6 +165,7 @@ function GoalCreateDialog({
   lifeAreas: LifeArea[]
   onCreated: () => void
 }) {
+  const dp = useDataProvider()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState<GoalStatus>('not_started')
@@ -182,7 +179,7 @@ function GoalCreateDialog({
     if (!name.trim()) return
     setSaving(true)
     try {
-      await createGoal({
+      await dp.goals.create({
         name: name.trim(),
         description: description.trim() || undefined,
         status,
@@ -221,7 +218,7 @@ function GoalCreateDialog({
         <div className="space-y-4">
           {/* Name */}
           <div className="space-y-1.5">
-            <Label htmlFor="goal-name" className="text-xs">Name</Label>
+            <Label htmlFor="goal-name" className="text-meta">Name</Label>
             <Input
               id="goal-name"
               value={name}
@@ -234,7 +231,7 @@ function GoalCreateDialog({
 
           {/* Description */}
           <div className="space-y-1.5">
-            <Label htmlFor="goal-desc" className="text-xs">Description</Label>
+            <Label htmlFor="goal-desc" className="text-meta">Description</Label>
             <Input
               id="goal-desc"
               value={description}
@@ -246,7 +243,7 @@ function GoalCreateDialog({
           {/* Life Area */}
           {lifeAreas.length > 0 && (
             <div className="space-y-1.5">
-              <Label className="text-xs">Life Area</Label>
+              <Label className="text-meta">Life Area</Label>
               <Select
                 value={lifeAreaId}
                 onValueChange={(v) => setLifeAreaId(v ?? '')}
@@ -272,7 +269,7 @@ function GoalCreateDialog({
           {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="goal-start" className="text-xs">Start date</Label>
+              <Label htmlFor="goal-start" className="text-meta">Start date</Label>
               <Input
                 id="goal-start"
                 type="date"
@@ -281,7 +278,7 @@ function GoalCreateDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="goal-target" className="text-xs">Target date</Label>
+              <Label htmlFor="goal-target" className="text-meta">Target date</Label>
               <Input
                 id="goal-target"
                 type="date"
@@ -293,7 +290,7 @@ function GoalCreateDialog({
 
           {/* Status */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Status</Label>
+            <Label className="text-meta">Status</Label>
             <Select value={status} onValueChange={(v) => setStatus(v as GoalStatus)}>
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -310,7 +307,7 @@ function GoalCreateDialog({
 
           {/* Color */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Color</Label>
+            <Label className="text-meta">Color</Label>
             <div className="flex items-center gap-1.5">
               {GOAL_COLORS.map((c) => (
                 <button
@@ -348,6 +345,7 @@ function GoalCreateDialog({
 type ViewMode = 'cards' | 'timeline'
 
 export function GoalsPage() {
+  const dp = useDataProvider()
   const goals = useGoalsStore((s) => s.goals)
   const lifeAreas = useGoalsStore((s) => s.lifeAreas)
   const goalsLoading = useGoalsStore((s) => s.goalsLoading)
@@ -404,14 +402,14 @@ export function GoalsPage() {
   const handleImport = useCallback(async () => {
     setImporting(true)
     try {
-      const result = await importGoalsFromVault()
+      const result = await dp.goals.importFromVault()
       toast.success(`Imported ${result.goals_created} goals and ${result.habits_created} habits`)
       await refresh()
     } catch (e) {
       toast.error(`Import failed: ${e}`)
     }
     setImporting(false)
-  }, [refresh])
+  }, [dp, refresh])
 
   const handleGoalClick = useCallback((_goalId: string) => {
     // TODO: Open goal detail view
@@ -420,85 +418,68 @@ export function GoalsPage() {
 
   if (goalsLoading) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-6 w-20" />
-          <Skeleton className="h-8 w-24" />
+      <>
+        <PageHeader title="Goals" />
+        <div className="max-w-2xl mx-auto p-6 space-y-4 w-full">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-36 rounded-xl" />
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-36 rounded-xl" />
-          ))}
-        </div>
-      </div>
+      </>
     )
   }
 
-  return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex items-baseline gap-2">
-            <h2 className="font-heading text-sm font-semibold">Goals</h2>
-            <span className="text-xs text-muted-foreground">
-              {filteredGoals.length} goal{filteredGoals.length !== 1 ? 's' : ''}
-            </span>
-          </div>
+  const headerActions = (
+    <>
+      <ToggleGroup
+        value={[view]}
+        onValueChange={(val) => {
+          const v = val[0] as ViewMode | undefined
+          if (v) setView(v)
+        }}
+        size="sm"
+      >
+        <ToggleGroupItem value="cards" aria-label="Card view">
+          <LayoutGrid className="size-3.5" />
+        </ToggleGroupItem>
+        <ToggleGroupItem value="timeline" aria-label="Timeline view">
+          <GanttChart className="size-3.5" />
+        </ToggleGroupItem>
+      </ToggleGroup>
+      <Tooltip>
+        <TooltipTrigger
+          className={cn(
+            'inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/20 hover:text-foreground',
+            importing && 'opacity-50 pointer-events-none',
+          )}
+          onClick={handleImport}
+        >
+          <Download className="size-3.5" />
+        </TooltipTrigger>
+        <TooltipContent>Import from Obsidian vault</TooltipContent>
+      </Tooltip>
+      <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
+        <Plus className="size-3.5" />
+        New Goal
+      </Button>
+    </>
+  )
 
-          {/* View toggle */}
-          <ToggleGroup
-            value={[view]}
-            onValueChange={(val) => {
-              const v = val[0] as ViewMode | undefined
-              if (v) setView(v)
-            }}
-            size="sm"
-          >
-            <ToggleGroupItem value="cards" aria-label="Card view">
-              <LayoutGrid className="size-3.5" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="timeline" aria-label="Timeline view">
-              <GanttChart className="size-3.5" />
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Tooltip>
-            <TooltipTrigger
-              className={cn(
-                'inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/20 hover:text-foreground',
-                importing && 'opacity-50 pointer-events-none',
-              )}
-              onClick={handleImport}
-            >
-              <Download className="size-3.5" />
-            </TooltipTrigger>
-            <TooltipContent>Import from Obsidian vault</TooltipContent>
-          </Tooltip>
-
-          <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-            <Plus className="size-3.5" />
-            New Goal
-          </Button>
-        </div>
-      </div>
-
-      {/* Life area filter pills */}
-      {lifeAreas.length > 0 && (
-        <div className="flex items-center gap-1 flex-wrap">
+  const headerSecondary = lifeAreas.length > 0 ? (
+    <div className="flex items-center gap-1 flex-wrap">
           <button
             onClick={() => setAreaFilter(null)}
             className={cn(
-              'rounded-md px-2 py-1 text-xs font-medium transition-colors',
+              'rounded-md px-2 py-1 text-meta font-medium transition-colors',
               areaFilter === null
                 ? 'bg-foreground text-background'
                 : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',
             )}
           >
             All
-            <span className="ml-1 text-[10px] opacity-60">{goals.length}</span>
+            <span className="ml-1 text-label opacity-60">{goals.length}</span>
           </button>
           {lifeAreas.map((area) => {
             const count = areaCounts[area.id] || 0
@@ -508,7 +489,7 @@ export function GoalsPage() {
                 key={area.id}
                 onClick={() => setAreaFilter(areaFilter === area.id ? null : area.id)}
                 className={cn(
-                  'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
+                  'flex items-center gap-1 rounded-md px-2 py-1 text-meta font-medium transition-colors',
                   areaFilter === area.id
                     ? 'bg-foreground text-background'
                     : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',
@@ -519,22 +500,31 @@ export function GoalsPage() {
                   style={{ backgroundColor: area.color }}
                 />
                 {area.name}
-                <span className="text-[10px] opacity-60">{count}</span>
+                <span className="text-label opacity-60">{count}</span>
               </button>
             )
           })}
-        </div>
-      )}
+    </div>
+  ) : undefined
 
+  return (
+    <>
+      <PageHeader
+        title="Goals"
+        meta={`${filteredGoals.length} goal${filteredGoals.length !== 1 ? 's' : ''}`}
+        actions={headerActions}
+        secondary={headerSecondary}
+      />
+      <div className="max-w-2xl mx-auto p-6 space-y-4 w-full">
       {/* Content */}
       {filteredGoals.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 space-y-4">
           <Target className="size-10 text-muted-foreground/30" />
           <div className="text-center space-y-1">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               No goals yet. Import from Obsidian or create your first goal.
             </p>
-            <p className="text-xs text-muted-foreground/60">
+            <p className="text-meta text-muted-foreground/60">
               Goals help you track long-term progress across life areas.
             </p>
           </div>
@@ -575,6 +565,7 @@ export function GoalsPage() {
         lifeAreas={lifeAreas}
         onCreated={refresh}
       />
-    </div>
+      </div>
+    </>
   )
 }
