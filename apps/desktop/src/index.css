@@ -4,14 +4,55 @@
 @import "@fontsource-variable/plus-jakarta-sans";
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/geist";
+@import "@fontsource-variable/manrope";
+@import "@fontsource-variable/ibm-plex-sans";
+@import "@fontsource-variable/dm-sans";
 @import "./themes.css";
 
 @custom-variant dark (&:is(.dark *));
 
+/* Font stacks declared on a non-inline @theme block so Tailwind's
+   font-sans / font-heading / font-mono utilities resolve to var(--font-*).
+   The Settings typography switcher overrides these vars on :root at
+   runtime via element.style.setProperty() — because the utilities read
+   the vars (not baked-in literals), font swaps take effect everywhere
+   font-sans / font-heading is used. */
+@theme {
+    /* Geist is the default family for heading, sans, and mono. Heading +
+       sans point at the same face so both token tiers render in Geist by
+       default — the TypographyTuner can still swap each independently at
+       runtime (Plus Jakarta, Inter, Manrope, IBM Plex, DM Sans all remain
+       imported and selectable in Settings). */
+    --font-heading: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-sans:    'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-mono:    'Geist Mono Variable', ui-monospace, 'SF Mono', monospace;
+
+    /* Canonical type scale — 10 tokens, sentence case throughout.
+       Tailwind v4 generates text-<name> utilities from these pairs.
+       Spec: docs/superpowers/specs/2026-04-18-typography-system-design.md */
+    --text-caption:      0.625rem;    /* 10 — micro-badges, overflow counts */
+    --text-caption--line-height: 1.2;
+    --text-label:        0.6875rem;   /* 11 — section labels, chips */
+    --text-label--line-height: 1.15;
+    --text-meta:         0.75rem;     /* 12 — timestamps, due dates, secondary */
+    --text-meta--line-height: 1.35;
+    --text-body:         0.875rem;    /* 14 — primary body, rows, task titles */
+    --text-body--line-height: 1.4286;
+    --text-body-strong:  0.875rem;    /* 14 — emphasis variant (replaces font-medium stacks) */
+    --text-body-strong--line-height: 1.4286;
+    --text-heading-sm:   1rem;        /* 16 — page titles, dialog titles, editor H3 */
+    --text-heading-sm--line-height: 1.3;
+    --text-heading:      1.125rem;    /* 18 — greeting, section emphasis, editor H2 */
+    --text-heading--line-height: 1.25;
+    --text-display:      1.5rem;      /* 24 — editor H1, celebration moments */
+    --text-display--line-height: 1.15;
+    --text-display-xl:   2rem;        /* 32 — focus celebrations */
+    --text-display-xl--line-height: 1.05;
+    --text-timer:        3rem;        /* 48 — FocusView timer */
+    --text-timer--line-height: 1;
+}
+
 @theme inline {
-    --font-heading: 'Plus Jakarta Sans Variable', 'Inter Variable', system-ui, sans-serif;
-    --font-sans: 'Inter Variable', 'Geist Variable', system-ui, sans-serif;
-    --font-mono: 'Geist Mono', 'SF Mono', ui-monospace, monospace;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -51,18 +92,123 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+    /* Motion tokens — every keyframe / transition in the app references these.
+       Change them here and the whole app follows. */
+    --transition-fast: 150ms;   /* hover, color, opacity */
+    --transition-base: 220ms;   /* row entrance, modal, panel */
+    --transition-slow: 320ms;   /* page transition, command bar, large flyouts */
+
+    /* Canonical easings — `entrance` for things arriving, `exit` for
+       things leaving. Don't reach for raw cubic-beziers in keyframes or
+       transition utilities; use these. */
+    --ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);  /* smooth settle */
+    --ease-exit:     cubic-bezier(0.4, 0, 1, 1);     /* steeper lift */
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
     }
+  html, body {
+    /* Lock the root on both axes — kills the native macOS webview
+       rubber-band / elastic overscroll at the window level. Inner
+       scroll containers (main content, calendar panel, etc.) still
+       scroll normally at their true edges. */
+    overscroll-behavior: none;
+    overflow: hidden;
+    }
   body {
     @apply bg-background text-foreground;
     }
   html {
     @apply font-sans;
+    /* Snap digits to a shared grid app-wide. Task counts, calendar times,
+       due dates, progress ratios, priority scores — numbers in lists and
+       side-by-side content should never shift width between frames. Opt
+       out per-element with `font-variant-numeric: normal` if proportional
+       figures ever matter. */
+    font-variant-numeric: tabular-nums;
     }
+}
+
+@layer components {
+  /* Each text-<name> utility is a FULL typography style, not just size.
+     Tailwind's @theme generates the font-size + line-height pair; these
+     rules add the rest — font-family, weight, letter-spacing, text-
+     transform — each behind a --typo-<name>-* CSS variable with a default.
+     The TypographyTuner panel writes to those vars on :root at runtime,
+     so the whole app responds to tuning without component-level changes. */
+  .text-label {
+    font-family: var(--typo-label-family, var(--font-sans));
+    font-weight: var(--typo-label-weight, 500);
+    letter-spacing: var(--typo-label-tracking, 0.05em);
+    text-transform: var(--typo-label-case, uppercase);
+  }
+  .text-meta {
+    font-family: var(--typo-meta-family, var(--font-sans));
+    font-weight: var(--typo-meta-weight, 400);
+    letter-spacing: var(--typo-meta-tracking, 0);
+    text-transform: var(--typo-meta-case, none);
+  }
+  .text-body {
+    font-family: var(--typo-body-family, var(--font-sans));
+    font-weight: var(--typo-body-weight, 400);
+    letter-spacing: var(--typo-body-tracking, 0);
+    text-transform: var(--typo-body-case, none);
+  }
+  .text-heading-xs {
+    font-family: var(--typo-heading-xs-family, var(--font-heading));
+    font-weight: var(--typo-heading-xs-weight, 500);
+    letter-spacing: var(--typo-heading-xs-tracking, -0.015em);
+    text-transform: var(--typo-heading-xs-case, none);
+  }
+  .text-heading-sm {
+    font-family: var(--typo-heading-sm-family, var(--font-heading));
+    font-weight: var(--typo-heading-sm-weight, 600);
+    letter-spacing: var(--typo-heading-sm-tracking, -0.015em);
+    text-transform: var(--typo-heading-sm-case, none);
+  }
+  .text-heading {
+    font-family: var(--typo-heading-family, var(--font-heading));
+    font-weight: var(--typo-heading-weight, 600);
+    letter-spacing: var(--typo-heading-tracking, -0.02em);
+    text-transform: var(--typo-heading-case, none);
+  }
+  .text-display {
+    font-family: var(--typo-display-family, var(--font-heading));
+    font-weight: var(--typo-display-weight, 600);
+    letter-spacing: var(--typo-display-tracking, -0.025em);
+    text-transform: var(--typo-display-case, none);
+  }
+  .text-display-xl {
+    font-family: var(--typo-display-xl-family, var(--font-heading));
+    font-weight: var(--typo-display-xl-weight, 600);
+    letter-spacing: var(--typo-display-xl-tracking, -0.03em);
+    text-transform: var(--typo-display-xl-case, none);
+  }
+}
+
+/* TypographyTuner highlight — when a style is actively being tuned,
+   outline every instance of that class on screen. data-highlight-type
+   is set on <html> by the tuner; one style is highlighted at a time.
+   Tiptap h1/h2/h3 mirror display/heading/heading-sm — highlighting the
+   token also highlights the corresponding editor heading. */
+[data-highlight-type="label"] .text-label,
+[data-highlight-type="meta"] .text-meta,
+[data-highlight-type="body"] .text-body,
+[data-highlight-type="heading-xs"] .text-heading-xs,
+[data-highlight-type="heading-sm"] .text-heading-sm,
+[data-highlight-type="heading-sm"] .tiptap-editor h3,
+[data-highlight-type="heading"] .text-heading,
+[data-highlight-type="heading"] .tiptap-editor h2,
+[data-highlight-type="display"] .text-display,
+[data-highlight-type="display"] .tiptap-editor h1,
+[data-highlight-type="display-xl"] .text-display-xl {
+  outline: 2px dashed oklch(from var(--accent) l c h / 0.9);
+  outline-offset: 3px;
+  background: oklch(from var(--accent) l c h / 0.08);
+  border-radius: 3px;
+  transition: outline 150ms var(--ease-entrance), background 150ms var(--ease-entrance);
 }
 
 /* Scrollbar — thin, auto-hiding on idle */
@@ -89,7 +235,7 @@
 
 /* Help panel entrance */
 .help-panel-enter {
-  animation: help-panel-in 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: help-panel-in var(--transition-base) var(--ease-entrance) forwards;
 }
 @keyframes help-panel-in {
   from {
@@ -104,7 +250,7 @@
 
 /* Bulk action bar entrance */
 .bulk-action-bar-enter {
-  animation: bulk-bar-in 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: bulk-bar-in var(--transition-base) var(--ease-entrance) forwards;
 }
 @keyframes bulk-bar-in {
   from { opacity: 0; transform: translateY(12px) scale(0.95); }
@@ -124,24 +270,36 @@
 .tiptap-editor p {
   margin: 0.5em 0;
 }
+/* Editor headings mirror the full design-system tokens, including the
+   TypographyTuner-editable --typo-*-* overrides. Note's H1 visually matches
+   the app's text-display class, H2 matches text-heading, H3 matches
+   text-heading-sm — and tuning any of those classes in the panel updates
+   both the chrome AND the editor in lockstep. */
 .tiptap-editor h1 {
-  font-family: var(--font-heading);
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-family: var(--typo-display-family, var(--font-heading));
+  font-size: var(--text-display);
+  line-height: var(--text-display--line-height);
+  font-weight: var(--typo-display-weight, 600);
+  letter-spacing: var(--typo-display-tracking, -0.025em);
+  text-transform: var(--typo-display-case, none);
   margin: 1em 0 0.5em;
-  letter-spacing: -0.025em;
 }
 .tiptap-editor h2 {
-  font-family: var(--font-heading);
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-family: var(--typo-heading-family, var(--font-heading));
+  font-size: var(--text-heading);
+  line-height: var(--text-heading--line-height);
+  font-weight: var(--typo-heading-weight, 600);
+  letter-spacing: var(--typo-heading-tracking, -0.025em);
+  text-transform: var(--typo-heading-case, none);
   margin: 0.75em 0 0.4em;
-  letter-spacing: -0.025em;
 }
 .tiptap-editor h3 {
-  font-family: var(--font-heading);
-  font-size: 1rem;
-  font-weight: 600;
+  font-family: var(--typo-heading-sm-family, var(--font-heading));
+  font-size: var(--text-heading-sm);
+  line-height: var(--text-heading-sm--line-height);
+  font-weight: var(--typo-heading-sm-weight, 600);
+  letter-spacing: var(--typo-heading-sm-tracking, -0.025em);
+  text-transform: var(--typo-heading-sm-case, none);
   margin: 0.5em 0 0.3em;
 }
 .tiptap-editor ul,
@@ -206,22 +364,39 @@
 
 /* Page transition */
 @keyframes page-enter {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-page-enter {
-  animation: page-enter 200ms ease-out;
+  animation: page-enter var(--transition-base) var(--ease-entrance) forwards;
+  will-change: transform, opacity;
 }
 
-/* Task complete animation — checkmark flash + slide out */
+/* Staggered list row entrance — used by SortableTaskList and Inbox items.
+   Pair with inline style={{ animationDelay: `${i * 25}ms` }} per row,
+   capping at ~15 rows so the cascade doesn't drag on long lists. */
+@keyframes row-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-row-enter {
+  animation: row-enter var(--transition-base) var(--ease-entrance) both;
+  will-change: transform, opacity;
+}
+
+/* Task complete animation — checkmark flash + slide out. Applied to the
+   row for 600ms after the user marks a task complete, before the state
+   update actually removes it from the list. Gives the completion verb
+   a visible beat. */
 @keyframes task-complete-exit {
-  0% { opacity: 1; transform: translateX(0); background-color: transparent; }
-  20% { background-color: oklch(0.85 0.1 145 / 20%); } /* brief green flash */
-  50% { opacity: 0.5; }
+  0%   { opacity: 1; transform: translateX(0); background-color: transparent; }
+  20%  { background-color: oklch(0.85 0.1 145 / 20%); } /* brief green flash */
+  50%  { opacity: 0.5; }
   100% { opacity: 0; transform: translateX(8px); }
 }
 .animate-task-complete {
-  animation: task-complete-exit 600ms ease-out forwards;
+  animation: task-complete-exit 600ms var(--ease-exit) forwards;
+  pointer-events: none;
 }
 
 /* Progress bar entrance */
@@ -230,14 +405,15 @@
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-progress-enter {
-  animation: progress-enter 300ms ease-out;
+  animation: progress-enter var(--transition-base) var(--ease-entrance) forwards;
+  will-change: transform, opacity;
 }
 
 /* Command bar fly-out animation */
 .command-bar-backdrop {
   background-color: oklch(from var(--background) l c h / 0.6);
   backdrop-filter: blur(8px);
-  animation: command-backdrop-in 250ms ease-out forwards;
+  animation: command-backdrop-in var(--transition-slow) var(--ease-entrance) forwards;
 }
 @keyframes command-backdrop-in {
   from { opacity: 0; backdrop-filter: blur(0); }
@@ -245,7 +421,7 @@
 }
 
 .command-bar-flyout {
-  animation: command-flyout 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: command-flyout var(--transition-slow) var(--ease-entrance) forwards;
 }
 @keyframes command-flyout {
   from {
@@ -263,7 +439,7 @@
 .command-bar-backdrop-out {
   background-color: oklch(from var(--background) l c h / 0.6);
   backdrop-filter: blur(8px);
-  animation: command-backdrop-out 200ms ease-in forwards;
+  animation: command-backdrop-out var(--transition-base) var(--ease-exit) forwards;
 }
 @keyframes command-backdrop-out {
   from { opacity: 1; backdrop-filter: blur(8px); }
@@ -271,7 +447,7 @@
 }
 
 .command-bar-flyout-out {
-  animation: command-flyout-out 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation: command-flyout-out var(--transition-base) var(--ease-exit) forwards;
 }
 @keyframes command-flyout-out {
   from {
@@ -318,11 +494,13 @@
   100% { background-color: transparent; box-shadow: none; }
 }
 
-/* Count update pulse */
+/* Count update pulse — also used for micro-feedback on status + priority
+   changes. Uses the entrance easing for the spike so it feels like a
+   confirmation rather than a twitch. */
 @keyframes count-pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.15); }
 }
 .animate-count-pulse {
-  animation: count-pulse 300ms ease-out;
+  animation: count-pulse var(--transition-slow) var(--ease-entrance);
 }
