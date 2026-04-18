@@ -70,7 +70,7 @@ function DayNavigationHeader({
 }) {
   return (
     <div className="flex items-center justify-between px-1 mb-2">
-      <span className="text-label text-muted-foreground">
+      <span className="text-heading-sm text-muted-foreground">
         {formatMonthShort(selectedDate)}
       </span>
 

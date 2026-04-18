@@ -18,12 +18,15 @@ function DueDateBadge({ date }: { date: string }) {
   else if (isTomorrow(parsed)) label = 'Tomorrow'
   else label = format(parsed, 'MMM d')
 
+  /* Template literal (not cn) to dodge the tailwind-merge + custom-color
+     gotcha that drops text-<size> when combined with text-foreground /
+     text-muted-foreground / text-destructive. Both classes apply here
+     because font-size and color target different CSS properties. */
   return (
     <span
-      className={cn(
-        'shrink-0 text-label tabular-nums',
-        overdue ? 'text-destructive' : 'text-muted-foreground',
-      )}
+      className={`shrink-0 text-body tabular-nums ${
+        overdue ? 'text-destructive' : 'text-muted-foreground'
+      }`}
     >
       {label}
     </span>
@@ -57,14 +60,13 @@ export function SubtaskBadge() {
 
 export function SubtaskSummary({ done, total }: { done: number; total: number }) {
   const allDone = done === total && total > 0
+  /* Template literal keeps text-label surviving next to text-muted-foreground;
+     see DueDateBadge note above. */
   return (
     <span
-      className={cn(
-        'flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-label tabular-nums',
-        allDone
-          ? 'bg-green-500/10 text-green-500'
-          : 'bg-muted/60 text-muted-foreground',
-      )}
+      className={`flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-label tabular-nums ${
+        allDone ? 'bg-green-500/10 text-green-500' : 'bg-muted/60 text-muted-foreground'
+      }`}
       aria-label={`${done} of ${total} subtasks complete`}
     >
       {allDone ? (

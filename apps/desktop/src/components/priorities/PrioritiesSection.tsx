@@ -59,12 +59,15 @@ function PriorityCard({ priority, index }: { priority: Priority; index: number }
       <div className="flex-1 min-w-0 space-y-1">
         <div className="flex items-center gap-2">
           <p className="text-body-strong">{priority.title}</p>
-          <Badge variant="secondary" className={cn('text-label px-1.5 py-0', sourceStyle)}>
+          {/* Badge base cva bakes in text-meta; !text-label wins via the
+              important flag so the source pill renders at 11/500 as spec'd. */}
+          <Badge variant="secondary" className={`!text-label px-1.5 py-0 ${sourceStyle}`}>
             {priority.source}
           </Badge>
         </div>
-        {/* leading-relaxed: deliberate prose override — AI reasoning reads as prose */}
-        <Meta as="p" className="leading-relaxed">{priority.reasoning}</Meta>
+        {/* leading-relaxed: deliberate prose override — AI reasoning reads as prose.
+            Plain <p> so we control size directly (the <Meta> primitive pins text-meta). */}
+        <p className="text-body text-muted-foreground leading-relaxed">{priority.reasoning}</p>
       </div>
     </div>
   )
