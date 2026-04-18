@@ -56,10 +56,11 @@ function App() {
    * gate in the render block below prevents shipping the panel or its
    * keyboard shortcut to production users. */
   const [tunerOpen, setTunerOpen] = useState(false)
-  /* Type-system overlay — ⌘⇧T toggles a draggable reference panel with
+  /* Type-system overlay — ⌘⇧K toggles a draggable reference panel with
    * every token rendered at actual scale. DEV-only, same gating as the
    * tuner above. Complements the tuner: tuner edits values, overlay
-   * shows the spec. */
+   * shows the spec. Uses K (not T) to avoid macOS/webview ⌘⇧T "reopen
+   * closed tab" conflict which fires before our handler can preventDefault. */
   const [typeOverlayOpen, setTypeOverlayOpen] = useState(false)
   useEffect(() => {
     if (!import.meta.env.DEV) return
@@ -73,11 +74,11 @@ function App() {
           return !v
         })
       }
-      if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 't') {
+      if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setTypeOverlayOpen((v) => {
           toast.message(v ? 'Type system overlay closed' : 'Type system overlay opened', {
-            description: v ? undefined : 'Drag the header to move · ⌘⇧T to close',
+            description: v ? undefined : 'Drag the header to move · ⌘⇧K to close',
           })
           return !v
         })
