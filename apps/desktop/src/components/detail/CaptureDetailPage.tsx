@@ -1,17 +1,19 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useDetailStore } from '@/stores/detailStore'
-import { getCaptures, convertCaptureToTask, deleteCapture } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
 import { emitTasksChanged } from '@/hooks/useLocalTasks'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { DetailBreadcrumbs } from './DetailBreadcrumbs'
 import { TaskActivityLog } from './TaskActivityLog'
+import { IconButton } from '@/components/shared/IconButton'
 import { PanelRight, X, Trash2, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { taskToast } from '@/lib/taskToast'
-import type { Capture } from '@/services/tauri'
+import type { Capture } from '@daily-triage/types'
 
 export function CaptureDetailPage() {
+  const dp = useDataProvider()
   const target = useDetailStore((s) => s.target)
   const switchMode = useDetailStore((s) => s.switchMode)
   const close = useDetailStore((s) => s.close)
@@ -22,7 +24,7 @@ export function CaptureDetailPage() {
   const refresh = useCallback(async () => {
     if (!target?.id) return
     try {
-      const all = await getCaptures(100, true)
+      const all = await dp.captures.list(100, true)
       const found = all.find((c) => c.id === target.id) ?? null
       setCapture(found)
     } catch {
@@ -30,7 +32,7 @@ export function CaptureDetailPage() {
     } finally {
       setLoading(false)
     }
-  }, [target?.id])
+  }, [target?.id, dp])
 
   useEffect(() => {
     setLoading(true)
@@ -40,7 +42,7 @@ export function CaptureDetailPage() {
   const handleConvert = useCallback(async () => {
     if (!capture) return
     try {
-      const task = await convertCaptureToTask(capture.id)
+      const task = await dp.captures.convertToTask(capture.id)
       taskToast(`Converted to task: "${capture.content}"`, task.id)
       emitTasksChanged()
       // Open the new task detail
@@ -48,18 +50,18 @@ export function CaptureDetailPage() {
     } catch (e) {
       toast.error(`Failed to convert: ${e}`)
     }
-  }, [capture])
+  }, [capture, dp])
 
   const handleDelete = useCallback(async () => {
     if (!capture) return
     try {
-      await deleteCapture(capture.id)
+      await dp.captures.delete(capture.id)
       toast.success('Note deleted')
       close()
     } catch (e) {
       toast.error(`Failed to delete note: ${e}`)
     }
-  }, [capture, close])
+  }, [capture, close, dp])
 
   const formatTime = (dateStr: string) => {
     const d = new Date(dateStr)
@@ -83,7 +85,7 @@ export function CaptureDetailPage() {
     return (
       <div className="space-y-4">
         <DetailBreadcrumbs />
-        <p className="text-sm text-muted-foreground">Note not found.</p>
+        <p className="text-body text-muted-foreground">Note not found.</p>
       </div>
     )
   }
@@ -94,27 +96,28 @@ export function CaptureDetailPage() {
       <div className="flex items-start justify-between">
         <DetailBreadcrumbs />
         <div className="flex items-center gap-1 shrink-0">
-          <button
+          <IconButton
             onClick={() => switchMode('sidebar')}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+            size="lg"
             title="Open in sidebar"
           >
             <PanelRight className="size-4" />
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             onClick={close}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+            size="lg"
             title="Close"
           >
             <X className="size-4" />
-          </button>
+          </IconButton>
         </div>
       </div>
 
       {/* Content */}
       <div className="space-y-2">
-        <p className="text-lg leading-relaxed">{capture.content}</p>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground/50">
+        {/* leading-relaxed is a deliberate prose override on text-heading — captures are read like a journal entry, 1.25 feels too tight */}
+        <p className="text-heading leading-relaxed">{capture.content}</p>
+        <div className="flex items-center gap-3 text-meta text-muted-foreground/50">
           <span>{formatTime(capture.created_at)}</span>
           {capture.source !== 'manual' && capture.source !== 'inbox' && (
             <span className="rounded-md bg-muted/40 px-1.5 py-0.5">via {capture.source}</span>

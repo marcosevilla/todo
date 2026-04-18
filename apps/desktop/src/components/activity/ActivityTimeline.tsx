@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getActivityLog, getActivitySummary } from '@/services/tauri'
-import type { ActivityEntry, ActivitySummary } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
+import type { ActivityEntry, ActivitySummary } from '@daily-triage/types'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -96,8 +96,8 @@ function SummaryBar({ summaries }: { summaries: ActivitySummary[] }) {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="text-center">
-      <p className="text-lg font-semibold tabular-nums">{value}</p>
-      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p className="text-heading tabular-nums">{value}</p>
+      <p className="text-label text-muted-foreground">{label}</p>
     </div>
   )
 }
@@ -117,7 +117,7 @@ function TimelineEntry({ entry }: { entry: ActivityEntry }) {
   return (
     <div className={cn('flex items-start gap-3 py-1.5', isNoise && 'opacity-40')}>
       {/* Time */}
-      <span className="w-16 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground/60 pt-0.5">
+      <span className="w-16 shrink-0 text-right text-label tabular-nums text-muted-foreground/60 pt-0.5">
         {formatTime(entry.created_at)}
       </span>
 
@@ -128,9 +128,9 @@ function TimelineEntry({ entry }: { entry: ActivityEntry }) {
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <span className="text-sm">{meta.label}</span>
+        <span className="text-body">{meta.label}</span>
         {description && (
-          <span className="ml-1.5 text-sm text-muted-foreground break-words">
+          <span className="ml-1.5 text-body text-muted-foreground break-words">
             — {description}
           </span>
         )}
@@ -142,6 +142,7 @@ function TimelineEntry({ entry }: { entry: ActivityEntry }) {
 // ── Main component ──
 
 export function ActivityTimeline() {
+  const dp = useDataProvider()
   const [entries, setEntries] = useState<ActivityEntry[]>([])
   const [summaries, setSummaries] = useState<ActivitySummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -152,8 +153,8 @@ export function ActivityTimeline() {
   const refresh = useCallback(async () => {
     try {
       const [log, summary] = await Promise.all([
-        getActivityLog({ fromDate: today, toDate: today, limit: 200 }),
-        getActivitySummary(today),
+        dp.activity.getLog({ fromDate: today, toDate: today, limit: 200 }),
+        dp.activity.getSummary(today),
       ])
       setEntries(log)
       setSummaries(summary)
@@ -162,7 +163,7 @@ export function ActivityTimeline() {
     } finally {
       setLoading(false)
     }
-  }, [today])
+  }, [today, dp])
 
   useEffect(() => {
     refresh()
@@ -183,7 +184,7 @@ export function ActivityTimeline() {
 
   if (entries.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-body text-muted-foreground">
         No activity yet today. It'll appear here as you use the app.
       </p>
     )
@@ -196,12 +197,12 @@ export function ActivityTimeline() {
 
       {/* Filter toggle */}
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground/60">
+        <h3 className="text-meta font-medium uppercase tracking-wider text-muted-foreground/60">
           Timeline
         </h3>
         <button
           onClick={() => setShowNoise(!showNoise)}
-          className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+          className="text-label text-muted-foreground/40 hover:text-muted-foreground transition-colors"
         >
           {showNoise ? 'Hide noise' : 'Show all'}
         </button>

@@ -116,7 +116,7 @@ function HabitCircle({
       <Tooltip>
         <TooltipTrigger
           className={cn(
-            'relative size-10 rounded-full flex items-center justify-center text-lg transition-all duration-200 cursor-pointer select-none',
+            'relative size-10 rounded-full flex items-center justify-center text-heading transition-all duration-200 cursor-pointer select-none',
             completed
               ? 'ring-2 scale-105'
               : 'ring-1 ring-border/30 hover:ring-border/60 opacity-50 hover:opacity-80',

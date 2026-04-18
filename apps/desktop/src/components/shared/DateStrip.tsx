@@ -1,5 +1,6 @@
 import { useMemo, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { IconButton } from '@/components/shared/IconButton'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface DateStripProps {
@@ -55,17 +56,17 @@ export function DateStrip({ briefDates, selected, onSelect }: DateStripProps) {
 
   return (
     <div className="flex items-center gap-1">
-      <button
+      <IconButton
         onClick={() => scroll(-1)}
-        className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/30 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+        tone="subtle"
         aria-label="Scroll dates left"
       >
         <ChevronLeft className="size-3.5" />
-      </button>
+      </IconButton>
 
       <div
         ref={scrollRef}
-        className="flex-1 flex gap-1 overflow-x-hidden py-1"
+        className="flex-1 flex gap-1 overflow-x-hidden py-1 snap-x snap-mandatory"
       >
         {dates.map((dateStr) => {
           const { day, weekday, isToday } = formatDatePill(dateStr)
@@ -87,8 +88,8 @@ export function DateStrip({ briefDates, selected, onSelect }: DateStripProps) {
                     : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-accent/20',
               )}
             >
-              <span className="text-[10px] font-medium uppercase">{weekday}</span>
-              <span className="text-base font-semibold tabular-nums">{day}</span>
+              <span className="text-label font-medium uppercase">{weekday}</span>
+              <span className="text-heading tabular-nums">{day}</span>
               {hasBrief && !isSelected && (
                 <span className="size-1 rounded-full bg-accent-blue/60" />
               )}
@@ -98,13 +99,13 @@ export function DateStrip({ briefDates, selected, onSelect }: DateStripProps) {
         })}
       </div>
 
-      <button
+      <IconButton
         onClick={() => scroll(1)}
-        className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/30 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+        tone="subtle"
         aria-label="Scroll dates right"
       >
         <ChevronRight className="size-3.5" />
-      </button>
+      </IconButton>
     </div>
   )
 }
