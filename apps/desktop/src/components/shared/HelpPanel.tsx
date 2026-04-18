@@ -308,7 +308,7 @@ function RoadmapTab({ showDone, setShowDone }: { showDone: boolean; setShowDone:
                   )}>
                     {item.title}
                   </p>
-                  <p className="text-label text-muted-foreground/50 leading-snug">
+                  <p className="text-label text-muted-foreground/50">
                     {item.description}
                   </p>
                 </div>

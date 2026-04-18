@@ -2,6 +2,7 @@ import { useObsidian } from '@/hooks/useObsidian'
 import { cn } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Label, Meta } from '@/components/shared/typography'
 import type { CheckboxItem } from '@daily-triage/types'
 
 function HabitRow({
@@ -20,7 +21,7 @@ function HabitRow({
       />
       <span
         className={cn(
-          'text-xs leading-snug transition-colors',
+          'text-meta transition-colors',
           item.checked
             ? 'text-muted-foreground line-through'
             : 'text-foreground group-hover:text-foreground',
@@ -49,11 +50,7 @@ export function HabitsPanel() {
   }
 
   if (error || !todayData) {
-    return (
-      <p className="text-xs text-muted-foreground">
-        {error ? `Error: ${error}` : 'No habits today'}
-      </p>
-    )
+    return <Meta as="p">{error ? `Error: ${error}` : 'No habits today'}</Meta>
   }
 
   const { habits_core, habits_bonus } = todayData
@@ -61,19 +58,19 @@ export function HabitsPanel() {
   const bonusChecked = habits_bonus.filter((h) => h.checked).length
 
   if (habits_core.length === 0 && habits_bonus.length === 0) {
-    return <p className="text-xs text-muted-foreground">No habits defined yet.</p>
+    return <Meta as="p">No habits defined yet.</Meta>
   }
 
   return (
     <div className="space-y-3">
       {habits_core.length > 0 && (
         <div>
-          <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <Label as="p" className="mb-1.5">
             Core
-            <span className="ml-1 font-normal">
+            <span className="ml-1 font-normal normal-case tracking-normal">
               {coreChecked}/{habits_core.length}
             </span>
-          </p>
+          </Label>
           <div className="space-y-0">
             {habits_core.map((item) => (
               <HabitRow
@@ -88,12 +85,12 @@ export function HabitsPanel() {
 
       {habits_bonus.length > 0 && (
         <div>
-          <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <Label as="p" className="mb-1.5">
             Bonus
-            <span className="ml-1 font-normal">
+            <span className="ml-1 font-normal normal-case tracking-normal">
               {bonusChecked}/{habits_bonus.length}
             </span>
-          </p>
+          </Label>
           <div className="space-y-0">
             {habits_bonus.map((item) => (
               <HabitRow

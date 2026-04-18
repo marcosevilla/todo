@@ -4,7 +4,7 @@ import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import Mention from '@tiptap/extension-mention'
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react'
-import { getLocalTasks, searchDocuments } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
 import { cn } from '@/lib/utils'
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion'
 import tippy, { type Instance } from 'tippy.js'
@@ -63,7 +63,7 @@ const MentionList = forwardRef<MentionListRef, SuggestionProps<MentionItem>>((pr
           key={`${item.kind}-${item.id}`}
           onClick={() => props.command(item)}
           className={cn(
-            'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+            'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-body transition-colors',
             i === selectedIndex ? 'bg-accent/40' : 'hover:bg-accent/20',
           )}
         >
@@ -83,6 +83,7 @@ MentionList.displayName = 'MentionList'
 // ── Main editor ──
 
 export function TiptapEditor({ content, onChange, placeholder = 'Start writing...' }: TiptapEditorProps) {
+  const dp = useDataProvider()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const editor = useEditor({
@@ -104,8 +105,8 @@ export function TiptapEditor({ content, onChange, placeholder = 'Start writing..
             try {
               const q = query.toLowerCase()
               const [tasks, docs] = await Promise.all([
-                getLocalTasks({ includeCompleted: false }),
-                q.length > 0 ? searchDocuments(query) : Promise.resolve([]),
+                dp.tasks.list({ includeCompleted: false }),
+                q.length > 0 ? dp.docs.searchDocuments(query) : Promise.resolve([]),
               ])
               const taskItems: MentionItem[] = tasks
                 .filter((t) => !t.parent_id && t.content.toLowerCase().includes(q))
@@ -170,7 +171,8 @@ export function TiptapEditor({ content, onChange, placeholder = 'Start writing..
     content,
     editorProps: {
       attributes: {
-        class: 'tiptap-editor outline-none min-h-[200px] text-sm leading-relaxed',
+        // leading-relaxed is a deliberate prose override — editor body needs reading leading, not UI leading
+        class: 'tiptap-editor outline-none min-h-[200px] text-body leading-relaxed',
       },
     },
     onUpdate: ({ editor }) => {

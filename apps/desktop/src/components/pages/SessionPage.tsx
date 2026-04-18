@@ -154,9 +154,12 @@ function SessionCard({ entry }: { entry: SessionEntry }) {
       {expanded && entry.bullets.length > 0 && (
         <div className="ml-6 mt-3 space-y-1.5">
           {entry.bullets.map((bullet, i) => (
-            <p key={i} className="text-meta text-foreground/80 leading-relaxed">
-              • {renderInline(bullet)}
-            </p>
+            <>
+              {/* leading-relaxed: deliberate prose override — session journal entry */}
+              <p key={i} className="text-meta text-foreground/80 leading-relaxed">
+                • {renderInline(bullet)}
+              </p>
+            </>
           ))}
           {entry.energy && (
             <p className="mt-2 text-label text-muted-foreground italic">
@@ -164,9 +167,12 @@ function SessionCard({ entry }: { entry: SessionEntry }) {
             </p>
           )}
           {entry.refs && (
-            <p className="mt-1 text-label text-muted-foreground/70 leading-relaxed">
-              {renderInline(entry.refs)}
-            </p>
+            <>
+              {/* leading-relaxed: deliberate prose override — continuation copy */}
+              <p className="mt-1 text-label text-muted-foreground/70 leading-relaxed">
+                {renderInline(entry.refs)}
+              </p>
+            </>
           )}
         </div>
       )}

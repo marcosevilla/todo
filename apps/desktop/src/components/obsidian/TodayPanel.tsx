@@ -20,7 +20,7 @@ function CheckboxRow({
       />
       <span
         className={cn(
-          'text-sm leading-snug transition-colors',
+          'text-body transition-colors',
           item.checked
             ? 'text-muted-foreground line-through'
             : 'text-foreground group-hover:text-foreground',
@@ -50,20 +50,20 @@ export function TodayPanel() {
 
   if (error) {
     return (
-      <p className="text-sm text-destructive">
+      <p className="text-body text-destructive">
         Could not read today.md: {error}
       </p>
     )
   }
 
   if (!todayData) {
-    return <p className="text-sm text-muted-foreground">No today.md found</p>
+    return <p className="text-body text-muted-foreground">No today.md found</p>
   }
 
   const { tasks } = todayData
 
   if (tasks.length === 0) {
-    return <p className="text-sm text-muted-foreground">Nothing in today.md yet — all clear.</p>
+    return <p className="text-body text-muted-foreground">Nothing in today.md yet — all clear.</p>
   }
 
   return (

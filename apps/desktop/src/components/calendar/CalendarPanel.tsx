@@ -86,7 +86,7 @@ function DayNavigationHeader({
         <button
           onClick={onGoToday}
           className={cn(
-            'text-meta font-medium leading-tight transition-colors px-1.5 tabular-nums',
+            'text-meta transition-colors px-1.5 tabular-nums',
             isToday ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
           )}
           title="Jump to today"
@@ -269,11 +269,11 @@ function EventBlock({
       title={event.summary}
     >
       <div className="px-1.5 py-0.5 h-full flex flex-col justify-start overflow-hidden min-w-0">
-        <p className="text-label font-semibold leading-tight truncate">
+        <p className="text-label truncate">
           {event.summary}
         </p>
         {!isShort && !isNarrow && (
-          <p className="text-label text-muted-foreground leading-tight truncate mt-px">
+          <p className="text-label text-muted-foreground truncate mt-px">
             {formatTimeRange(event.start_time, event.end_time)}
           </p>
         )}
@@ -283,7 +283,7 @@ function EventBlock({
           </p>
         )}
         {!isShort && isNarrow && (
-          <p className="text-label text-muted-foreground leading-tight truncate mt-px">
+          <p className="text-label text-muted-foreground truncate mt-px">
             {formatCompactTime(event.start_time)}
           </p>
         )}

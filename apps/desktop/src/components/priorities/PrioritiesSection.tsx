@@ -62,6 +62,7 @@ function PriorityCard({ priority, index }: { priority: Priority; index: number }
             {priority.source}
           </Badge>
         </div>
+        {/* leading-relaxed: deliberate prose override — AI reasoning reads as prose */}
         <Meta as="p" className="leading-relaxed">{priority.reasoning}</Meta>
       </div>
     </div>

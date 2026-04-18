@@ -44,29 +44,35 @@ export function InlineDescription({ value, onSave }: InlineDescriptionProps) {
 
   if (editing) {
     return (
-      <textarea
-        ref={textareaRef}
-        value={draft}
-        onChange={handleInput}
-        onBlur={save}
-        onKeyDown={handleKeyDown}
-        placeholder="Add a description..."
-        className="w-full resize-none bg-transparent text-sm text-foreground/80 leading-relaxed outline-none placeholder:text-muted-foreground/40"
-        rows={2}
-      />
+      <>
+        {/* leading-relaxed: deliberate prose override — description is read like body copy */}
+        <textarea
+          ref={textareaRef}
+          value={draft}
+          onChange={handleInput}
+          onBlur={save}
+          onKeyDown={handleKeyDown}
+          placeholder="Add a description..."
+          className="w-full resize-none bg-transparent text-body text-foreground/80 leading-relaxed outline-none placeholder:text-muted-foreground/40"
+          rows={2}
+        />
+      </>
     )
   }
 
   return (
-    <p
-      onClick={startEditing}
-      className="text-sm leading-relaxed cursor-text hover:bg-accent/10 rounded-md -mx-1 px-1 transition-colors min-h-[24px]"
-    >
-      {value ? (
-        <span className="text-foreground/80">{value}</span>
-      ) : (
-        <span className="text-muted-foreground/40">Add a description...</span>
-      )}
-    </p>
+    <>
+      {/* leading-relaxed: deliberate prose override — rendered description is read like body copy */}
+      <p
+        onClick={startEditing}
+        className="text-body leading-relaxed cursor-text hover:bg-accent/10 rounded-md -mx-1 px-1 transition-colors min-h-[24px]"
+      >
+        {value ? (
+          <span className="text-foreground/80">{value}</span>
+        ) : (
+          <span className="text-muted-foreground/40">Add a description...</span>
+        )}
+      </p>
+    </>
   )
 }
