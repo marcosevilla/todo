@@ -134,57 +134,64 @@
 @layer components {
   /* Each text-<name> utility is a FULL typography style, not just size.
      Tailwind's @theme generates the font-size + line-height pair; these
-     rules add the rest — font-family, weight, letter-spacing, text-
-     transform — each behind a --typo-<name>-* CSS variable with a default.
-     The TypographyTuner panel writes to those vars on :root at runtime,
-     so the whole app responds to tuning without component-level changes. */
+     rules add the rest — font-family, weight, letter-spacing — each behind
+     a --typo-<name>-* CSS variable with a default. The TypographyTuner
+     panel writes to those vars on :root at runtime, so the whole app
+     responds to tuning without component-level changes.
+
+     No token uses text-transform: uppercase or positive letter-spacing —
+     sentence case throughout. Emphasis is a weight shift (body -> body-
+     strong), never an inline font-medium stack. */
+  .text-caption {
+    font-family: var(--typo-caption-family, var(--font-sans));
+    font-weight: var(--typo-caption-weight, 500);
+    letter-spacing: var(--typo-caption-tracking, 0);
+  }
   .text-label {
     font-family: var(--typo-label-family, var(--font-sans));
-    font-weight: var(--typo-label-weight, 500);
-    letter-spacing: var(--typo-label-tracking, 0.05em);
-    text-transform: var(--typo-label-case, uppercase);
+    font-weight: var(--typo-label-weight, 600);
+    letter-spacing: var(--typo-label-tracking, 0);
   }
   .text-meta {
     font-family: var(--typo-meta-family, var(--font-sans));
     font-weight: var(--typo-meta-weight, 400);
     letter-spacing: var(--typo-meta-tracking, 0);
-    text-transform: var(--typo-meta-case, none);
   }
   .text-body {
     font-family: var(--typo-body-family, var(--font-sans));
     font-weight: var(--typo-body-weight, 400);
-    letter-spacing: var(--typo-body-tracking, 0);
-    text-transform: var(--typo-body-case, none);
+    letter-spacing: var(--typo-body-tracking, -0.006em);
   }
-  .text-heading-xs {
-    font-family: var(--typo-heading-xs-family, var(--font-heading));
-    font-weight: var(--typo-heading-xs-weight, 500);
-    letter-spacing: var(--typo-heading-xs-tracking, -0.015em);
-    text-transform: var(--typo-heading-xs-case, none);
+  .text-body-strong {
+    font-family: var(--typo-body-strong-family, var(--font-sans));
+    font-weight: var(--typo-body-strong-weight, 600);
+    letter-spacing: var(--typo-body-strong-tracking, -0.006em);
   }
   .text-heading-sm {
     font-family: var(--typo-heading-sm-family, var(--font-heading));
     font-weight: var(--typo-heading-sm-weight, 600);
     letter-spacing: var(--typo-heading-sm-tracking, -0.015em);
-    text-transform: var(--typo-heading-sm-case, none);
   }
   .text-heading {
     font-family: var(--typo-heading-family, var(--font-heading));
     font-weight: var(--typo-heading-weight, 600);
-    letter-spacing: var(--typo-heading-tracking, -0.02em);
-    text-transform: var(--typo-heading-case, none);
+    letter-spacing: var(--typo-heading-tracking, -0.018em);
   }
   .text-display {
     font-family: var(--typo-display-family, var(--font-heading));
     font-weight: var(--typo-display-weight, 600);
-    letter-spacing: var(--typo-display-tracking, -0.025em);
-    text-transform: var(--typo-display-case, none);
+    letter-spacing: var(--typo-display-tracking, -0.022em);
   }
   .text-display-xl {
     font-family: var(--typo-display-xl-family, var(--font-heading));
     font-weight: var(--typo-display-xl-weight, 600);
-    letter-spacing: var(--typo-display-xl-tracking, -0.03em);
-    text-transform: var(--typo-display-xl-case, none);
+    letter-spacing: var(--typo-display-xl-tracking, -0.028em);
+  }
+  .text-timer {
+    font-family: var(--typo-timer-family, var(--font-mono));
+    font-weight: var(--typo-timer-weight, 500);
+    letter-spacing: var(--typo-timer-tracking, -0.02em);
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -193,17 +200,19 @@
    is set on <html> by the tuner; one style is highlighted at a time.
    Tiptap h1/h2/h3 mirror display/heading/heading-sm — highlighting the
    token also highlights the corresponding editor heading. */
+[data-highlight-type="caption"] .text-caption,
 [data-highlight-type="label"] .text-label,
 [data-highlight-type="meta"] .text-meta,
 [data-highlight-type="body"] .text-body,
-[data-highlight-type="heading-xs"] .text-heading-xs,
+[data-highlight-type="body-strong"] .text-body-strong,
 [data-highlight-type="heading-sm"] .text-heading-sm,
 [data-highlight-type="heading-sm"] .tiptap-editor h3,
 [data-highlight-type="heading"] .text-heading,
 [data-highlight-type="heading"] .tiptap-editor h2,
 [data-highlight-type="display"] .text-display,
 [data-highlight-type="display"] .tiptap-editor h1,
-[data-highlight-type="display-xl"] .text-display-xl {
+[data-highlight-type="display-xl"] .text-display-xl,
+[data-highlight-type="timer"] .text-timer {
   outline: 2px dashed oklch(from var(--accent) l c h / 0.9);
   outline-offset: 3px;
   background: oklch(from var(--accent) l c h / 0.08);
@@ -280,7 +289,7 @@
   font-size: var(--text-display);
   line-height: var(--text-display--line-height);
   font-weight: var(--typo-display-weight, 600);
-  letter-spacing: var(--typo-display-tracking, -0.025em);
+  letter-spacing: var(--typo-display-tracking, -0.022em);
   text-transform: var(--typo-display-case, none);
   margin: 1em 0 0.5em;
 }
@@ -289,7 +298,7 @@
   font-size: var(--text-heading);
   line-height: var(--text-heading--line-height);
   font-weight: var(--typo-heading-weight, 600);
-  letter-spacing: var(--typo-heading-tracking, -0.025em);
+  letter-spacing: var(--typo-heading-tracking, -0.018em);
   text-transform: var(--typo-heading-case, none);
   margin: 0.75em 0 0.4em;
 }
@@ -298,7 +307,7 @@
   font-size: var(--text-heading-sm);
   line-height: var(--text-heading-sm--line-height);
   font-weight: var(--typo-heading-sm-weight, 600);
-  letter-spacing: var(--typo-heading-sm-tracking, -0.025em);
+  letter-spacing: var(--typo-heading-sm-tracking, -0.015em);
   text-transform: var(--typo-heading-sm-case, none);
   margin: 0.5em 0 0.3em;
 }
