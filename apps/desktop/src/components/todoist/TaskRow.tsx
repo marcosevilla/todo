@@ -1,8 +1,8 @@
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { TaskItem } from '@/components/tasks/TaskItem'
-import { openUrl } from '@/services/tauri'
-import type { TodoistTaskRow } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
+import type { TodoistTaskRow } from '@daily-triage/types'
 import { ExternalLink, Clock } from 'lucide-react'
 
 interface TaskRowProps {
@@ -12,8 +12,9 @@ interface TaskRowProps {
 }
 
 export function TaskRow({ task, onSnooze, focused }: TaskRowProps) {
+  const dp = useDataProvider()
   return (
-    <div className="group relative flex items-center">
+    <div className="group relative flex items-center min-w-0">
       <TaskItem
         task={{
           id: task.id,
@@ -52,7 +53,7 @@ export function TaskRow({ task, onSnooze, focused }: TaskRowProps) {
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  onClick={() => openUrl(task.todoist_url!)}
+                  onClick={() => dp.system.openUrl(task.todoist_url!)}
                 />
               }
             >

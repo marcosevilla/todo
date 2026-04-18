@@ -371,6 +371,21 @@ CREATE INDEX IF NOT EXISTS idx_action_log_synced ON action_log(synced)
             CREATE INDEX IF NOT EXISTS idx_sync_log_table_row ON sync_log(table_name, row_id)
         "#,
     },
+    Migration {
+        version: 15,
+        description: "External source tracking for imported data (Todoist, etc.)",
+        sql: r#"
+            ALTER TABLE local_tasks ADD COLUMN external_id TEXT;
+            ALTER TABLE local_tasks ADD COLUMN external_source TEXT;
+            ALTER TABLE projects ADD COLUMN external_id TEXT;
+            ALTER TABLE projects ADD COLUMN external_source TEXT;
+
+            CREATE INDEX IF NOT EXISTS idx_local_tasks_external
+                ON local_tasks(external_source, external_id);
+            CREATE INDEX IF NOT EXISTS idx_projects_external
+                ON projects(external_source, external_id)
+        "#,
+    },
 ];
 
 pub async fn run_migrations(pool: &SqlitePool) -> crate::Result<()> {

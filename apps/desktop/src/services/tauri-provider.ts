@@ -29,6 +29,9 @@ export function createTauriProvider(): DataProvider {
       refreshTasks: tauri.refreshTodoistTasks,
       completeTask: tauri.completeTodoistTask,
       snoozeTask: tauri.snoozeTodoistTask,
+      previewMigration: tauri.previewTodoistMigration,
+      migrate: tauri.migrateTodoist,
+      migratedIds: tauri.migratedTodoistIds,
     },
 
     calendar: {
@@ -156,6 +159,7 @@ export function createTauriProvider(): DataProvider {
       configure: tauri.syncConfigure,
       testConnection: tauri.syncTestConnection,
       initializeRemote: tauri.syncInitializeRemote,
+      seedExisting: tauri.syncSeedExisting,
     },
   }
 }

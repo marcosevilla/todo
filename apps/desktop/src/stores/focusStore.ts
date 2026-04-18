@@ -37,13 +37,14 @@ interface FocusStore {
   showCelebration: boolean
   completedDuration: number | null
   nextTask: LocalTask | null
+  queue: LocalTask[] // tasks lined up after the current one
 
   // Actions
   beginSetup: (task: LocalTask) => void
-  startFocus: (task: LocalTask, config: FocusConfig) => void
+  startFocus: (task: LocalTask, config: FocusConfig, queue?: LocalTask[]) => void
   pauseFocus: () => void
   resumeFocus: () => void
-  completeFocus: (nextTask: LocalTask | null) => void
+  completeFocus: (nextTask?: LocalTask | null) => void
   abandonFocus: () => void
   skipFocus: () => void
   setCompact: (compact: boolean) => void
@@ -72,6 +73,7 @@ export const useFocusStore = create<FocusStore>((set, get) => ({
   showCelebration: false,
   completedDuration: null,
   nextTask: null,
+  queue: [],
 
   beginSetup: (task) => {
     set({
@@ -82,7 +84,7 @@ export const useFocusStore = create<FocusStore>((set, get) => ({
     })
   },
 
-  startFocus: (task, config) => {
+  startFocus: (task, config, queue = []) => {
     const dp = getDataProvider()
     dp.focus.startSession(task.id, task.content).catch(() => {})
     dp.tasks.updateStatus(task.id, 'in_progress').catch(() => {})
@@ -104,6 +106,7 @@ export const useFocusStore = create<FocusStore>((set, get) => ({
       showCelebration: false,
       completedDuration: null,
       nextTask: null,
+      queue,
     })
   },
 
@@ -121,15 +124,23 @@ export const useFocusStore = create<FocusStore>((set, get) => ({
 
   completeFocus: (nextTask) => {
     const dp = getDataProvider()
-    const { taskId, elapsed } = get()
+    const { taskId, elapsed, queue } = get()
     if (taskId) {
       dp.tasks.updateStatus(taskId, 'complete').catch(() => {})
       dp.focus.endSession(taskId, 'focus_completed', elapsed).catch(() => {})
     }
+    // If no explicit next task was passed, pull the next one from the queue.
+    let resolvedNext: LocalTask | null = nextTask ?? null
+    let newQueue = queue
+    if (!resolvedNext && queue.length > 0) {
+      resolvedNext = queue[0]
+      newQueue = queue.slice(1)
+    }
     set({
       showCelebration: true,
       completedDuration: elapsed,
-      nextTask,
+      nextTask: resolvedNext,
+      queue: newQueue,
     })
   },
 
@@ -186,19 +197,12 @@ export const useFocusStore = create<FocusStore>((set, get) => ({
   },
 
   dismissCelebration: () => {
-    const { nextTask, config } = get()
+    const { nextTask, config, queue } = get()
     if (nextTask) {
-      // Transition to setup for next task
-      set({
-        showCelebration: false,
-        isActive: false,
-        isPendingSetup: true,
-        task: nextTask,
-        taskId: nextTask.id,
-        config,
-        completedDuration: null,
-        nextTask: null,
-      })
+      // Start the next queued task immediately with the same config —
+      // don't send the user back through the setup screen mid-queue.
+      set({ showCelebration: false, completedDuration: null, nextTask: null })
+      get().startFocus(nextTask, config, queue)
     } else {
       get().reset()
     }
@@ -223,6 +227,7 @@ export const useFocusStore = create<FocusStore>((set, get) => ({
       showCelebration: false,
       completedDuration: null,
       nextTask: null,
+      queue: [],
     })
   },
 }))

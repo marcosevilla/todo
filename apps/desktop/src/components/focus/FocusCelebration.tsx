@@ -93,20 +93,20 @@ export function FocusCelebration() {
         </div>
 
         {/* Task name */}
-        <p className="text-lg font-semibold line-through text-muted-foreground animate-in fade-in duration-500">
+        <p className="text-heading line-through text-muted-foreground animate-in fade-in duration-500">
           {task?.content}
         </p>
 
         {/* Duration */}
         {completedDuration != null && (
-          <p className="text-sm text-muted-foreground animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <p className="text-body text-muted-foreground animate-in fade-in slide-in-from-bottom-2 duration-500">
             Focused for {formatDuration(completedDuration)}
           </p>
         )}
 
         {/* Next task preview */}
         {nextTask && (
-          <p className="text-xs text-muted-foreground/60 animate-in fade-in duration-700">
+          <p className="text-meta text-muted-foreground/60 animate-in fade-in duration-700">
             Next: {nextTask.content}
           </p>
         )}

@@ -31,17 +31,23 @@ export function useTodoist() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([])
+  const [, setMigratedIds] = useState<Set<string>>(() => new Set())
   const setTodoistTasks = useAppStore((s) => s.setTodoistTasks)
   const mountedRef = useRef(true)
   const savedTasksRef = useRef<TodoistTaskRow[]>([])
 
-  // Apply fetched data to local + store state
+  // Apply fetched data to local + store state. Tasks that already exist
+  // locally (imported via the Todoist migration) are filtered out so the
+  // user doesn't see duplicates in the Todoist panel.
   const applyData = useCallback(
-    (data: TodoistTaskRow[]) => {
+    (data: TodoistTaskRow[], migrated: Set<string>) => {
       if (!mountedRef.current) return
-      setTasks(data)
-      savedTasksRef.current = data
-      setTodoistTasks(toStoreTasks(data))
+      const filtered = migrated.size > 0
+        ? data.filter((t) => !migrated.has(t.id))
+        : data
+      setTasks(filtered)
+      savedTasksRef.current = filtered
+      setTodoistTasks(toStoreTasks(filtered))
     },
     [setTodoistTasks],
   )
@@ -72,8 +78,13 @@ export function useTodoist() {
   const refresh = useCallback(async () => {
     try {
       setError(null)
-      const data = await dp.todoist.refreshTasks()
-      applyData(data)
+      const [data, migrated] = await Promise.all([
+        dp.todoist.refreshTasks(),
+        dp.todoist.migratedIds().catch(() => [] as string[]),
+      ])
+      const migratedSet = new Set(migrated)
+      setMigratedIds(migratedSet)
+      applyData(data, migratedSet)
       // After successful refresh, try to replay pending actions
       setPendingActions((prev) => {
         if (prev.length > 0) {
@@ -92,11 +103,16 @@ export function useTodoist() {
     let cancelled = false
 
     async function loadCacheThenRefresh() {
+      // Fetch migrated IDs first so the cached + fresh pass both filter.
+      const migrated = await dp.todoist.migratedIds().catch(() => [] as string[])
+      const migratedSet = new Set(migrated)
+      if (!cancelled) setMigratedIds(migratedSet)
+
       // Step 1: Load cached data instantly
       try {
         const cached = await dp.todoist.fetchTasks()
         if (cancelled) return
-        applyData(cached)
+        applyData(cached, migratedSet)
         setLoading(false)
       } catch (e) {
         if (cancelled) return
@@ -104,11 +120,17 @@ export function useTodoist() {
         setLoading(false)
       }
 
-      // Step 2: Silently refresh from API in the background
+      // Step 2: Silently refresh from API in the background. Re-fetch
+      // the migrated set too — it may have changed since mount.
       try {
-        const fresh = await dp.todoist.refreshTasks()
+        const [fresh, freshMigrated] = await Promise.all([
+          dp.todoist.refreshTasks(),
+          dp.todoist.migratedIds().catch(() => [] as string[]),
+        ])
         if (cancelled) return
-        applyData(fresh)
+        const freshSet = new Set(freshMigrated)
+        setMigratedIds(freshSet)
+        applyData(fresh, freshSet)
       } catch {
         // Silently fail — cached data is already showing
       }

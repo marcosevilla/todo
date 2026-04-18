@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import 'dialkit/styles.css'
 import App from './App.tsx'
 import { createTauriProvider } from '@/services/tauri-provider'
 import { DataProviderRoot, setDataProvider } from '@/services/provider-context'

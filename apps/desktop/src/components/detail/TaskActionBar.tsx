@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { Trash2, FolderInput, Sparkles, Play } from 'lucide-react'
 import { useFocusStore } from '@/stores/focusStore'
-import { breakDownTask, createLocalTask, updateLocalTask, deleteLocalTask, logActivity } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
 import { emitTasksChanged } from '@/hooks/useLocalTasks'
 import { toast } from 'sonner'
 import { taskToast } from '@/lib/taskToast'
@@ -12,7 +12,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
-import type { LocalTask, Project } from '@/services/tauri'
+import type { LocalTask, Project } from '@daily-triage/types'
 
 interface TaskActionBarProps {
   task: LocalTask
@@ -21,32 +21,33 @@ interface TaskActionBarProps {
 }
 
 export function TaskActionBar({ task, projects, onDeleted }: TaskActionBarProps) {
+  const dp = useDataProvider()
   const [breaking, setBreaking] = useState(false)
   const focusActive = useFocusStore((s) => s.isActive)
 
   const handleMove = useCallback(async (projectId: string) => {
     const project = projects.find((p) => p.id === projectId)
     try {
-      await updateLocalTask({ id: task.id, projectId })
+      await dp.tasks.update({ id: task.id, projectId })
       taskToast(`Moved to ${project?.name ?? 'project'}`, task.id)
       emitTasksChanged()
     } catch (e) {
       toast.error(`Failed to move: ${e}`)
     }
-  }, [task.id, projects])
+  }, [task.id, projects, dp])
 
   const handleBreakDown = useCallback(async () => {
     setBreaking(true)
     try {
-      const subtasks = await breakDownTask(task.content, task.description ?? undefined)
+      const subtasks = await dp.ai.breakDownTask(task.content, task.description ?? undefined)
       let created = 0
       for (const content of subtasks) {
         try {
-          await createLocalTask({ content, parentId: task.id, projectId: task.project_id })
+          await dp.tasks.create({ content, parentId: task.id, projectId: task.project_id })
           created++
         } catch { /* skip */ }
       }
-      logActivity('task_breakdown_applied', task.id, { subtask_count: created }).catch(() => {})
+      dp.activity.log('task_breakdown_applied', task.id, { subtask_count: created }).catch(() => {})
       taskToast(`Created ${created} subtasks`, task.id)
       emitTasksChanged()
     } catch (e) {
@@ -54,18 +55,18 @@ export function TaskActionBar({ task, projects, onDeleted }: TaskActionBarProps)
     } finally {
       setBreaking(false)
     }
-  }, [task])
+  }, [task, dp])
 
   const handleDelete = useCallback(async () => {
     try {
-      await deleteLocalTask(task.id)
+      await dp.tasks.delete(task.id)
       emitTasksChanged()
       toast.success('Task deleted')
       onDeleted()
     } catch (e) {
       toast.error(`Failed to delete: ${e}`)
     }
-  }, [task.id, onDeleted])
+  }, [task.id, onDeleted, dp])
 
   const handleFocus = useCallback(() => {
     // Open the focus play menu by dispatching to the store
@@ -143,7 +144,7 @@ function MenuItem({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors',
+        'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-body transition-colors',
         disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-accent/20',
         className,
       )}

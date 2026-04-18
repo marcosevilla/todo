@@ -1,27 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { CalendarPanel } from '@/components/calendar/CalendarPanel'
 import { useLayoutStore } from '@/stores/layoutStore'
-import { Calendar, PanelRightClose, PanelRightOpen } from 'lucide-react'
+import { IconButton } from '@/components/shared/IconButton'
+import { PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { LucideIcon } from 'lucide-react'
 
 const MIN_WIDTH = 200
 const MAX_WIDTH = 480
-
-function SectionHeader({
-  icon: Icon,
-  label,
-}: {
-  icon: LucideIcon
-  label: string
-}) {
-  return (
-    <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-      <Icon size={14} className="text-muted-foreground" />
-      {label}
-    </h3>
-  )
-}
 
 export function RightSidebar() {
   const collapsed = useLayoutStore((s) => s.rightCollapsed)
@@ -72,13 +57,13 @@ export function RightSidebar() {
       {/* Collapsed state — expand button */}
       {collapsed && (
         <div className="flex flex-col items-center py-3">
-          <button
+          <IconButton
             onClick={() => setCollapsed(false)}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+            size="lg"
             title="Expand sidebar"
           >
             <PanelRightOpen className="size-4" />
-          </button>
+          </IconButton>
         </div>
       )}
 
@@ -96,13 +81,13 @@ export function RightSidebar() {
 
           {/* Collapse button */}
           <div className="flex justify-end px-2 pt-2">
-            <button
+            <IconButton
               onClick={() => setCollapsed(true)}
-              className="flex size-6 items-center justify-center rounded-md text-muted-foreground/30 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+              tone="subtle"
               title="Collapse sidebar"
             >
               <PanelRightClose className="size-3.5" />
-            </button>
+            </IconButton>
           </div>
         </>
       )}
@@ -111,7 +96,6 @@ export function RightSidebar() {
         <div className="flex flex-col flex-1 min-h-0">
           {/* Schedule section */}
           <div className="p-4 pt-2 flex flex-col flex-1 min-h-0">
-            <SectionHeader icon={Calendar} label="Schedule" />
             <CalendarPanel />
           </div>
         </div>

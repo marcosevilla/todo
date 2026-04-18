@@ -7,6 +7,21 @@ interface SelectionStore {
   selectionType: SelectionType | null
   lastSelectedId: string | null // for shift-click range
 
+  // Row-UI signals triggered from the bulk action bar so a row can
+  // enter edit mode or show its subtask input inline without needing
+  // local hover-action buttons.
+  editingTaskId: string | null
+  addingSubtaskTo: string | null
+  setEditingTask: (id: string | null) => void
+  setAddingSubtaskTo: (id: string | null) => void
+
+  // Tasks currently playing the `animate-task-complete` exit animation.
+  // Rows in this set render with the animation class and stay mounted
+  // for ~600ms before the actual state update removes them.
+  completingTaskIds: Set<string>
+  markTaskCompleting: (id: string) => void
+  clearTaskCompleting: (id: string) => void
+
   select: (id: string, type: SelectionType) => void
   deselect: (id: string) => void
   toggle: (id: string, type: SelectionType) => void
@@ -24,6 +39,22 @@ export const useSelectionStore = create<SelectionStore>((set, get) => ({
   lastSelectedId: null,
   hasSelection: false,
   count: 0,
+  editingTaskId: null,
+  addingSubtaskTo: null,
+  completingTaskIds: new Set(),
+
+  setEditingTask: (id) => set({ editingTaskId: id }),
+  setAddingSubtaskTo: (id) => set({ addingSubtaskTo: id }),
+  markTaskCompleting: (id) => {
+    const next = new Set(get().completingTaskIds)
+    next.add(id)
+    set({ completingTaskIds: next })
+  },
+  clearTaskCompleting: (id) => {
+    const next = new Set(get().completingTaskIds)
+    next.delete(id)
+    set({ completingTaskIds: next })
+  },
 
   select: (id, type) => {
     const { selectedIds, selectionType } = get()

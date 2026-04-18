@@ -114,7 +114,7 @@ daily-triage/
 - Desktop: `TauriProvider` delegates to `services/tauri.ts` invoke wrappers
 - Mobile: `SqliteProvider` talks directly to expo-sqlite
 - Stores access provider via `getDataProvider()` (module-level, not React context)
-- ~24 desktop components still import from tauri.ts directly (works fine, just not abstracted yet)
+- 26 desktop UI components still call invoke wrappers directly from tauri.ts (Wave B migration pending — all stores + hooks are fully decoupled as of 2026-04-16)
 
 ## Sync Protocol
 - Every mutation appends to `sync_log` (fire-and-forget, never blocks the mutation)
@@ -126,16 +126,12 @@ daily-triage/
 
 ## Current State
 
-- **Last session:** 2026-04-04 (massive build session — full cross-platform infrastructure + mobile app)
+- **Last session:** 2026-04-16 (loop-closing + logging-system design)
 - **Completed this session:**
-  - Phase 0a: Extracted Rust core into `daily-triage-core/` library crate (25+ types, 11 DB modules, 4 API modules)
-  - Phase 0b: Created DataProvider abstraction, decoupled 4 stores + 7 hooks from Tauri
-  - Phase 0c: Added sync foundation — sync_log table (migration v14), mutation tracking across all 12 domain modules, Turso HTTP client
-  - Phase 0d+1a: Monorepo restructure (`apps/desktop/`, `apps/mobile/`, `packages/types/`) + Expo mobile scaffold with 4 tab pages
-  - Phase 1c: Mobile mutations (task CRUD, captures, habit logging) + blank screen fix + sync_log appends
-  - Phase 2: Desktop Turso sync (push/pull with data mutations, remote init, test connection, auto-sync on launch)
-  - Phase 2b: Mobile Turso sync (full port of push/pull to TypeScript, Settings UI, background sync)
-  - Seed existing data command for backfilling pre-sync data into sync_log
-  - Metro + Babel config fixes for Expo monorepo support
-- **Known issues:** Tiptap duplicate link extension warning. HelpPanel roadmap data is stale. First sync push is slow with large datasets (all entries in one pipeline). ~24 desktop components still import directly from tauri.ts.
-- **Next up:** Phase 3 polish (notifications, focus timer on mobile, swipe actions, haptics). Evening review flow. Goals detail page.
+  - Committed the outstanding CLAUDE.md monorepo/mobile/sync refresh (a58eaa1)
+  - Audited all 48 files importing from `services/tauri`; split into Wave A (22 type-only) and Wave B (26 UI components still calling invoke wrappers)
+  - Executed Wave A: bulk renamed `@/services/tauri` → `@daily-triage/types` across 22 files (7e3252a). All 4 stores + 6 hooks now fully decoupled from tauri.ts. `tsc --noEmit` clean.
+  - Added git remote `origin` → github.com/marcosevilla/todo and force-pushed clean 50-commit history (overwrote the README-only placeholder commit)
+  - Designed v2 logging system proposal with Marco (hooks + nightly rollup + opt-in /note); saved to `~/Obsidian/marcowits/claude-sync/logging-system-v2.md`
+- **Known issues:** Tiptap duplicate link extension warning. HelpPanel roadmap data is stale. First sync push is slow with large datasets. 26 desktop UI components still call invoke wrappers directly (Wave B — scoped as a dedicated follow-up session).
+- **Next up:** Per the v2 proposal's build order, next session = drop-or-fix decision on `daily-brief-data` repo. After that: hook scripts → /note skill → nightly rollup. Unrelated work still pending: Phase 3 mobile polish, evening review flow, goals detail page, Wave B migration (~26 files × ~100 callsites).

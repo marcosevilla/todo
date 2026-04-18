@@ -2,14 +2,14 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { Search } from 'lucide-react'
 import { useLocalTasks, useProjects } from '@/hooks/useLocalTasks'
-import { createCapture, logActivity, breakDownTask, createLocalTask, updateLocalTask, searchDocuments } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
 import { emitTasksChanged } from '@/hooks/useLocalTasks'
 import { useDocsStore } from '@/stores/docsStore'
 import { useAppStore } from '@/stores/appStore'
 import { CommandBarResults, type BarMode } from './CommandBarResults'
 import { toast } from 'sonner'
 import { taskToast } from '@/lib/taskToast'
-import type { LocalTask, Document } from '@/services/tauri'
+import type { LocalTask, Document } from '@daily-triage/types'
 
 const MAX_RESULTS = 8
 
@@ -43,6 +43,7 @@ function inferDefaultIndex(query: string, matchCount: number): number {
 }
 
 export function CommandBar() {
+  const dp = useDataProvider()
   const [open, setOpen] = useState(false)
   const [closing, setClosing] = useState(false)
   const [rawQuery, setRawQuery] = useState('')
@@ -75,10 +76,10 @@ export function CommandBar() {
       return
     }
     const timeout = setTimeout(() => {
-      searchDocuments(query.trim()).then((docs) => setDocResults(docs.slice(0, 5))).catch(() => setDocResults([]))
+      dp.docs.searchDocuments(query.trim()).then((docs) => setDocResults(docs.slice(0, 5))).catch(() => setDocResults([]))
     }, 200)
     return () => clearTimeout(timeout)
-  }, [query, mode])
+  }, [query, mode, dp])
 
   const totalItems = filteredTasks.length + docResults.length + 2
 
@@ -135,13 +136,13 @@ export function CommandBar() {
     const text = query.trim()
     if (!text) return
     try {
-      await createCapture(text, 'command_bar')
+      await dp.captures.create(text, 'command_bar')
       toast.success(`Note saved: "${text}"`)
       closeBar()
     } catch (e) {
       toast.error(`Failed to save note: ${e}`)
     }
-  }, [query, closeBar])
+  }, [query, closeBar, dp])
 
   const handleOpenDoc = useCallback((docId: string) => {
     useDocsStore.getState().selectDoc(docId)
@@ -159,19 +160,19 @@ export function CommandBar() {
   const handleMove = useCallback(async (id: string, projectId: string) => {
     const project = projects.find((p) => p.id === projectId)
     try {
-      await updateLocalTask({ id, projectId })
+      await dp.tasks.update({ id, projectId })
       taskToast(`Moved to ${project?.name ?? 'project'}`, id)
       emitTasksChanged()
     } catch (e) {
       toast.error(`Failed to move: ${e}`)
     }
-  }, [projects])
+  }, [projects, dp])
 
   const handleBreakDown = useCallback(async (task: LocalTask) => {
     setBreakdownTask(task)
     setBreakdownLoading(true)
     try {
-      const subtasks = await breakDownTask(task.content, task.description ?? undefined)
+      const subtasks = await dp.ai.breakDownTask(task.content, task.description ?? undefined)
       setBreakdownItems(subtasks)
     } catch (e) {
       toast.error(`Breakdown failed: ${e}`)
@@ -179,7 +180,7 @@ export function CommandBar() {
     } finally {
       setBreakdownLoading(false)
     }
-  }, [])
+  }, [dp])
 
   const handleBreakdownConfirm = useCallback(async () => {
     if (!breakdownTask) return
@@ -187,15 +188,15 @@ export function CommandBar() {
     let created = 0
     for (const content of items) {
       try {
-        await createLocalTask({ content, parentId: breakdownTask.id, projectId: breakdownTask.project_id })
+        await dp.tasks.create({ content, parentId: breakdownTask.id, projectId: breakdownTask.project_id })
         created++
       } catch { /* skip */ }
     }
-    logActivity('task_breakdown_applied', breakdownTask.id, { subtask_count: created }).catch(() => {})
+    dp.activity.log('task_breakdown_applied', breakdownTask.id, { subtask_count: created }).catch(() => {})
     taskToast(`Created ${created} subtasks`, breakdownTask.id)
     emitTasksChanged()
     closeBar()
-  }, [breakdownTask, breakdownItems, closeBar])
+  }, [breakdownTask, breakdownItems, closeBar, dp])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -280,9 +281,9 @@ export function CommandBar() {
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/40"
+            className="flex-1 bg-transparent text-body outline-none placeholder:text-muted-foreground/40"
           />
-          <kbd className="rounded border border-border/30 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/50">
+          <kbd className="rounded border border-border/30 px-1.5 py-0.5 text-label font-mono text-muted-foreground/50">
             Esc
           </kbd>
         </div>

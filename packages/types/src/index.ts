@@ -316,6 +316,37 @@ export interface ImportSummary {
   habits_created: number
 }
 
+// ── Todoist Migration ──
+
+export interface TodoistMigrationOptions {
+  flatten_nested_projects: boolean
+  create_section_projects: boolean
+  preserve_labels: boolean
+  preserve_recurring: boolean
+}
+
+export interface TodoistMigrationPreview {
+  projects_to_create: number
+  projects_already_migrated: number
+  tasks_to_create: number
+  tasks_already_migrated: number
+  sections_count: number
+  tasks_with_labels: number
+  tasks_recurring: number
+  tasks_with_subtasks: number
+  project_names_preview: string[]
+}
+
+export interface TodoistMigrationResult {
+  projects_created: number
+  projects_updated: number
+  tasks_created: number
+  tasks_updated: number
+  recurring_preserved: number
+  labels_preserved: number
+  errors: string[]
+}
+
 // ── Sync ──
 
 export interface SyncStatus {

@@ -301,6 +301,51 @@ pub struct ImportSummary {
     pub habits_created: i32,
 }
 
+// ── Todoist Migration ──
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TodoistMigrationOptions {
+    pub flatten_nested_projects: bool,
+    pub create_section_projects: bool,
+    pub preserve_labels: bool,
+    pub preserve_recurring: bool,
+}
+
+impl Default for TodoistMigrationOptions {
+    fn default() -> Self {
+        Self {
+            flatten_nested_projects: true,
+            create_section_projects: true,
+            preserve_labels: true,
+            preserve_recurring: true,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TodoistMigrationPreview {
+    pub projects_to_create: i32,
+    pub projects_already_migrated: i32,
+    pub tasks_to_create: i32,
+    pub tasks_already_migrated: i32,
+    pub sections_count: i32,
+    pub tasks_with_labels: i32,
+    pub tasks_recurring: i32,
+    pub tasks_with_subtasks: i32,
+    pub project_names_preview: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TodoistMigrationResult {
+    pub projects_created: i32,
+    pub projects_updated: i32,
+    pub tasks_created: i32,
+    pub tasks_updated: i32,
+    pub recurring_preserved: i32,
+    pub labels_preserved: i32,
+    pub errors: Vec<String>,
+}
+
 // ── Updater ──
 
 #[derive(Debug, Serialize)]

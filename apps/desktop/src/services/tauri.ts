@@ -37,12 +37,18 @@ export type {
   HabitHeatmapEntry,
   ImportSummary,
   SyncStatus,
+  TodoistMigrationOptions,
+  TodoistMigrationPreview,
+  TodoistMigrationResult,
 } from '@daily-triage/types'
 
 import type {
   Setting,
   ParsedTodayMd,
   TodoistTaskRow,
+  TodoistMigrationOptions,
+  TodoistMigrationPreview,
+  TodoistMigrationResult,
   CalendarEvent,
   CalendarFeed,
   QuickCapture,
@@ -129,6 +135,18 @@ export async function completeTodoistTask(taskId: string): Promise<void> {
 
 export async function snoozeTodoistTask(taskId: string): Promise<void> {
   return invoke<void>('snooze_todoist_task', { taskId })
+}
+
+export async function previewTodoistMigration(): Promise<TodoistMigrationPreview> {
+  return invoke<TodoistMigrationPreview>('preview_todoist_migration')
+}
+
+export async function migrateTodoist(options: TodoistMigrationOptions): Promise<TodoistMigrationResult> {
+  return invoke<TodoistMigrationResult>('migrate_todoist', { options })
+}
+
+export async function migratedTodoistIds(): Promise<string[]> {
+  return invoke<string[]>('migrated_todoist_ids')
 }
 
 // ── Calendar ──
@@ -260,6 +278,7 @@ export async function updateLocalTask(opts: {
   priority?: number
   dueDate?: string
   clearDueDate?: boolean
+  linkedDocId?: string | null
 }): Promise<LocalTask> {
   return invoke<LocalTask>('update_local_task', opts)
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '@/stores/appStore'
 import { SetupDialog } from '@/components/setup/SetupDialog'
 import { Dashboard } from '@/components/layout/Dashboard'
@@ -7,6 +7,9 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { useTheme } from '@/hooks/useTheme'
 import { useDataProvider } from '@/services/provider-context'
 import { Agentation } from 'agentation'
+import { DialRoot } from 'dialkit'
+import { TypographyTuner } from '@/components/shared/TypographyTuner'
+import { toast } from 'sonner'
 
 function App() {
   useTheme() // Initialize theme system
@@ -48,6 +51,27 @@ function App() {
     })
   }, [dp])
 
+  /* Typography tuner — ⌘⇧Y toggles the live tuning panel. DEV-only; the
+   * gate in the render block below prevents shipping the panel or its
+   * keyboard shortcut to production users. */
+  const [tunerOpen, setTunerOpen] = useState(false)
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 'y') {
+        e.preventDefault()
+        setTunerOpen((v) => {
+          toast.message(v ? 'Typography tuner closed' : 'Typography tuner opened', {
+            description: v ? undefined : 'Panel is at top-right · ⌘⇧Y to close',
+          })
+          return !v
+        })
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   // Auto-hide scrollbars after 2s of inactivity
   useEffect(() => {
     const timers = new WeakMap<Element, ReturnType<typeof setTimeout>>()
@@ -79,7 +103,7 @@ function App() {
   if (setupComplete === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Loading...</p>
+        <p className="text-body text-muted-foreground">Loading...</p>
       </div>
     )
   }
@@ -99,6 +123,12 @@ function App() {
       <Dashboard />
       <Toaster position="bottom-right" />
       {import.meta.env.DEV && <Agentation />}
+      {import.meta.env.DEV && tunerOpen && (
+        <>
+          <DialRoot position="top-right" defaultOpen theme="system" />
+          <TypographyTuner />
+        </>
+      )}
     </TooltipProvider>
   )
 }

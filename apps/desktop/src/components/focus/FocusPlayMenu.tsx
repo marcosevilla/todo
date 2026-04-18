@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { useFocusStore, type FocusConfig } from '@/stores/focusStore'
-import { getSetting } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
 import { Play, Timer, TrendingUp } from 'lucide-react'
 import {
   DropdownMenu,
@@ -13,7 +13,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
-import type { LocalTask } from '@/services/tauri'
+import type { LocalTask } from '@daily-triage/types'
 
 const COUNTDOWN_OPTIONS = [
   { minutes: 15, label: '15 min' },
@@ -31,6 +31,7 @@ interface FocusPlayMenuProps {
 }
 
 export function FocusPlayMenu({ task, onOpenChange }: FocusPlayMenuProps) {
+  const dp = useDataProvider()
   const [open, setOpenState] = useState(false)
   const setOpen = useCallback((v: boolean) => {
     setOpenState(v)
@@ -42,11 +43,11 @@ export function FocusPlayMenu({ task, onOpenChange }: FocusPlayMenuProps) {
   // Load break length default from settings
   useEffect(() => {
     if (open) {
-      getSetting('focus_break_minutes').then((val) => {
+      dp.settings.get('focus_break_minutes').then((val) => {
         if (val) setBreakMinutes(parseInt(val, 10) || 5)
       }).catch(() => {})
     }
-  }, [open])
+  }, [open, dp])
 
   const handleStart = useCallback((config: FocusConfig) => {
     startFocus(task, config)

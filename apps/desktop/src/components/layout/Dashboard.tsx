@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/stores/appStore'
@@ -29,16 +29,7 @@ import { TaskDetailPage } from '@/components/detail/TaskDetailPage'
 import { CaptureDetailPage } from '@/components/detail/CaptureDetailPage'
 import { DetailSidebar } from '@/components/detail/DetailSidebar'
 
-const PAGE_TITLES: Record<string, string> = {
-  today: 'Today',
-  tasks: 'Tasks',
-  inbox: 'Inbox',
-  docs: 'Docs',
-  goals: 'Goals',
-  session: 'Activity',
-  settings: 'Settings',
-}
-
+// Page titles live on each page's own <PageHeader> now. No central map.
 // PAGES is no longer hardcoded — keyboard shortcuts read from layoutStore.navOrder
 
 function PageContent({ page }: { page: string }) {
@@ -91,24 +82,22 @@ export function Dashboard() {
   const scrollPositions = useRef<Record<string, number>>({})
   const previousPageRef = useRef(currentPage)
 
-  // Clear selection and sync detail store on page change
-  useEffect(() => {
+  // Clear selection and sync detail store on page change.
+  // useLayoutEffect so scroll restoration runs before the browser paints
+  // the new page — otherwise the entrance animation competes with a
+  // post-paint scrollTop set and the final frame jumps.
+  useLayoutEffect(() => {
     useSelectionStore.getState().clear()
 
-    // Save scroll position of previous page
     if (scrollRef.current && previousPageRef.current !== currentPage) {
       scrollPositions.current[previousPageRef.current] = scrollRef.current.scrollTop
     }
 
-    // Sync detail store to the new page
     useDetailStore.getState().syncToPage(currentPage)
 
-    // Restore scroll position for the new page (deferred to let React render)
-    requestAnimationFrame(() => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTop = scrollPositions.current[currentPage] ?? 0
-      }
-    })
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollPositions.current[currentPage] ?? 0
+    }
 
     previousPageRef.current = currentPage
   }, [currentPage])
@@ -212,35 +201,28 @@ export function Dashboard() {
 
       {/* Center: Main content area */}
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        {/* Header */}
-        <header className="flex items-center border-b border-border/20 px-5 py-2" data-tauri-drag-region>
-          <h1 className="font-heading text-base font-semibold tracking-tight">
-            {PAGE_TITLES[currentPage] ?? 'Daily Triage'}
-          </h1>
-        </header>
-
         {/* Focus banner (compact mode) */}
         {focusActive && focusCompact && <FocusBanner />}
 
-        {/* Page content / Focus view / Detail view */}
-        <div ref={scrollRef} className="flex flex-1 overflow-y-auto">
+        {/* Page content / Focus view / Detail view.
+            Each page now renders its own <PageHeader> — there's no longer
+            a separate Dashboard title bar. The PageHeader provides the
+            Tauri drag region for every page. */}
+        <div ref={scrollRef} className="flex flex-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable]">
           {focusActive && !focusCompact ? (
             <FocusView />
           ) : detailTarget && detailMode === 'body' ? (
-            <main key={`detail-${detailTarget.id}`} className="flex-1 p-6 animate-page-enter">
+            <main key={`detail-${detailTarget.id}`} className="flex-1 min-w-0 p-6 animate-page-enter">
               <div className={cn('mx-auto w-full', contentMaxW)}>
                 {detailTarget.type === 'task' ? <TaskDetailPage /> : <CaptureDetailPage />}
               </div>
             </main>
           ) : (
-            <main key={currentPage} className={cn('flex-1 animate-page-enter', (currentPage === 'docs' || currentPage === 'tasks') ? 'flex' : 'p-6')}>
-              {(currentPage === 'docs' || currentPage === 'tasks') ? (
-                <PageContent page={currentPage} />
-              ) : (
-                <div className={cn('mx-auto w-full', contentMaxW)}>
-                  <PageContent page={currentPage} />
-                </div>
-              )}
+            <main
+              key={currentPage}
+              className="flex-1 min-w-0 flex flex-col animate-page-enter"
+            >
+              <PageContent page={currentPage} />
             </main>
           )}
         </div>

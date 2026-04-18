@@ -14,7 +14,7 @@ export function DetailBreadcrumbs() {
   const close = useDetailStore((s) => s.close)
 
   return (
-    <div className="flex items-center gap-1 text-sm mb-4">
+    <div className="flex items-center gap-1 text-body mb-4">
       <button
         onClick={() => breadcrumbs.length > 0 ? navigateUp() : close()}
         className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors shrink-0"

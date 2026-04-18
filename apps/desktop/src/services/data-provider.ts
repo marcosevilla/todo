@@ -42,6 +42,9 @@ import type {
   HabitHeatmapEntry,
   ImportSummary,
   SyncStatus,
+  TodoistMigrationOptions,
+  TodoistMigrationPreview,
+  TodoistMigrationResult,
 } from '@daily-triage/types'
 
 // Re-export all types so consumers can import from data-provider instead of tauri
@@ -49,6 +52,9 @@ export type {
   Setting,
   ParsedTodayMd,
   TodoistTaskRow,
+  TodoistMigrationOptions,
+  TodoistMigrationPreview,
+  TodoistMigrationResult,
   CalendarEvent,
   CalendarFeed,
   QuickCapture,
@@ -101,6 +107,9 @@ export interface DataProvider {
     refreshTasks(): Promise<TodoistTaskRow[]>
     completeTask(taskId: string): Promise<void>
     snoozeTask(taskId: string): Promise<void>
+    previewMigration(): Promise<TodoistMigrationPreview>
+    migrate(options: TodoistMigrationOptions): Promise<TodoistMigrationResult>
+    migratedIds(): Promise<string[]>
   }
 
   calendar: {
@@ -173,6 +182,7 @@ export interface DataProvider {
       priority?: number
       dueDate?: string
       clearDueDate?: boolean
+      linkedDocId?: string | null
     }): Promise<LocalTask>
     updateStatus(id: string, status: TaskStatus, note?: string): Promise<void>
     complete(id: string): Promise<void>
@@ -321,5 +331,6 @@ export interface DataProvider {
     configure(tursoUrl: string, tursoToken: string): Promise<void>
     testConnection(tursoUrl: string, tursoToken: string): Promise<void>
     initializeRemote(): Promise<void>
+    seedExisting(): Promise<number>
   }
 }
