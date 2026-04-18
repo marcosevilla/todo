@@ -9,6 +9,7 @@ import { useDataProvider } from '@/services/provider-context'
 import { Agentation } from 'agentation'
 import { DialRoot } from 'dialkit'
 import { TypographyTuner } from '@/components/shared/TypographyTuner'
+import { TypeSystemOverlay } from '@/components/shared/TypeSystemOverlay'
 import { toast } from 'sonner'
 
 function App() {
@@ -55,6 +56,11 @@ function App() {
    * gate in the render block below prevents shipping the panel or its
    * keyboard shortcut to production users. */
   const [tunerOpen, setTunerOpen] = useState(false)
+  /* Type-system overlay — ⌘⇧T toggles a draggable reference panel with
+   * every token rendered at actual scale. DEV-only, same gating as the
+   * tuner above. Complements the tuner: tuner edits values, overlay
+   * shows the spec. */
+  const [typeOverlayOpen, setTypeOverlayOpen] = useState(false)
   useEffect(() => {
     if (!import.meta.env.DEV) return
     function onKey(e: KeyboardEvent) {
@@ -63,6 +69,15 @@ function App() {
         setTunerOpen((v) => {
           toast.message(v ? 'Typography tuner closed' : 'Typography tuner opened', {
             description: v ? undefined : 'Panel is at top-right · ⌘⇧Y to close',
+          })
+          return !v
+        })
+      }
+      if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 't') {
+        e.preventDefault()
+        setTypeOverlayOpen((v) => {
+          toast.message(v ? 'Type system overlay closed' : 'Type system overlay opened', {
+            description: v ? undefined : 'Drag the header to move · ⌘⇧T to close',
           })
           return !v
         })
@@ -128,6 +143,9 @@ function App() {
           <DialRoot position="top-right" defaultOpen theme="system" />
           <TypographyTuner />
         </>
+      )}
+      {import.meta.env.DEV && typeOverlayOpen && (
+        <TypeSystemOverlay onClose={() => setTypeOverlayOpen(false)} />
       )}
     </TooltipProvider>
   )
