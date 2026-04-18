@@ -88,7 +88,7 @@ export function TaskEditor({ task, projects, onClose, onUpdated }: TaskEditorPro
     >
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-label font-medium text-muted-foreground">Edit task</span>
+        <span className="text-label text-muted-foreground">Edit task</span>
         <Button variant="ghost" size="icon-xs" onClick={onClose}>
           <X className="size-3" />
         </Button>
@@ -114,7 +114,7 @@ export function TaskEditor({ task, projects, onClose, onUpdated }: TaskEditorPro
       <div className="flex flex-wrap gap-4">
         {/* Priority */}
         <div className="space-y-1">
-          <label className="text-label font-medium text-muted-foreground">Priority</label>
+          <label className="text-label text-muted-foreground">Priority</label>
           <div className="flex gap-1">
             {PRIORITY_OPTIONS.map((opt) => (
               <button
@@ -136,7 +136,7 @@ export function TaskEditor({ task, projects, onClose, onUpdated }: TaskEditorPro
 
         {/* Due date */}
         <div className="space-y-1">
-          <label className="text-label font-medium text-muted-foreground">Due date</label>
+          <label className="text-label text-muted-foreground">Due date</label>
           <div className="flex items-center gap-1">
             <Input
               type="date"
@@ -158,7 +158,7 @@ export function TaskEditor({ task, projects, onClose, onUpdated }: TaskEditorPro
 
         {/* Project */}
         <div className="space-y-1">
-          <label className="text-label font-medium text-muted-foreground">Project</label>
+          <label className="text-label text-muted-foreground">Project</label>
           <div className="flex flex-wrap gap-1">
             {projects.map((p) => (
               <button

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useProjects } from '@/hooks/useLocalTasks'
-import { createLocalTask } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
 import { toast } from 'sonner'
 import { taskToast } from '@/lib/taskToast'
 import {
@@ -13,13 +13,14 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { PriorityBars } from '@/components/shared/PriorityBars'
 import { cn } from '@/lib/utils'
 
 const PRIORITY_OPTIONS = [
-  { value: 1, label: 'Normal', color: 'bg-muted text-muted-foreground' },
-  { value: 2, label: 'Medium', color: 'bg-accent-blue/10 text-accent-blue' },
-  { value: 3, label: 'High', color: 'bg-orange-500/10 text-orange-500' },
-  { value: 4, label: 'Urgent', color: 'bg-red-500/10 text-red-500' },
+  { value: 1, label: 'Normal' },
+  { value: 2, label: 'Medium' },
+  { value: 3, label: 'High' },
+  { value: 4, label: 'Urgent' },
 ]
 
 interface QuickCreateDialogProps {
@@ -29,6 +30,7 @@ interface QuickCreateDialogProps {
 }
 
 export function QuickCreateDialog({ open, onClose, onCreated }: QuickCreateDialogProps) {
+  const dp = useDataProvider()
   const { projects } = useProjects()
   const [content, setContent] = useState('')
   const [description, setDescription] = useState('')
@@ -54,7 +56,7 @@ export function QuickCreateDialog({ open, onClose, onCreated }: QuickCreateDialo
 
     setSubmitting(true)
     try {
-      const task = await createLocalTask({
+      const task = await dp.tasks.create({
         content: text,
         projectId,
         priority,
@@ -69,7 +71,7 @@ export function QuickCreateDialog({ open, onClose, onCreated }: QuickCreateDialo
     } finally {
       setSubmitting(false)
     }
-  }, [content, projectId, priority, dueDate, submitting, onClose, onCreated])
+  }, [content, projectId, priority, dueDate, submitting, onClose, onCreated, dp])
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -91,7 +93,7 @@ export function QuickCreateDialog({ open, onClose, onCreated }: QuickCreateDialo
               }
             }}
             placeholder="What needs to be done?"
-            className="text-sm"
+            className="text-body"
             autoFocus
           />
 
@@ -100,19 +102,19 @@ export function QuickCreateDialog({ open, onClose, onCreated }: QuickCreateDialo
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Add a description (optional)"
-            className="text-sm min-h-[60px]"
+            className="text-body min-h-[60px]"
           />
 
           {/* Project picker */}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-medium text-muted-foreground">Project</label>
+            <label className="text-label text-muted-foreground">Project</label>
             <div className="flex flex-wrap gap-1.5">
               {projects.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => setProjectId(p.id)}
                   className={cn(
-                    'flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors',
+                    'flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-meta transition-colors',
                     projectId === p.id
                       ? 'border-foreground/20 bg-accent text-foreground'
                       : 'border-transparent text-muted-foreground hover:bg-accent/50',
@@ -130,20 +132,20 @@ export function QuickCreateDialog({ open, onClose, onCreated }: QuickCreateDialo
 
           {/* Priority */}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-medium text-muted-foreground">Priority</label>
+            <label className="text-label text-muted-foreground">Priority</label>
             <div className="flex gap-1.5">
               {PRIORITY_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
                   onClick={() => setPriority(opt.value)}
                   className={cn(
-                    'rounded-md px-2.5 py-1 text-xs transition-colors',
+                    'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-meta transition-colors',
                     priority === opt.value
-                      ? opt.color
-                      : 'text-muted-foreground hover:bg-accent/50',
-                    priority === opt.value && 'ring-1 ring-current/20',
+                      ? 'bg-accent/40 text-foreground ring-1 ring-border/40'
+                      : 'text-muted-foreground hover:bg-accent/20',
                   )}
                 >
+                  <PriorityBars priority={opt.value} />
                   {opt.label}
                 </button>
               ))}
@@ -152,12 +154,12 @@ export function QuickCreateDialog({ open, onClose, onCreated }: QuickCreateDialo
 
           {/* Due date */}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-medium text-muted-foreground">Due date</label>
+            <label className="text-label text-muted-foreground">Due date</label>
             <Input
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="text-sm w-auto"
+              className="text-body w-auto"
             />
           </div>
 

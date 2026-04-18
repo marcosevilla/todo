@@ -84,7 +84,7 @@ function GoalCard({
         <div className="flex items-center justify-between">
           {area ? (
             <span
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-label font-medium"
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-label"
               style={{
                 backgroundColor: `${area.color}15`,
                 color: area.color,
@@ -118,7 +118,7 @@ function GoalCard({
               }}
             />
           </div>
-          <span className="text-label font-medium text-muted-foreground tabular-nums shrink-0">
+          <span className="text-label text-muted-foreground tabular-nums shrink-0">
             {progressLabel}
           </span>
         </div>
@@ -472,7 +472,7 @@ export function GoalsPage() {
           <button
             onClick={() => setAreaFilter(null)}
             className={cn(
-              'rounded-md px-2 py-1 text-meta font-medium transition-colors',
+              'rounded-md px-2 py-1 text-meta transition-colors',
               areaFilter === null
                 ? 'bg-foreground text-background'
                 : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',
@@ -489,7 +489,7 @@ export function GoalsPage() {
                 key={area.id}
                 onClick={() => setAreaFilter(areaFilter === area.id ? null : area.id)}
                 className={cn(
-                  'flex items-center gap-1 rounded-md px-2 py-1 text-meta font-medium transition-colors',
+                  'flex items-center gap-1 rounded-md px-2 py-1 text-meta transition-colors',
                   areaFilter === area.id
                     ? 'bg-foreground text-background'
                     : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',

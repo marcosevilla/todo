@@ -92,7 +92,7 @@ export function TaskActivityLog({ taskId }: { taskId: string }) {
       </h3>
       {Object.entries(grouped).map(([date, items]) => (
         <div key={date}>
-          <p className="text-label font-medium text-muted-foreground/40 mb-1">{date}</p>
+          <p className="text-label text-muted-foreground/40 mb-1">{date}</p>
           {items.map((entry) => {
             const meta = ACTION_META[entry.action_type] ?? { label: entry.action_type, icon: Zap, color: 'text-muted-foreground' }
             const Icon = meta.icon

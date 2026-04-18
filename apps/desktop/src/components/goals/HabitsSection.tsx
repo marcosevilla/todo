@@ -149,6 +149,7 @@ function HabitCircle({
           )}
           <span className="select-none">{displayIcon}</span>
           {completed && (
+            // font-bold kept for legibility of checkmark on colored bg overlay
             <span
               className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full flex items-center justify-center text-caption font-bold text-white"
               style={{ backgroundColor: color }}

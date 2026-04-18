@@ -117,7 +117,7 @@ function AllDayStrip({ events }: { events: CalendarEvent[] }) {
       {visible.map((event) => (
         <div
           key={event.id}
-          className="flex items-center gap-1.5 rounded px-1.5 py-0.5 text-label font-medium bg-muted/30"
+          className="flex items-center gap-1.5 rounded px-1.5 py-0.5 text-label bg-muted/30"
           style={{
             borderLeft: `3px solid ${event.feed_color || '#6366f1'}`,
           }}

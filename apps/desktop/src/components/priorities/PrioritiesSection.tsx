@@ -52,6 +52,7 @@ function PriorityCard({ priority, index }: { priority: Priority; index: number }
 
   return (
     <div className="flex gap-3 py-2.5">
+      {/* font-semibold kept for legibility on muted bg circle badge */}
       <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-meta font-semibold text-muted-foreground">
         {index + 1}
       </span>

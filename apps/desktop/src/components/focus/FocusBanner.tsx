@@ -31,7 +31,7 @@ export function FocusBanner() {
     <div className="flex h-10 items-center gap-3 border-b border-border/50 bg-accent-blue/5 px-4 animate-in slide-in-from-top duration-200">
       {/* Timer */}
       <span className={cn(
-        'font-mono text-sm tabular-nums font-medium',
+        'font-mono text-body tabular-nums',
         isPaused && 'animate-pulse text-muted-foreground',
         isOnBreak && 'text-orange-500',
       )}>
@@ -41,7 +41,7 @@ export function FocusBanner() {
       {/* Task name */}
       <button
         onClick={() => setCompact(false)}
-        className="flex-1 min-w-0 truncate text-left text-sm hover:text-foreground transition-colors"
+        className="flex-1 min-w-0 truncate text-left text-body hover:text-foreground transition-colors"
       >
         {isOnBreak ? 'Break' : task.content}
       </button>

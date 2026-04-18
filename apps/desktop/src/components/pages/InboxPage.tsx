@@ -244,7 +244,7 @@ export function InboxPage() {
         />
         {parsedRoute.route && parsedRoute.content && (
           <span
-            className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-label font-medium text-white"
+            className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-label text-white"
             style={{ backgroundColor: parsedRoute.route.color }}
           >
             <RouteIcon name={parsedRoute.route.icon} className="size-3" />
@@ -463,7 +463,7 @@ function MoveToDocPicker({
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
       <div className="w-72 rounded-xl border border-border/30 bg-popover p-3 shadow-xl animate-in fade-in slide-in-from-bottom-3 duration-200" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-2">
-          <span className="text-meta font-medium text-muted-foreground">Move to doc</span>
+          <span className="text-meta text-muted-foreground">Move to doc</span>
           <button onClick={onClose} className="text-muted-foreground/40 hover:text-muted-foreground text-meta">Esc</button>
         </div>
 
@@ -471,7 +471,7 @@ function MoveToDocPicker({
         <div className="flex items-center gap-1 mb-2 flex-wrap">
           <button
             onClick={() => setSelectedFolderId(null)}
-            className={cn('rounded-md px-2 py-0.5 text-label font-medium transition-colors', !selectedFolderId ? 'bg-foreground text-background' : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20')}
+            className={cn('rounded-md px-2 py-0.5 text-label transition-colors', !selectedFolderId ? 'bg-foreground text-background' : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20')}
           >
             All
           </button>
@@ -479,7 +479,7 @@ function MoveToDocPicker({
             <button
               key={f.id}
               onClick={() => setSelectedFolderId(f.id)}
-              className={cn('rounded-md px-2 py-0.5 text-label font-medium transition-colors', selectedFolderId === f.id ? 'bg-foreground text-background' : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20')}
+              className={cn('rounded-md px-2 py-0.5 text-label transition-colors', selectedFolderId === f.id ? 'bg-foreground text-background' : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20')}
             >
               {f.name}
             </button>

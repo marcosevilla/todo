@@ -73,7 +73,7 @@ export function CommandBarResults({
         <div className="rounded-xl border border-border/50 bg-popover shadow-lg overflow-hidden">
           <div className="p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-meta font-medium text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 Breaking down: <span className="text-foreground">{breakdownTask.content}</span>
               </span>
               <button onClick={onBreakdownCancel} className="text-muted-foreground/40 hover:text-muted-foreground">
@@ -113,6 +113,7 @@ export function CommandBarResults({
                   >
                     Cancel
                   </button>
+                  {/* font-medium kept for contrast on foreground bg */}
                   <button
                     onClick={onBreakdownConfirm}
                     className="rounded-md bg-foreground px-2.5 py-1 text-meta text-background font-medium hover:bg-foreground/90"

@@ -11,6 +11,8 @@ import { Plus, PanelLeftOpen } from 'lucide-react'
 import { STATUSES } from '@/components/tasks/StatusDropdown'
 import { ProjectSidebar } from '@/components/tasks/ProjectSidebar'
 import { ProjectDetailPage } from '@/components/tasks/ProjectDetailPage'
+import { IconButton } from '@/components/shared/IconButton'
+import { PageHeader } from '@/components/shared/PageHeader'
 import { useLayoutStore } from '@/stores/layoutStore'
 import type { TaskStatus, LocalTask, TodoistTaskRow } from '@daily-triage/types'
 
@@ -42,7 +44,7 @@ function TaskCreator({
           if (e.key === 'Enter') handleSubmit()
         }}
         placeholder="Add a task..."
-        className="h-7 text-sm border-none shadow-none bg-transparent px-0 focus-visible:ring-0"
+        className="h-7 text-body border-none shadow-none bg-transparent px-0 focus-visible:ring-0"
       />
     </div>
   )
@@ -138,61 +140,57 @@ function AllTasksView({
   todoistLoading: boolean
   snoozeTodoist: (id: string) => void
 }) {
+  const filterPills = (
+    <>
+      <button
+        onClick={() => setStatusFilter('all')}
+        className={cn(
+          'rounded-md px-2 py-1 text-meta transition-colors',
+          statusFilter === 'all'
+            ? 'bg-foreground text-background'
+            : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',
+        )}
+      >
+        All
+        <span className="ml-1 text-label opacity-60">{statusCounts.all || 0}</span>
+      </button>
+      {STATUSES.map((s) => {
+        const SIcon = s.icon
+        const count = statusCounts[s.value] || 0
+        if (count === 0 && statusFilter !== s.value) return null
+        return (
+          <button
+            key={s.value}
+            onClick={() => setStatusFilter(statusFilter === s.value ? 'all' : s.value)}
+            className={cn(
+              'flex items-center gap-1 rounded-md px-2 py-1 text-meta transition-colors',
+              statusFilter === s.value
+                ? 'bg-foreground text-background'
+                : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',
+            )}
+          >
+            <SIcon className={cn('size-3', statusFilter === s.value ? '' : s.iconColor)} />
+            {s.label}
+            <span className="text-label opacity-60">{count}</span>
+          </button>
+        )
+      })}
+    </>
+  )
+
   return (
-    <div className="flex-1 overflow-y-auto p-6">
-      <div className="mx-auto w-full max-w-2xl space-y-3">
-        {/* Header + Filter */}
-        <div className="space-y-2 pb-1">
-          <div className="flex items-baseline gap-2">
-            <h2 className="font-heading text-sm font-semibold">All Tasks</h2>
-            <span className="text-xs text-muted-foreground">
-              {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''}
-              {statusFilter !== 'all' && ` · ${statusFilter.replace('_', ' ')}`}
-            </span>
-          </div>
-
-          {/* Status filter pills */}
-          <div className="flex items-center gap-1 flex-wrap">
-            <button
-              onClick={() => setStatusFilter('all')}
-              className={cn(
-                'rounded-md px-2 py-1 text-xs font-medium transition-colors',
-                statusFilter === 'all'
-                  ? 'bg-foreground text-background'
-                  : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',
-              )}
-            >
-              All
-              <span className="ml-1 text-[10px] opacity-60">{statusCounts.all || 0}</span>
-            </button>
-            {STATUSES.map((s) => {
-              const SIcon = s.icon
-              const count = statusCounts[s.value] || 0
-              if (count === 0 && statusFilter !== s.value) return null
-              return (
-                <button
-                  key={s.value}
-                  onClick={() => setStatusFilter(statusFilter === s.value ? 'all' : s.value)}
-                  className={cn(
-                    'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
-                    statusFilter === s.value
-                      ? 'bg-foreground text-background'
-                      : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',
-                  )}
-                >
-                  <SIcon className={cn('size-3', statusFilter === s.value ? '' : s.iconColor)} />
-                  {s.label}
-                  <span className="text-[10px] opacity-60">{count}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
+    <div className="flex-1 overflow-y-auto flex flex-col min-w-0">
+      <PageHeader
+        title="Tasks"
+        meta={`${filteredTasks.length} task${filteredTasks.length !== 1 ? 's' : ''}${statusFilter !== 'all' ? ` · ${statusFilter.replace('_', ' ')}` : ''}`}
+        secondary={filterPills}
+      />
+      <div className="py-6 flex-1">
+        <div className="w-full space-y-3">
         {/* Project sections */}
         {filteredTasks.length === 0 && statusFilter === 'all' ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No tasks yet. Press <kbd className="rounded border border-border/30 px-1.5 py-0.5 text-xs font-mono">Q</kbd> to create one.
+          <p className="text-body text-muted-foreground text-center py-8">
+            No tasks yet. Press <kbd className="rounded border border-border/30 px-1.5 py-0.5 text-meta font-mono">Q</kbd> to create one.
           </p>
         ) : (
           projects.map((project) => (
@@ -221,7 +219,7 @@ function AllTasksView({
             variant="nested"
             icon={<span className="size-2.5 rounded-full shrink-0 bg-red-500" />}
           >
-            <div className="space-y-0.5">
+            <div className="divide-y divide-border/20">
               {todoistTasks.map((task) => (
                 <TaskRow
                   key={task.id}
@@ -232,6 +230,7 @@ function AllTasksView({
             </div>
           </CollapsibleSection>
         )}
+        </div>
       </div>
     </div>
   )
@@ -330,13 +329,13 @@ export function TasksPage() {
       {/* Project sidebar */}
       {sidebarCollapsed ? (
         <div className="flex flex-col items-center border-r border-border/20 bg-muted/10 py-2 px-1">
-          <button
+          <IconButton
             onClick={() => setSidebarCollapsed(false)}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+            size="lg"
             title="Expand project sidebar"
           >
             <PanelLeftOpen className="size-4" />
-          </button>
+          </IconButton>
         </div>
       ) : (
         <ProjectSidebar

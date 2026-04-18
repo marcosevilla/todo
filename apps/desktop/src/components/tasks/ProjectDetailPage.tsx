@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useState } from 'react'
 import { SortableTaskList } from '@/components/tasks/SortableTaskList'
 import { STATUSES } from '@/components/tasks/StatusDropdown'
+import { PageHeader } from '@/components/shared/PageHeader'
 import { cn } from '@/lib/utils'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import type { Project, LocalTask, TaskStatus } from '@daily-triage/types'
 
@@ -34,7 +35,7 @@ function TaskCreator({
           if (e.key === 'Enter') handleSubmit()
         }}
         placeholder="Add a task..."
-        className="h-7 text-sm border-none shadow-none bg-transparent px-0 focus-visible:ring-0"
+        className="h-7 text-body border-none shadow-none bg-transparent px-0 focus-visible:ring-0"
       />
     </div>
   )
@@ -90,79 +91,67 @@ export function ProjectDetailPage({
     [onAddSubtask],
   )
 
-  return (
-    <div className="flex-1 overflow-y-auto p-6">
-      <div className="mx-auto w-full max-w-2xl space-y-4">
-        {/* Back + Header */}
-        <div className="space-y-2">
+  const projectTitle = (
+    <span className="flex items-center gap-2">
+      <span
+        className="size-2.5 rounded-full shrink-0"
+        style={{ backgroundColor: project.color }}
+      />
+      {project.name}
+    </span>
+  )
+
+  const filterPills = (
+    <>
+      <button
+        onClick={() => setStatusFilter('all')}
+        className={cn(
+          'rounded-md px-2 py-1 text-meta transition-colors',
+          statusFilter === 'all'
+            ? 'bg-foreground text-background'
+            : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',
+        )}
+      >
+        All
+        <span className="ml-1 text-label opacity-60">{statusCounts.all || 0}</span>
+      </button>
+      {STATUSES.map((s) => {
+        const SIcon = s.icon
+        const count = statusCounts[s.value] || 0
+        if (count === 0 && statusFilter !== s.value) return null
+        return (
           <button
-            onClick={onBack}
-            className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors -ml-1"
-          >
-            <ArrowLeft className="size-3" />
-            All Tasks
-          </button>
-
-          <div className="flex items-center gap-3">
-            <span
-              className="size-3.5 rounded-full shrink-0"
-              style={{ backgroundColor: project.color }}
-            />
-            <h2 className="font-heading text-lg font-semibold">{project.name}</h2>
-            <span className="text-xs text-muted-foreground">
-              {topLevelCount} active task{topLevelCount !== 1 ? 's' : ''}
-            </span>
-          </div>
-
-          {/* Metadata */}
-          <div className="flex items-center gap-3 text-[11px] text-muted-foreground/50">
-            <span>Project</span>
-            {project.id === 'inbox' && (
-              <span className="rounded bg-muted/30 px-1.5 py-0.5">Default inbox</span>
-            )}
-          </div>
-        </div>
-
-        {/* Status filter pills */}
-        <div className="flex items-center gap-1 flex-wrap">
-          <button
-            onClick={() => setStatusFilter('all')}
+            key={s.value}
+            onClick={() => setStatusFilter(statusFilter === s.value ? 'all' : s.value)}
             className={cn(
-              'rounded-md px-2 py-1 text-xs font-medium transition-colors',
-              statusFilter === 'all'
+              'flex items-center gap-1 rounded-md px-2 py-1 text-meta transition-colors',
+              statusFilter === s.value
                 ? 'bg-foreground text-background'
                 : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',
             )}
           >
-            All
-            <span className="ml-1 text-[10px] opacity-60">{statusCounts.all || 0}</span>
+            <SIcon className={cn('size-3', statusFilter === s.value ? '' : s.iconColor)} />
+            {s.label}
+            <span className="text-label opacity-60">{count}</span>
           </button>
-          {STATUSES.map((s) => {
-            const SIcon = s.icon
-            const count = statusCounts[s.value] || 0
-            if (count === 0 && statusFilter !== s.value) return null
-            return (
-              <button
-                key={s.value}
-                onClick={() => setStatusFilter(statusFilter === s.value ? 'all' : s.value)}
-                className={cn(
-                  'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
-                  statusFilter === s.value
-                    ? 'bg-foreground text-background'
-                    : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20',
-                )}
-              >
-                <SIcon className={cn('size-3', statusFilter === s.value ? '' : s.iconColor)} />
-                {s.label}
-                <span className="text-[10px] opacity-60">{count}</span>
-              </button>
-            )
-          })}
-        </div>
+        )
+      })}
+    </>
+  )
 
+  return (
+    <div className="flex-1 overflow-y-auto flex flex-col min-w-0">
+      <PageHeader
+        title={projectTitle}
+        meta={`${topLevelCount} active task${topLevelCount !== 1 ? 's' : ''}`}
+        backAction={{ label: 'All Tasks', onClick: onBack }}
+        secondary={filterPills}
+      />
+      <div className="py-6 flex-1">
+        <div className="w-full space-y-4">
         {/* Task list */}
         {filteredTasks.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
+          <p className="text-body text-muted-foreground text-center py-8">
             {statusFilter === 'all'
               ? 'No tasks in this project yet.'
               : `No ${statusFilter.replace('_', ' ')} tasks.`}
@@ -182,6 +171,7 @@ export function ProjectDetailPage({
 
         {/* Inline task creator */}
         <TaskCreator projectId={project.id} onAdd={onAddTask} />
+        </div>
       </div>
     </div>
   )

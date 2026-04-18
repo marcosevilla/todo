@@ -303,7 +303,7 @@ function RoadmapTab({ showDone, setShowDone }: { showDone: boolean; setShowDone:
                 )} />
                 <div className="min-w-0">
                   <p className={cn(
-                    'text-meta font-medium',
+                    'text-label',
                     item.done && 'text-muted-foreground line-through',
                   )}>
                     {item.title}

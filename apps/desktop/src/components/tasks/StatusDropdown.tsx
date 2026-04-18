@@ -1,14 +1,18 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { Circle, CircleDot, Loader, Ban, CheckCircle2 } from 'lucide-react'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
-import { updateTaskStatus } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
+import { useSelectionStore } from '@/stores/selectionStore'
 import { emitTasksChanged } from '@/hooks/useLocalTasks'
 import { playCompletionSound } from '@/lib/sound'
 import { toast } from 'sonner'
-import type { TaskStatus } from '@/services/tauri'
+import type { TaskStatus } from '@daily-triage/types'
 import type { LucideIcon } from 'lucide-react'
+
+/** Matches the `task-complete-exit` keyframe duration in index.css. */
+const TASK_COMPLETE_ANIM_MS = 580
 
 export interface StatusConfig {
   value: TaskStatus
@@ -37,9 +41,23 @@ interface StatusDropdownProps {
 }
 
 export function StatusDropdown({ taskId, status, size = 'sm' }: StatusDropdownProps) {
+  const dp = useDataProvider()
+  const markTaskCompleting = useSelectionStore((s) => s.markTaskCompleting)
+  const clearTaskCompleting = useSelectionStore((s) => s.clearTaskCompleting)
   const [open, setOpen] = useState(false)
   const [showBlockedInput, setShowBlockedInput] = useState(false)
   const [blockedReason, setBlockedReason] = useState('')
+
+  // Trigger a micro-pulse on the status icon whenever the status prop
+  // changes (confirms the action visually after the value updates).
+  const [pulseKey, setPulseKey] = useState(0)
+  const prevStatus = useRef(status)
+  useEffect(() => {
+    if (prevStatus.current !== status) {
+      setPulseKey((k) => k + 1)
+      prevStatus.current = status
+    }
+  }, [status])
 
   const current = getStatusConfig(status)
   const Icon = current.icon
@@ -52,20 +70,38 @@ export function StatusDropdown({ taskId, status, size = 'sm' }: StatusDropdownPr
       return
     }
 
-    if (newStatus === 'complete') playCompletionSound()
+    setOpen(false)
+
+    // Complete is special — play the exit animation on the row first,
+    // then fire the mutation so the list re-renders right as the row
+    // finishes its 600ms slide-out.
+    if (newStatus === 'complete') {
+      playCompletionSound()
+      markTaskCompleting(taskId)
+      setTimeout(async () => {
+        try {
+          await dp.tasks.updateStatus(taskId, newStatus)
+          emitTasksChanged()
+        } catch (e) {
+          toast.error(`Failed to update status: ${e}`)
+        } finally {
+          clearTaskCompleting(taskId)
+        }
+      }, TASK_COMPLETE_ANIM_MS)
+      return
+    }
 
     try {
-      await updateTaskStatus(taskId, newStatus)
+      await dp.tasks.updateStatus(taskId, newStatus)
       emitTasksChanged()
     } catch (e) {
       toast.error(`Failed to update status: ${e}`)
     }
-    setOpen(false)
-  }, [taskId, status])
+  }, [taskId, status, dp, markTaskCompleting, clearTaskCompleting])
 
   const handleBlockedSubmit = useCallback(async () => {
     try {
-      await updateTaskStatus(taskId, 'blocked', blockedReason.trim() || undefined)
+      await dp.tasks.updateStatus(taskId, 'blocked', blockedReason.trim() || undefined)
       emitTasksChanged()
     } catch (e) {
       toast.error(`Failed to update status: ${e}`)
@@ -73,7 +109,7 @@ export function StatusDropdown({ taskId, status, size = 'sm' }: StatusDropdownPr
     setShowBlockedInput(false)
     setBlockedReason('')
     setOpen(false)
-  }, [taskId, blockedReason])
+  }, [taskId, blockedReason, dp])
 
   const iconSize = size === 'md' ? 'size-5' : 'size-4'
 
@@ -86,13 +122,20 @@ export function StatusDropdown({ taskId, status, size = 'sm' }: StatusDropdownPr
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <Icon className={cn(iconSize, current.iconColor)} />
+        <Icon
+          key={pulseKey}
+          className={cn(
+            iconSize,
+            current.iconColor,
+            pulseKey > 0 && 'animate-count-pulse',
+          )}
+        />
       </PopoverTrigger>
 
       <PopoverContent side="bottom" align="start" sideOffset={4} className="w-44 gap-0 p-1">
         {showBlockedInput ? (
           <div className="p-2 space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">Why is this blocked?</p>
+            <p className="text-meta text-muted-foreground">Why is this blocked?</p>
             <Input
               value={blockedReason}
               onChange={(e) => setBlockedReason(e.target.value)}
@@ -101,19 +144,20 @@ export function StatusDropdown({ taskId, status, size = 'sm' }: StatusDropdownPr
                 if (e.key === 'Escape') { e.preventDefault(); setShowBlockedInput(false) }
               }}
               placeholder="Waiting on..."
-              className="h-7 text-sm"
+              className="h-7 text-body"
               autoFocus
             />
             <div className="flex justify-end gap-1">
               <button
                 onClick={() => setShowBlockedInput(false)}
-                className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent/20"
+                className="rounded-md px-2 py-1 text-meta text-muted-foreground hover:bg-accent/20"
               >
                 Cancel
               </button>
+              {/* font-medium kept for contrast on foreground bg */}
               <button
                 onClick={handleBlockedSubmit}
-                className="rounded-md bg-foreground px-2 py-1 text-xs text-background font-medium"
+                className="rounded-md bg-foreground px-2 py-1 text-meta text-background font-medium"
               >
                 Set blocked
               </button>
@@ -126,7 +170,7 @@ export function StatusDropdown({ taskId, status, size = 'sm' }: StatusDropdownPr
               <button
                 key={s.value}
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors',
+                  'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-body transition-colors',
                   s.value === status ? 'bg-accent/40' : 'hover:bg-accent/20',
                 )}
                 onClick={() => handleSelect(s.value)}

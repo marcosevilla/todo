@@ -166,7 +166,7 @@ export function FolderTree() {
                 <ChevronRight className={cn('size-3 text-muted-foreground/40 transition-transform', expandedFolders.has(folder.id) && 'rotate-90')} />
               </button>
               <FolderOpen className="size-3.5 shrink-0 text-muted-foreground/50" />
-              <span className="flex-1 text-meta font-medium truncate">{folder.name}</span>
+              <span className="flex-1 text-meta truncate">{folder.name}</span>
               <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={() => handleCreateDoc(folder.id)}

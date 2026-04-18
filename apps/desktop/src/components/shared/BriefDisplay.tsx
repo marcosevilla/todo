@@ -125,7 +125,7 @@ function MarkdownContent({ content }: { content: string }) {
     // H3 heading
     if (line.startsWith('### ')) {
       elements.push(
-        <h4 key={key++} className="text-meta font-semibold mt-3 mb-1">
+        <h4 key={key++} className="text-label mt-3 mb-1">
           {renderInline(line.slice(4))}
         </h4>
       )

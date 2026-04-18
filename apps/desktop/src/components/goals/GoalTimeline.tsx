@@ -94,7 +94,7 @@ export function GoalTimeline({ goals, lifeAreas, onGoalClick }: GoalTimelineProp
         style={{ width: LEFT_PANEL_WIDTH }}
       >
         <div className="h-[52px] border-b border-border/20 px-3 flex items-end pb-2">
-          <span className="text-meta font-medium text-muted-foreground">Goals</span>
+          <span className="text-label text-muted-foreground">Goals</span>
         </div>
         {timelineGoals.map((goal) => {
           const area = goal.life_area_id ? areaMap[goal.life_area_id] : null
@@ -111,7 +111,7 @@ export function GoalTimeline({ goals, lifeAreas, onGoalClick }: GoalTimelineProp
                   style={{ backgroundColor: area.color }}
                 />
               )}
-              <span className="text-meta font-medium truncate">{goal.name}</span>
+              <span className="text-meta truncate">{goal.name}</span>
             </div>
           )
         })}
@@ -129,7 +129,7 @@ export function GoalTimeline({ goals, lifeAreas, onGoalClick }: GoalTimelineProp
               {months.map((m) => (
                 <div
                   key={m.month}
-                  className="text-label font-medium text-muted-foreground px-1 pt-1.5 border-l border-border/10 first:border-l-0"
+                  className="text-label text-muted-foreground px-1 pt-1.5 border-l border-border/10 first:border-l-0"
                   style={{ width: m.days * DAY_WIDTH }}
                 >
                   {m.month}
@@ -208,7 +208,7 @@ export function GoalTimeline({ goals, lifeAreas, onGoalClick }: GoalTimelineProp
                   />
                   {/* Bar label (show if wide enough) */}
                   {width > 60 && (
-                    <span className="absolute inset-0 flex items-center px-2 text-label font-medium truncate" style={{ color: barColor }}>
+                    <span className="absolute inset-0 flex items-center px-2 text-label truncate" style={{ color: barColor }}>
                       {goal.name}
                     </span>
                   )}
