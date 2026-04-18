@@ -206,7 +206,7 @@ export function TodoistMigrationSection() {
       {/* Last result */}
       {result && (
         <div className="rounded-lg border border-border/30 bg-muted/10 p-3 space-y-1 text-meta">
-          <p className="font-medium text-foreground">Last import</p>
+          <p className="text-body-strong text-foreground">Last import</p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground">
             <span>Projects created: <span className="tabular-nums text-foreground">{result.projects_created}</span></span>
             <span>Tasks created: <span className="tabular-nums text-foreground">{result.tasks_created}</span></span>
@@ -246,7 +246,7 @@ function PreviewRow({
     <div className="flex items-baseline justify-between text-body">
       <span className="text-muted-foreground">{label}</span>
       <span className="tabular-nums">
-        <span className={cn(created > 0 ? 'text-accent-blue font-medium' : 'text-muted-foreground')}>
+        <span className={cn(created > 0 ? 'text-accent-blue text-body-strong' : 'text-muted-foreground')}>
           {created} to import
         </span>
         {already > 0 && (
