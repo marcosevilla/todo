@@ -5,6 +5,7 @@ import {
   CollapsibleTrigger,
   CollapsibleContent,
 } from '@/components/ui/collapsible'
+import { BodyStrong } from '@/components/shared/typography'
 
 interface CollapsibleSectionProps {
   title: string
@@ -39,15 +40,9 @@ export function CollapsibleSection({
         >
           <ChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-150" />
           {icon}
-          <span className={cn(
-            variant === 'primary'
-              ? 'text-[11px] font-medium uppercase tracking-wider text-muted-foreground'
-              : 'text-sm font-medium text-foreground',
-          )}>
-            {title}
-          </span>
+          <BodyStrong>{title}</BodyStrong>
           {count !== undefined && (
-            <span className="text-[10px] text-muted-foreground">{count}</span>
+            <span className="text-meta text-muted-foreground/70">{count}</span>
           )}
         </CollapsibleTrigger>
         {action && (
@@ -57,9 +52,7 @@ export function CollapsibleSection({
         )}
       </div>
       <CollapsibleContent className="overflow-hidden transition-all duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0">
-        <div className={variant === 'primary' ? 'pl-2' : 'ml-4 border-l pl-3'}>
-          {children}
-        </div>
+        <div className="pl-2">{children}</div>
       </CollapsibleContent>
     </Collapsible>
   )

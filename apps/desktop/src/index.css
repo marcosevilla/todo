@@ -40,13 +40,13 @@
     --text-body--line-height: 1.4286;
     --text-body-strong:  0.875rem;    /* 14 — emphasis variant (replaces font-medium stacks) */
     --text-body-strong--line-height: 1.4286;
-    --text-heading-sm:   1rem;        /* 16 — page titles, dialog titles, editor H3 */
+    --text-heading-sm:   0.9375rem;   /* 15 — page titles, dialog titles, editor H3 */
     --text-heading-sm--line-height: 1.3;
-    --text-heading:      1.125rem;    /* 18 — greeting, section emphasis, editor H2 */
+    --text-heading:      1rem;        /* 16 — greeting, section emphasis, editor H2 */
     --text-heading--line-height: 1.25;
-    --text-display:      1.5rem;      /* 24 — editor H1, celebration moments */
+    --text-display:      1.25rem;     /* 20 — editor H1, celebration moments */
     --text-display--line-height: 1.15;
-    --text-display-xl:   2rem;        /* 32 — focus celebrations */
+    --text-display-xl:   1.625rem;    /* 26 — focus celebrations */
     --text-display-xl--line-height: 1.05;
     --text-timer:        3rem;        /* 48 — FocusView timer */
     --text-timer--line-height: 1;
@@ -149,7 +149,7 @@
   }
   .text-label {
     font-family: var(--typo-label-family, var(--font-sans));
-    font-weight: var(--typo-label-weight, 600);
+    font-weight: var(--typo-label-weight, 500);
     letter-spacing: var(--typo-label-tracking, 0);
   }
   .text-meta {
@@ -164,27 +164,27 @@
   }
   .text-body-strong {
     font-family: var(--typo-body-strong-family, var(--font-sans));
-    font-weight: var(--typo-body-strong-weight, 600);
+    font-weight: var(--typo-body-strong-weight, 500);
     letter-spacing: var(--typo-body-strong-tracking, -0.006em);
   }
   .text-heading-sm {
     font-family: var(--typo-heading-sm-family, var(--font-heading));
-    font-weight: var(--typo-heading-sm-weight, 600);
+    font-weight: var(--typo-heading-sm-weight, 550);
     letter-spacing: var(--typo-heading-sm-tracking, -0.015em);
   }
   .text-heading {
     font-family: var(--typo-heading-family, var(--font-heading));
-    font-weight: var(--typo-heading-weight, 600);
+    font-weight: var(--typo-heading-weight, 550);
     letter-spacing: var(--typo-heading-tracking, -0.018em);
   }
   .text-display {
     font-family: var(--typo-display-family, var(--font-heading));
-    font-weight: var(--typo-display-weight, 600);
+    font-weight: var(--typo-display-weight, 550);
     letter-spacing: var(--typo-display-tracking, -0.022em);
   }
   .text-display-xl {
     font-family: var(--typo-display-xl-family, var(--font-heading));
-    font-weight: var(--typo-display-xl-weight, 600);
+    font-weight: var(--typo-display-xl-weight, 550);
     letter-spacing: var(--typo-display-xl-tracking, -0.028em);
   }
   .text-timer {
@@ -288,7 +288,7 @@
   font-family: var(--typo-display-family, var(--font-heading));
   font-size: var(--text-display);
   line-height: var(--text-display--line-height);
-  font-weight: var(--typo-display-weight, 600);
+  font-weight: var(--typo-display-weight, 550);
   letter-spacing: var(--typo-display-tracking, -0.022em);
   text-transform: var(--typo-display-case, none);
   margin: 1em 0 0.5em;
@@ -297,7 +297,7 @@
   font-family: var(--typo-heading-family, var(--font-heading));
   font-size: var(--text-heading);
   line-height: var(--text-heading--line-height);
-  font-weight: var(--typo-heading-weight, 600);
+  font-weight: var(--typo-heading-weight, 550);
   letter-spacing: var(--typo-heading-tracking, -0.018em);
   text-transform: var(--typo-heading-case, none);
   margin: 0.75em 0 0.4em;
@@ -306,7 +306,7 @@
   font-family: var(--typo-heading-sm-family, var(--font-heading));
   font-size: var(--text-heading-sm);
   line-height: var(--text-heading-sm--line-height);
-  font-weight: var(--typo-heading-sm-weight, 600);
+  font-weight: var(--typo-heading-sm-weight, 550);
   letter-spacing: var(--typo-heading-sm-tracking, -0.015em);
   text-transform: var(--typo-heading-sm-case, none);
   margin: 0.5em 0 0.3em;
