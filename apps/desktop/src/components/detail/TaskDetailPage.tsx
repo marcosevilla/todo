@@ -2,8 +2,8 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useDetailStore } from '@/stores/detailStore'
 import { useTaskDetail } from '@/hooks/useTaskDetail'
 import { useProjects } from '@/hooks/useLocalTasks'
-import { updateLocalTask, createLocalTask, breakDownTask, logActivity, getDocument, getDocuments } from '@/services/tauri'
-import type { LocalTask as LocalTaskType, Document } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
+import type { LocalTask as LocalTaskType, Document } from '@daily-triage/types'
 import { useDocsStore } from '@/stores/docsStore'
 import { useAppStore } from '@/stores/appStore'
 import { emitTasksChanged } from '@/hooks/useLocalTasks'
@@ -17,13 +17,17 @@ import { DetailBreadcrumbs } from './DetailBreadcrumbs'
 import { TaskActionBar } from './TaskActionBar'
 import { TaskActivityLog } from './TaskActivityLog'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
+import { IconButton } from '@/components/shared/IconButton'
 import { PanelRight, MoreHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import { format, parseISO } from 'date-fns'
 
 import { PRIORITY_LABELS } from '@/lib/priorities'
+import { PriorityBars } from '@/components/shared/PriorityBars'
+import { Meta } from '@/components/shared/typography'
 
 export function TaskDetailPage() {
+  const dp = useDataProvider()
   const target = useDetailStore((s) => s.target)
   const switchMode = useDetailStore((s) => s.switchMode)
   const close = useDetailStore((s) => s.close)
@@ -40,17 +44,17 @@ export function TaskDetailPage() {
   // Load linked doc title
   useEffect(() => {
     if (task?.linked_doc_id) {
-      getDocument(task.linked_doc_id).then((doc) => setLinkedDocTitle(doc?.title ?? null)).catch(() => setLinkedDocTitle(null))
+      dp.docs.getDocument(task.linked_doc_id).then((doc) => setLinkedDocTitle(doc?.title ?? null)).catch(() => setLinkedDocTitle(null))
     } else {
       setLinkedDocTitle(null)
     }
-  }, [task?.linked_doc_id])
+  }, [task?.linked_doc_id, dp])
 
   const handleSaveTitle = useCallback(async (content: string) => {
     if (!task) return
-    await updateLocalTask({ id: task.id, content })
+    await dp.tasks.update({ id: task.id, content })
     emitTasksChanged()
-  }, [task])
+  }, [task, dp])
 
   const lastSavedDesc = useRef(task?.description ?? '')
   const handleSaveDescription = useCallback(async (description: string) => {
@@ -58,23 +62,23 @@ export function TaskDetailPage() {
     // Skip if content hasn't actually changed (prevents save loops)
     if (description === lastSavedDesc.current) return
     lastSavedDesc.current = description
-    await updateLocalTask({ id: task.id, description })
+    await dp.tasks.update({ id: task.id, description })
     // Don't emit tasksChanged here — avoids refresh loop with Tiptap
-  }, [task])
+  }, [task, dp])
 
   const handleAIBreakdown = useCallback(async () => {
     if (!task) return
     setBreakingDown(true)
     try {
-      const subtaskTitles = await breakDownTask(task.content, task.description ?? undefined)
+      const subtaskTitles = await dp.ai.breakDownTask(task.content, task.description ?? undefined)
       let created = 0
       for (const content of subtaskTitles) {
         try {
-          await createLocalTask({ content, parentId: task.id, projectId: task.project_id })
+          await dp.tasks.create({ content, parentId: task.id, projectId: task.project_id })
           created++
         } catch { /* skip */ }
       }
-      logActivity('task_breakdown_applied', task.id, { subtask_count: created }).catch(() => {})
+      dp.activity.log('task_breakdown_applied', task.id, { subtask_count: created }).catch(() => {})
       toast.success(`Created ${created} subtasks`)
       emitTasksChanged()
       setSubInputFocused(false)
@@ -83,24 +87,24 @@ export function TaskDetailPage() {
     } finally {
       setBreakingDown(false)
     }
-  }, [task])
+  }, [task, dp])
 
   const handleAddSubtask = useCallback(async () => {
     if (!task || !subInput.trim()) return
     try {
-      await createLocalTask({ content: subInput.trim(), parentId: task.id, projectId: task.project_id })
+      await dp.tasks.create({ content: subInput.trim(), parentId: task.id, projectId: task.project_id })
       emitTasksChanged()
       setSubInput('')
     } catch (e) {
       toast.error(`Failed to add subtask: ${e}`)
     }
-  }, [task, subInput])
+  }, [task, subInput, dp])
 
   const handlePriorityChange = useCallback(async (priority: number) => {
     if (!task) return
-    await updateLocalTask({ id: task.id, priority })
+    await dp.tasks.update({ id: task.id, priority })
     emitTasksChanged()
-  }, [task])
+  }, [task, dp])
 
   if (loading) {
     return (
@@ -117,7 +121,7 @@ export function TaskDetailPage() {
     return (
       <div className="space-y-4">
         <DetailBreadcrumbs />
-        <p className="text-sm text-muted-foreground">Task not found.</p>
+        <p className="text-body text-muted-foreground">Task not found.</p>
       </div>
     )
   }
@@ -128,13 +132,14 @@ export function TaskDetailPage() {
       <div className="flex items-start justify-between">
         <DetailBreadcrumbs />
         <div className="flex items-center gap-0.5 shrink-0">
-          <button
+          <IconButton
             onClick={() => switchMode('sidebar')}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground/30 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+            size="lg"
+            tone="subtle"
             title="Pin to sidebar"
           >
             <PanelRight className="size-4" />
-          </button>
+          </IconButton>
           <Popover>
             <PopoverTrigger className="flex size-7 items-center justify-center rounded-md text-muted-foreground/30 hover:text-muted-foreground hover:bg-accent/20 transition-colors">
               <MoreHorizontal className="size-4" />
@@ -147,38 +152,36 @@ export function TaskDetailPage() {
       </div>
 
       {/* Project + metadata row */}
-      <div className="flex items-center gap-3 flex-wrap text-sm">
+      <div className="flex items-center gap-3 flex-wrap text-body">
         {project && (
           <div className="flex items-center gap-1.5">
             <span className="size-2 rounded-full" style={{ backgroundColor: project.color }} />
-            <span className="text-xs text-muted-foreground">{project.name}</span>
+            <Meta>{project.name}</Meta>
           </div>
         )}
         <Popover>
-          <PopoverTrigger className="flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors">
-            {task.priority > 1 && <span className={cn('size-1.5 rounded-full', PRIORITY_LABELS[task.priority].color)} />}
+          <PopoverTrigger className="flex items-center gap-1.5 rounded-md px-2 py-0.5 text-meta text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors">
+            <PriorityBars priority={task.priority} />
             {PRIORITY_LABELS[task.priority].label}
           </PopoverTrigger>
-          <PopoverContent side="bottom" align="start" sideOffset={4} className="w-32 gap-0 p-1">
+          <PopoverContent side="bottom" align="start" sideOffset={4} className="w-36 gap-0 p-1">
             {[1, 2, 3, 4].map((p) => (
               <button
                 key={p}
                 onClick={() => handlePriorityChange(p)}
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors',
+                  'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-body transition-colors',
                   task.priority === p ? 'bg-accent/40' : 'hover:bg-accent/20',
                 )}
               >
-                {p > 1 ? <span className={cn('size-2 rounded-full', PRIORITY_LABELS[p].color)} /> : <span className="w-2" />}
+                <PriorityBars priority={p} />
                 {PRIORITY_LABELS[p].label}
               </button>
             ))}
           </PopoverContent>
         </Popover>
         {task.due_date && (
-          <span className="text-xs text-muted-foreground">
-            Due {format(parseISO(task.due_date), 'MMM d')}
-          </span>
+          <Meta as="time">Due {format(parseISO(task.due_date), 'MMM d')}</Meta>
         )}
       </div>
 
@@ -213,7 +216,7 @@ export function TaskDetailPage() {
                 <button
                   onClick={() => drillDown({ type: 'task', id: sub.id })}
                   className={cn(
-                    'flex-1 min-w-0 truncate text-left text-sm hover:text-foreground transition-colors',
+                    'flex-1 min-w-0 truncate text-left text-body hover:text-foreground transition-colors',
                     sub.completed && 'text-muted-foreground line-through',
                   )}
                 >
@@ -233,7 +236,7 @@ export function TaskDetailPage() {
                 <Sparkles className="size-3 text-purple-400 ai-star-2" />
                 <Sparkles className="size-2.5 text-purple-300 ai-star-3" />
               </div>
-              <span className="text-xs text-muted-foreground">Breaking down with AI...</span>
+              <Meta>Breaking down with AI...</Meta>
             </div>
             <div className="space-y-1.5">
               <Skeleton className="h-7 w-full rounded-md" />
@@ -258,17 +261,17 @@ export function TaskDetailPage() {
                 }}
                 onBlur={() => { if (!subInput) setSubInputFocused(false) }}
                 placeholder="Add a subtask..."
-                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/40 py-1"
+                className="w-full bg-transparent text-body outline-none placeholder:text-muted-foreground/40 py-1"
                 autoFocus
               />
-              <p className="text-[10px] text-muted-foreground/30">
-                or break down with AI <kbd className="rounded bg-muted/40 px-1 py-0.5 font-mono text-[9px]">{'\u2318'}B</kbd>
+              <p className="text-label text-muted-foreground/30">
+                or break down with AI <kbd className="rounded bg-muted/40 px-1 py-0.5 font-mono text-caption">{'\u2318'}B</kbd>
               </p>
             </div>
           ) : (
             <p
               onClick={() => setSubInputFocused(true)}
-              className="text-sm text-muted-foreground/40 cursor-text hover:text-muted-foreground/60 transition-colors py-1"
+              className="text-body text-muted-foreground/40 cursor-text hover:text-muted-foreground/60 transition-colors py-1"
             >
               Add a subtask...
             </p>
@@ -291,16 +294,17 @@ export function TaskDetailPage() {
 // ── Linked Doc Section ──
 
 function LinkedDocSection({ task, linkedDocTitle }: { task: LocalTaskType; linkedDocTitle: string | null }) {
+  const dp = useDataProvider()
   const [showPicker, setShowPicker] = useState(false)
   const [docs, setDocs] = useState<Document[]>([])
   const [searchQuery, setSearchQuery] = useState('')
 
   const loadDocs = useCallback(async () => {
     try {
-      const allDocs = await getDocuments()
+      const allDocs = await dp.docs.getDocuments()
       setDocs(allDocs)
     } catch { /* skip */ }
-  }, [])
+  }, [dp])
 
   useEffect(() => {
     if (showPicker) loadDocs()
@@ -312,30 +316,21 @@ function LinkedDocSection({ task, linkedDocTitle }: { task: LocalTaskType; linke
 
   const handleLink = useCallback(async (docId: string) => {
     try {
-      await updateLocalTask({ id: task.id, content: task.content }) // need a proper linkedDocId update
-      // For now, use a raw invoke since updateLocalTask doesn't have linkedDocId param yet
-      const { invoke } = await import('@tauri-apps/api/core')
-      await invoke('update_document', { id: docId }) // no-op, just to test
-      // Actually we need to update the task's linked_doc_id directly
-      await import('@tauri-apps/api/core').then(({ invoke }) =>
-        invoke('update_local_task', { id: task.id, linkedDocId: docId })
-      )
+      await dp.tasks.update({ id: task.id, linkedDocId: docId })
       emitTasksChanged()
       setShowPicker(false)
       setSearchQuery('')
     } catch (e) {
-      // Fallback: use the existing updateLocalTask but we need to add linkedDocId support
       toast.error(`Failed to link doc: ${e}`)
     }
-  }, [task.id, task.content])
+  }, [task.id, dp])
 
   const handleUnlink = useCallback(async () => {
     try {
-      const { invoke } = await import('@tauri-apps/api/core')
-      await invoke('update_local_task', { id: task.id, linkedDocId: null })
+      await dp.tasks.update({ id: task.id, linkedDocId: null })
       emitTasksChanged()
     } catch { /* skip */ }
-  }, [task.id])
+  }, [task.id, dp])
 
   if (task.linked_doc_id && linkedDocTitle) {
     return (
@@ -346,7 +341,7 @@ function LinkedDocSection({ task, linkedDocTitle }: { task: LocalTaskType; linke
             useDocsStore.getState().selectDoc(task.linked_doc_id!)
             useAppStore.getState().setCurrentPage('docs')
           }}
-          className="text-xs text-accent-blue hover:underline"
+          className="text-meta text-accent-blue hover:underline"
         >
           {linkedDocTitle}
         </button>
@@ -365,7 +360,7 @@ function LinkedDocSection({ task, linkedDocTitle }: { task: LocalTaskType; linke
           onChange={(e) => setSearchQuery(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Escape') { setShowPicker(false); setSearchQuery('') } }}
           placeholder="Search docs..."
-          className="w-full bg-transparent text-sm outline-none border-b border-border/20 py-1 placeholder:text-muted-foreground/40"
+          className="w-full bg-transparent text-body outline-none border-b border-border/20 py-1 placeholder:text-muted-foreground/40"
           autoFocus
         />
         <div className="max-h-32 overflow-y-auto space-y-0.5">
@@ -373,14 +368,14 @@ function LinkedDocSection({ task, linkedDocTitle }: { task: LocalTaskType; linke
             <button
               key={doc.id}
               onClick={() => handleLink(doc.id)}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-accent/20 transition-colors"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-body hover:bg-accent/20 transition-colors"
             >
               <FileText className="size-3 shrink-0 text-muted-foreground/40" />
               <span className="truncate">{doc.title || 'Untitled'}</span>
             </button>
           ))}
           {filtered.length === 0 && (
-            <p className="text-xs text-muted-foreground/40 py-1">No docs found</p>
+            <p className="text-meta text-muted-foreground/40 py-1">No docs found</p>
           )}
         </div>
       </div>
@@ -390,7 +385,7 @@ function LinkedDocSection({ task, linkedDocTitle }: { task: LocalTaskType; linke
   return (
     <p
       onClick={() => setShowPicker(true)}
-      className="text-xs text-muted-foreground/30 cursor-pointer hover:text-muted-foreground/50 transition-colors"
+      className="text-meta text-muted-foreground/30 cursor-pointer hover:text-muted-foreground/50 transition-colors"
     >
       Link a doc...
     </p>

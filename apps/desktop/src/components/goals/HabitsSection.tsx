@@ -150,7 +150,7 @@ function HabitCircle({
           <span className="select-none">{displayIcon}</span>
           {completed && (
             <span
-              className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full flex items-center justify-center text-[8px] font-bold text-white"
+              className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full flex items-center justify-center text-caption font-bold text-white"
               style={{ backgroundColor: color }}
             >
               ✓
@@ -259,7 +259,7 @@ function HabitHeatmap({ data }: { data: HabitHeatmapEntry[] }) {
           {monthLabels.map((m, i) => (
             <span
               key={i}
-              className="text-[9px] text-muted-foreground absolute"
+              className="text-caption text-muted-foreground absolute"
               style={{ left: m.col * (CELL_SIZE + CELL_GAP) }}
             >
               {m.label}

@@ -70,7 +70,7 @@ export function GoalTimeline({ goals, lifeAreas, onGoalClick }: GoalTimelineProp
   if (goals.length === 0) {
     return (
       <div className="flex items-center justify-center py-16">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           No goals with dates to show on the timeline.
         </p>
       </div>
@@ -94,7 +94,7 @@ export function GoalTimeline({ goals, lifeAreas, onGoalClick }: GoalTimelineProp
         style={{ width: LEFT_PANEL_WIDTH }}
       >
         <div className="h-[52px] border-b border-border/20 px-3 flex items-end pb-2">
-          <span className="text-xs font-medium text-muted-foreground">Goals</span>
+          <span className="text-meta font-medium text-muted-foreground">Goals</span>
         </div>
         {timelineGoals.map((goal) => {
           const area = goal.life_area_id ? areaMap[goal.life_area_id] : null
@@ -111,7 +111,7 @@ export function GoalTimeline({ goals, lifeAreas, onGoalClick }: GoalTimelineProp
                   style={{ backgroundColor: area.color }}
                 />
               )}
-              <span className="text-xs font-medium truncate">{goal.name}</span>
+              <span className="text-meta font-medium truncate">{goal.name}</span>
             </div>
           )
         })}
@@ -129,7 +129,7 @@ export function GoalTimeline({ goals, lifeAreas, onGoalClick }: GoalTimelineProp
               {months.map((m) => (
                 <div
                   key={m.month}
-                  className="text-[10px] font-medium text-muted-foreground px-1 pt-1.5 border-l border-border/10 first:border-l-0"
+                  className="text-label font-medium text-muted-foreground px-1 pt-1.5 border-l border-border/10 first:border-l-0"
                   style={{ width: m.days * DAY_WIDTH }}
                 >
                   {m.month}
@@ -154,7 +154,8 @@ export function GoalTimeline({ goals, lifeAreas, onGoalClick }: GoalTimelineProp
             style={{ left: todayX, height: HEADER_HEIGHT + timelineGoals.length * ROW_HEIGHT }}
           >
             <div className="w-px h-full bg-amber-500/60" />
-            <div className="absolute top-1 -translate-x-1/2 bg-amber-500 text-[9px] font-semibold text-white px-1.5 py-0.5 rounded-full whitespace-nowrap">
+            <div className="absolute top-1 -translate-x-1/2 bg-amber-500 text-caption font-semibold text-white px-1.5 py-0.5 rounded-full whitespace-nowrap">
+              {/* font-semibold kept for legibility on colored pill */}
               Today
             </div>
           </div>
@@ -207,13 +208,13 @@ export function GoalTimeline({ goals, lifeAreas, onGoalClick }: GoalTimelineProp
                   />
                   {/* Bar label (show if wide enough) */}
                   {width > 60 && (
-                    <span className="absolute inset-0 flex items-center px-2 text-[10px] font-medium truncate" style={{ color: barColor }}>
+                    <span className="absolute inset-0 flex items-center px-2 text-label font-medium truncate" style={{ color: barColor }}>
                       {goal.name}
                     </span>
                   )}
                 </TooltipTrigger>
                 <TooltipContent side="top">
-                  <div className="text-xs">
+                  <div className="text-meta">
                     <div className="font-medium">{goal.name}</div>
                     <div className="opacity-70">{goal.progress}% complete</div>
                     {goal.milestone_count > 0 && (

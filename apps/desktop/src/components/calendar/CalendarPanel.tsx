@@ -3,8 +3,9 @@ import { useCalendar } from '@/hooks/useCalendar'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { openUrl } from '@/services/tauri'
-import type { CalendarEvent } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
+import type { DataProvider } from '@/services/data-provider'
+import type { CalendarEvent } from '@daily-triage/types'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 // ── Helpers ──
@@ -32,16 +33,16 @@ function timeToMinutes(time: string): number {
   return h * 60 + (m || 0)
 }
 
-function formatDateHeader(dateStr: string): string {
+function formatShortDate(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00')
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  return `${months[d.getMonth()]} ${d.getDate()}`
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  return `${days[d.getDay()]} ${d.getDate()}`
 }
 
-function formatDayOfWeek(dateStr: string): string {
+function formatMonthShort(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00')
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-  return days[d.getDay()]
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  return months[d.getMonth()]
 }
 
 function isDatePast(dateStr: string): boolean {
@@ -69,37 +70,38 @@ function DayNavigationHeader({
 }) {
   return (
     <div className="flex items-center justify-between px-1 mb-2">
-      <button
-        onClick={onPrev}
-        className="flex size-6 items-center justify-center rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-accent/30 transition-colors"
-        title="Previous day"
-      >
-        <ChevronLeft className="size-3.5" />
-      </button>
+      <span className="text-label font-medium uppercase tracking-wider text-muted-foreground">
+        {formatMonthShort(selectedDate)}
+      </span>
 
-      <div className="flex flex-col items-center min-w-0">
+      <div className="flex items-center gap-1">
+        <button
+          onClick={onPrev}
+          className="flex size-6 items-center justify-center rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-accent/30 transition-colors"
+          title="Previous day"
+        >
+          <ChevronLeft className="size-3.5" />
+        </button>
+
         <button
           onClick={onGoToday}
           className={cn(
-            'text-[12px] font-medium leading-tight transition-colors',
+            'text-meta font-medium leading-tight transition-colors px-1.5 tabular-nums',
             isToday ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
           )}
           title="Jump to today"
         >
-          {isToday ? `Today, ${formatDateHeader(selectedDate)}` : formatDateHeader(selectedDate)}
+          {formatShortDate(selectedDate)}
         </button>
-        <span className="text-[10px] text-muted-foreground/60 leading-tight">
-          {formatDayOfWeek(selectedDate)}
-        </span>
-      </div>
 
-      <button
-        onClick={onNext}
-        className="flex size-6 items-center justify-center rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-accent/30 transition-colors"
-        title="Next day"
-      >
-        <ChevronRight className="size-3.5" />
-      </button>
+        <button
+          onClick={onNext}
+          className="flex size-6 items-center justify-center rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-accent/30 transition-colors"
+          title="Next day"
+        >
+          <ChevronRight className="size-3.5" />
+        </button>
+      </div>
     </div>
   )
 }
@@ -115,7 +117,7 @@ function AllDayStrip({ events }: { events: CalendarEvent[] }) {
       {visible.map((event) => (
         <div
           key={event.id}
-          className="flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[11px] font-medium bg-muted/30"
+          className="flex items-center gap-1.5 rounded px-1.5 py-0.5 text-label font-medium bg-muted/30"
           style={{
             borderLeft: `3px solid ${event.feed_color || '#6366f1'}`,
           }}
@@ -124,7 +126,7 @@ function AllDayStrip({ events }: { events: CalendarEvent[] }) {
         </div>
       ))}
       {overflow > 0 && (
-        <span className="text-[10px] text-muted-foreground/60 pl-2">
+        <span className="text-label text-muted-foreground/60 pl-2">
           +{overflow} more
         </span>
       )}
@@ -163,12 +165,76 @@ function CurrentTimeIndicator({ startHour }: { startHour: number }) {
   )
 }
 
+interface PositionedEvent extends CalendarEvent {
+  _column: number
+  _totalColumns: number
+}
+
+/**
+ * Assigns each event a column index so overlapping events render side-by-side.
+ * Events that share any time window are grouped into a "cluster" and each
+ * cluster's total column count becomes the denominator for width.
+ */
+function layoutEvents(events: CalendarEvent[]): PositionedEvent[] {
+  if (events.length === 0) return []
+
+  const sorted = [...events].sort((a, b) => {
+    const aStart = timeToMinutes(a.start_time)
+    const bStart = timeToMinutes(b.start_time)
+    if (aStart !== bStart) return aStart - bStart
+    return timeToMinutes(b.end_time) - timeToMinutes(a.end_time)
+  })
+
+  const clusters: CalendarEvent[][] = []
+  for (const event of sorted) {
+    const eventStart = timeToMinutes(event.start_time)
+    let placed = false
+    for (const cluster of clusters) {
+      const latestEnd = Math.max(...cluster.map((e) => timeToMinutes(e.end_time)))
+      if (latestEnd > eventStart) {
+        cluster.push(event)
+        placed = true
+        break
+      }
+    }
+    if (!placed) clusters.push([event])
+  }
+
+  const result: PositionedEvent[] = []
+  for (const cluster of clusters) {
+    const columnEnds: number[] = []
+    const assignments: { event: CalendarEvent; column: number }[] = []
+
+    for (const event of cluster) {
+      const eventStart = timeToMinutes(event.start_time)
+      const eventEnd = timeToMinutes(event.end_time)
+      let assignedCol = columnEnds.findIndex((end) => end <= eventStart)
+      if (assignedCol === -1) {
+        assignedCol = columnEnds.length
+        columnEnds.push(eventEnd)
+      } else {
+        columnEnds[assignedCol] = eventEnd
+      }
+      assignments.push({ event, column: assignedCol })
+    }
+
+    const totalColumns = columnEnds.length
+    for (const { event, column } of assignments) {
+      result.push({ ...event, _column: column, _totalColumns: totalColumns })
+    }
+  }
+
+  return result
+}
+
 function EventBlock({
   event,
   startHour,
+  dp,
 }: {
-  event: CalendarEvent
+  event: PositionedEvent
   startHour: number
+  dp: DataProvider
 }) {
   const [hovered, setHovered] = useState(false)
   const startMin = timeToMinutes(event.start_time)
@@ -182,31 +248,43 @@ function EventBlock({
 
   const feedColor = event.feed_color || '#6366f1'
 
+  const columnGap = 2
+  const columnWidthPct = 100 / event._totalColumns
+  const leftPct = event._column * columnWidthPct
+  const isNarrow = event._totalColumns > 1
+
   return (
     <div
-      className="absolute right-0 rounded-md overflow-hidden cursor-default transition-shadow hover:shadow-md"
+      className="absolute rounded-sm overflow-hidden cursor-default transition-shadow hover:shadow-md hover:z-10"
       style={{
         top: topPx,
         height,
-        left: TIME_LABEL_WIDTH + 4,
-        borderLeft: `3px solid ${feedColor}`,
+        left: `calc(${TIME_LABEL_WIDTH + 4}px + (100% - ${TIME_LABEL_WIDTH + 4}px) * ${leftPct / 100})`,
+        width: `calc((100% - ${TIME_LABEL_WIDTH + 4}px) * ${columnWidthPct / 100} - ${columnGap}px)`,
+        borderLeft: `2px solid ${feedColor}`,
         backgroundColor: `${feedColor}15`,
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      title={event.summary}
     >
-      <div className="px-1.5 py-0.5 h-full flex flex-col justify-center overflow-hidden">
-        <p className="text-[11px] font-semibold leading-tight truncate">
+      <div className="px-1.5 py-0.5 h-full flex flex-col justify-start overflow-hidden min-w-0">
+        <p className="text-label font-semibold leading-tight truncate">
           {event.summary}
         </p>
-        {!isShort && (
-          <p className="text-[10px] text-muted-foreground leading-tight truncate mt-px">
+        {!isShort && !isNarrow && (
+          <p className="text-label text-muted-foreground leading-tight truncate mt-px">
             {formatTimeRange(event.start_time, event.end_time)}
           </p>
         )}
-        {!isShort && event.location && !event.meeting_url && (
-          <p className="text-[9px] text-muted-foreground/60 leading-tight truncate">
+        {!isShort && !isNarrow && event.location && !event.meeting_url && (
+          <p className="text-caption text-muted-foreground/60 truncate">
             {event.location}
+          </p>
+        )}
+        {!isShort && isNarrow && (
+          <p className="text-label text-muted-foreground leading-tight truncate mt-px">
+            {formatCompactTime(event.start_time)}
           </p>
         )}
       </div>
@@ -214,10 +292,10 @@ function EventBlock({
         <Button
           variant="secondary"
           size="sm"
-          className="absolute bottom-0.5 right-0.5 h-5 px-1.5 text-[9px] font-medium opacity-90"
+          className="absolute bottom-0.5 right-0.5 h-5 px-1.5 text-caption opacity-90"
           onClick={(e) => {
             e.stopPropagation()
-            openUrl(event.meeting_url!)
+            dp.system.openUrl(event.meeting_url!)
           }}
         >
           Join
@@ -230,41 +308,47 @@ function EventBlock({
 function TimeGrid({
   events,
   isToday,
+  dp,
 }: {
   events: CalendarEvent[]
   isToday: boolean
+  dp: DataProvider
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Determine smart window
   const timedEvents = events.filter((e) => !e.all_day)
 
   if (timedEvents.length === 0) return null
 
-  const allMinutes = timedEvents.flatMap((e) => [
-    timeToMinutes(e.start_time),
-    timeToMinutes(e.end_time),
-  ])
-  const earliest = Math.min(...allMinutes)
-  const latest = Math.max(...allMinutes)
-
-  const startHour = Math.max(0, Math.floor(earliest / 60) - 1)
-  const endHour = Math.min(24, Math.ceil(latest / 60) + 1)
+  // Full-day grid: midnight to midnight. User can scroll back to see any
+  // earlier hour of the day, and the grid continues past the last event
+  // to the end of the day.
+  const startHour = 0
+  const endHour = 24
   const totalHours = endHour - startHour
-
   const gridHeight = totalHours * HOUR_HEIGHT
 
-  // Auto-scroll to show current time indicator if today
+  // Initial scroll: center on current time if today, otherwise on the
+  // earliest event. Either way, position ~1/3 from the top of the viewport.
   useEffect(() => {
-    if (isToday && scrollRef.current) {
+    if (!scrollRef.current) return
+
+    let anchorMinutes: number
+    if (isToday) {
       const now = new Date()
-      const minutes = now.getHours() * 60 + now.getMinutes()
-      const offset = ((minutes - startHour * 60) / 60) * HOUR_HEIGHT
-      // Scroll so current time is roughly 1/3 from top
-      const scrollTop = Math.max(0, offset - scrollRef.current.clientHeight / 3)
-      scrollRef.current.scrollTop = scrollTop
+      anchorMinutes = now.getHours() * 60 + now.getMinutes()
+    } else {
+      const allMinutes = timedEvents.map((e) => timeToMinutes(e.start_time))
+      anchorMinutes = allMinutes.length > 0 ? Math.min(...allMinutes) : 8 * 60
     }
-  }, [isToday, startHour])
+
+    const offset = (anchorMinutes / 60) * HOUR_HEIGHT
+    const scrollTop = Math.max(0, offset - scrollRef.current.clientHeight / 3)
+    scrollRef.current.scrollTop = scrollTop
+    // Intentionally only run on mount and when the day changes — subsequent
+    // re-renders shouldn't reset the user's scroll position.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isToday])
 
   // Generate hour labels
   const hourLabels: { hour: number; label: string }[] = []
@@ -286,10 +370,10 @@ function TimeGrid({
           return (
             <div key={hour} className="absolute left-0 right-0" style={{ top: y }}>
               <div className="flex items-start">
-                <span className="text-[10px] tabular-nums text-muted-foreground/40 leading-none -mt-[5px]" style={{ width: TIME_LABEL_WIDTH }}>
+                <span className="text-label tabular-nums text-muted-foreground/40 leading-none -mt-[5px]" style={{ width: TIME_LABEL_WIDTH }}>
                   {label}
                 </span>
-                <div className="flex-1 border-t border-border/10" />
+                <div className="flex-1 border-t border-border/40" />
               </div>
             </div>
           )
@@ -303,8 +387,8 @@ function TimeGrid({
         )}
 
         {/* Event blocks */}
-        {timedEvents.map((event) => (
-          <EventBlock key={event.id} event={event} startHour={startHour} />
+        {layoutEvents(timedEvents).map((event) => (
+          <EventBlock key={event.id} event={event} startHour={startHour} dp={dp} />
         ))}
       </div>
     </div>
@@ -321,7 +405,7 @@ function EmptyDayState({ dateStr, isToday }: { dateStr: string; isToday: boolean
 
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center">
-      <p className="text-xs text-muted-foreground/50">{message}</p>
+      <p className="text-meta text-muted-foreground/50">{message}</p>
     </div>
   )
 }
@@ -329,6 +413,7 @@ function EmptyDayState({ dateStr, isToday }: { dateStr: string; isToday: boolean
 // ── Main Component ──
 
 export function CalendarPanel() {
+  const dp = useDataProvider()
   const {
     events,
     error,
@@ -405,8 +490,8 @@ export function CalendarPanel() {
 
       {error && (
         <div className="space-y-2 mb-2">
-          <p className="text-[11px] text-destructive">Could not load calendar</p>
-          <Button variant="ghost" size="sm" onClick={refresh} className="text-[10px] h-6">
+          <p className="text-label text-destructive">Could not load calendar</p>
+          <Button variant="ghost" size="sm" onClick={refresh} className="text-label h-6">
             Retry
           </Button>
         </div>
@@ -417,7 +502,7 @@ export function CalendarPanel() {
           <AllDayStrip events={allDayEvents} />
 
           {timedEvents.length > 0 ? (
-            <TimeGrid events={timedEvents} isToday={isToday} />
+            <TimeGrid events={timedEvents} isToday={isToday} dp={dp} />
           ) : (
             allDayEvents.length === 0 && (
               <EmptyDayState dateStr={selectedDate} isToday={isToday} />

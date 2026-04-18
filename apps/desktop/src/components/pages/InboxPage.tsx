@@ -1,40 +1,23 @@
 import { useEffect, useCallback, useMemo, useState, useRef } from 'react'
 import { useAppStore } from '@/stores/appStore'
-import { useLocalTasks, useProjects } from '@/hooks/useLocalTasks'
+import { useLocalTasks } from '@/hooks/useLocalTasks'
 import { emitTasksChanged } from '@/hooks/useLocalTasks'
 import { useDetailStore } from '@/stores/detailStore'
 import { useSelectionStore } from '@/stores/selectionStore'
-import {
-  updateLocalTask,
-  getCaptures,
-  createCapture,
-  convertCaptureToTask,
-  importObsidianCaptures,
-  getDocFolders,
-  getDocuments,
-  createDocNote,
-  deleteCapture,
-  getCaptureRoutes,
-  routeCapture,
-} from '@/services/tauri'
-import type { CaptureRoute } from '@/services/tauri'
+import { SelectionCheckbox } from '@/components/shared/SelectionCheckbox'
+import { useDataProvider } from '@/services/provider-context'
+import type { CaptureRoute } from '@daily-triage/types'
 import { parseRoutePrefix } from '@/lib/captureRoutes'
 import { cn } from '@/lib/utils'
 import { StatusDropdown } from '@/components/tasks/StatusDropdown'
-import { FocusPlayMenu } from '@/components/focus/FocusPlayMenu'
-import { useFocusStore } from '@/stores/focusStore'
+import { SubtaskBadge, SubtaskSummary } from '@/components/tasks/TaskItem'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { taskToast } from '@/lib/taskToast'
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from '@/components/ui/dropdown-menu'
-import { Check, PenLine, ArrowRight, FileText, FolderInput, Trash2, Download, Search, Lightbulb, Quote, CheckSquare } from 'lucide-react'
-import type { LocalTask, Capture, Project, DocFolder, Document } from '@/services/tauri'
+import { PenLine, ArrowRight, FileText, Download, Search, Lightbulb, Quote, CheckSquare } from 'lucide-react'
+import { PageHeader } from '@/components/shared/PageHeader'
+import type { LocalTask, Capture, DocFolder, Document } from '@daily-triage/types'
 
 // ── Route icon map ──
 
@@ -53,17 +36,23 @@ function RouteIcon({ name, className }: { name: string; className?: string }) {
 // ── Unified inbox item type ──
 
 type InboxItem =
-  | { kind: 'task'; data: LocalTask; sortDate: string }
+  | {
+      kind: 'task'
+      data: LocalTask
+      sortDate: string
+      isSubtask?: boolean
+      subtaskStats?: { done: number; total: number }
+    }
   | { kind: 'note'; data: Capture; sortDate: string }
 
 // ── Main page ──
 
 export function InboxPage() {
+  const dp = useDataProvider()
   const captureRequested = useAppStore((s) => s.captureRequested)
   const setCaptureRequested = useAppStore((s) => s.setCaptureRequested)
 
-  const { tasks, loading: tasksLoading, remove } = useLocalTasks({ projectId: 'inbox' })
-  const { projects } = useProjects()
+  const { tasks, loading: tasksLoading } = useLocalTasks({ projectId: 'inbox' })
   const [moveToDocCapture, setMoveToDocCapture] = useState<Capture | null>(null)
 
   const [captures, setCaptures] = useState<Capture[]>([])
@@ -76,8 +65,8 @@ export function InboxPage() {
 
   // Fetch capture routes
   useEffect(() => {
-    getCaptureRoutes().then(setRoutes).catch(() => {})
-  }, [])
+    dp.captureRoutes.list().then(setRoutes).catch(() => {})
+  }, [dp])
 
   // Real-time route detection
   const parsedRoute = useMemo(
@@ -90,11 +79,11 @@ export function InboxPage() {
   // Fetch captures
   const refreshCaptures = useCallback(async () => {
     try {
-      const data = await getCaptures(50)
+      const data = await dp.captures.list(50)
       setCaptures(data)
     } catch { /* silently fail */ }
     finally { setCapturesLoading(false) }
-  }, [])
+  }, [dp])
 
   useEffect(() => { refreshCaptures() }, [refreshCaptures])
 
@@ -114,15 +103,54 @@ export function InboxPage() {
     }
   }, [captureRequested, setCaptureRequested])
 
-  // Merge + sort chronologically
+  // Merge + sort chronologically. Parent tasks appear sorted by creation
+  // date; their subtasks follow them as adjacent rows regardless of their
+  // own creation date.
   const items = useMemo<InboxItem[]>(() => {
-    const taskItems: InboxItem[] = tasks
-      .filter((t) => t.status !== 'complete' && !t.parent_id)
-      .map((t) => ({ kind: 'task', data: t, sortDate: t.created_at }))
+    const activeTasks = tasks.filter((t) => t.status !== 'complete')
+
+    const subtaskMap: Record<string, LocalTask[]> = {}
+    for (const t of activeTasks) {
+      if (t.parent_id) {
+        if (!subtaskMap[t.parent_id]) subtaskMap[t.parent_id] = []
+        subtaskMap[t.parent_id].push(t)
+      }
+    }
+
+    const parentTaskItems: InboxItem[] = activeTasks
+      .filter((t) => !t.parent_id)
+      .map((t) => {
+        const subs = subtaskMap[t.id] ?? []
+        const done = subs.filter((s) => s.completed || s.status === 'complete').length
+        return {
+          kind: 'task',
+          data: t,
+          sortDate: t.created_at,
+          subtaskStats: subs.length > 0 ? { done, total: subs.length } : undefined,
+        }
+      })
+
     const noteItems: InboxItem[] = captures
       .filter((c) => !c.converted_to_task_id)
       .map((c) => ({ kind: 'note', data: c, sortDate: c.created_at }))
-    return [...taskItems, ...noteItems].sort((a, b) => b.sortDate.localeCompare(a.sortDate))
+
+    // Merge parents + notes, sort chronologically
+    const merged: InboxItem[] = [...parentTaskItems, ...noteItems].sort((a, b) =>
+      b.sortDate.localeCompare(a.sortDate),
+    )
+
+    // Interleave subtasks after their parent
+    const result: InboxItem[] = []
+    for (const item of merged) {
+      result.push(item)
+      if (item.kind === 'task' && !item.data.parent_id) {
+        const subs = subtaskMap[item.data.id] ?? []
+        for (const sub of subs) {
+          result.push({ kind: 'task', data: sub, sortDate: sub.created_at, isSubtask: true })
+        }
+      }
+    }
+    return result
   }, [tasks, captures])
 
   // Handlers
@@ -134,7 +162,7 @@ export function InboxPage() {
       const { route, content } = parseRoutePrefix(text, routes)
       if (route && content) {
         // Route to target (doc or task)
-        const result = await routeCapture(route.prefix, content)
+        const result = await dp.captureRoutes.route(route.prefix, content)
         if (result.target_type === 'task') {
           emitTasksChanged()
         }
@@ -143,7 +171,7 @@ export function InboxPage() {
         refreshCaptures()
       } else {
         // Default: create a plain capture
-        const capture = await createCapture(text, 'inbox')
+        const capture = await dp.captures.create(text, 'inbox')
         setCaptures((prev) => [capture, ...prev])
         setInputValue('')
         toast.success('Note saved')
@@ -154,34 +182,23 @@ export function InboxPage() {
       setSubmitting(false)
       inputRef.current?.focus()
     }
-  }, [inputValue, submitting, routes, refreshCaptures])
+  }, [inputValue, submitting, routes, refreshCaptures, dp])
 
   const handleConvert = useCallback(async (capture: Capture) => {
     try {
-      const task = await convertCaptureToTask(capture.id)
+      const task = await dp.captures.convertToTask(capture.id)
       taskToast(`Converted to task: "${capture.content}"`, task.id)
       emitTasksChanged()
       refreshCaptures()
     } catch (e) {
       toast.error(`Failed to convert: ${e}`)
     }
-  }, [refreshCaptures])
-
-  const handleMove = useCallback(async (id: string, projectId: string) => {
-    const project = projects.find((p) => p.id === projectId)
-    try {
-      await updateLocalTask({ id, projectId })
-      taskToast(`Moved to ${project?.name ?? 'project'}`, id)
-      emitTasksChanged()
-    } catch (e) {
-      toast.error(`Failed to move: ${e}`)
-    }
-  }, [projects])
+  }, [refreshCaptures, dp])
 
   const handleImport = useCallback(async () => {
     setImporting(true)
     try {
-      const count = await importObsidianCaptures()
+      const count = await dp.obsidian.importCaptures()
       if (count > 0) {
         toast.success(`Imported ${count} notes from Obsidian`)
         refreshCaptures()
@@ -193,10 +210,26 @@ export function InboxPage() {
     } finally {
       setImporting(false)
     }
-  }, [refreshCaptures])
+  }, [refreshCaptures, dp])
 
   return (
-    <div className="space-y-4">
+    <>
+      <PageHeader
+        title="Inbox"
+        meta={items.length > 0 ? `${items.length} item${items.length !== 1 ? 's' : ''}` : undefined}
+        actions={
+          <button
+            onClick={handleImport}
+            disabled={importing}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-meta text-muted-foreground transition-colors hover:bg-accent/20 hover:text-foreground disabled:opacity-50"
+            title="Import from Obsidian"
+          >
+            <Download className="size-3" />
+            {importing ? 'Importing…' : 'Import'}
+          </button>
+        }
+      />
+      <div className="px-5 py-6 space-y-4 w-full">
       {/* Note input — command bar style */}
       <div className="flex h-10 items-center gap-2 rounded-xl border border-border/30 bg-muted/30 px-3">
         <Search className="size-3.5 shrink-0 text-muted-foreground/30" />
@@ -207,11 +240,11 @@ export function InboxPage() {
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
           placeholder="Write a note... (/i idea, /q quote, /t task)"
           disabled={submitting}
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/40"
+          className="flex-1 bg-transparent text-body outline-none placeholder:text-muted-foreground/40"
         />
         {parsedRoute.route && parsedRoute.content && (
           <span
-            className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
+            className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-label font-medium text-white"
             style={{ backgroundColor: parsedRoute.route.color }}
           >
             <RouteIcon name={parsedRoute.route.icon} className="size-3" />
@@ -221,7 +254,7 @@ export function InboxPage() {
         {inputValue.trim() && (
           <button
             onClick={handleSubmit}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="text-meta text-muted-foreground hover:text-foreground transition-colors"
           >
             {submitting ? '...' : 'Save'}
           </button>
@@ -237,44 +270,43 @@ export function InboxPage() {
         </div>
       ) : items.length === 0 ? (
         <div className="space-y-3 py-4">
-          <p className="text-sm text-muted-foreground text-center">
+          <p className="text-body text-muted-foreground text-center">
             Inbox is empty — nothing to process.
           </p>
           <div className="flex justify-center">
-            <Button variant="ghost" size="sm" onClick={handleImport} disabled={importing} className="gap-1.5 text-xs">
+            <Button variant="ghost" size="sm" onClick={handleImport} disabled={importing} className="gap-1.5 text-meta">
               <Download className="size-3" />
               {importing ? 'Importing...' : 'Import from Obsidian'}
             </Button>
           </div>
         </div>
       ) : (
-        <div className="space-y-0.5">
-          {items.map((item) =>
-            item.kind === 'task' ? (
-              <InboxTaskRow
-                key={`task-${item.data.id}`}
-                task={item.data as LocalTask}
-                projects={projects}
-                onDelete={remove}
-                onMove={handleMove}
-              />
-            ) : (
-              <InboxNoteRow
-                key={`note-${item.data.id}`}
-                capture={item.data as Capture}
-                onConvert={() => handleConvert(item.data as Capture)}
-                onMoveToDoc={(c) => setMoveToDocCapture(c)}
-              />
-            ),
-          )}
+        <div className="divide-y divide-border/20">
+          {items.map((item, i) => {
+            const delay = `${Math.min(i, 14) * 25}ms`
+            return (
+              <div
+                key={item.kind === 'task' ? `task-${item.data.id}` : `note-${item.data.id}`}
+                className="animate-row-enter"
+                style={{ animationDelay: delay }}
+              >
+                {item.kind === 'task' ? (
+                  <InboxTaskRow
+                    task={item.data as LocalTask}
+                    isSubtask={item.isSubtask}
+                    subtaskStats={item.subtaskStats}
+                  />
+                ) : (
+                  <InboxNoteRow
+                    capture={item.data as Capture}
+                    onConvert={() => handleConvert(item.data as Capture)}
+                    onMoveToDoc={(c) => setMoveToDocCapture(c)}
+                  />
+                )}
+              </div>
+            )
+          })}
 
-          {/* Import button at bottom */}
-          <div className="pt-3">
-            <Button variant="ghost" size="sm" onClick={handleImport} disabled={importing} className="gap-1.5 text-xs">
-              <Download className="size-3" />
-              {importing ? 'Importing...' : 'Import from Obsidian'}
-            </Button>
-          </div>
         </div>
       )}
 
@@ -286,7 +318,8 @@ export function InboxPage() {
           onDone={refreshCaptures}
         />
       )}
-    </div>
+      </div>
+    </>
   )
 }
 
@@ -294,87 +327,36 @@ export function InboxPage() {
 
 function InboxTaskRow({
   task,
-  projects,
-  onDelete,
-  onMove,
+  isSubtask,
+  subtaskStats,
 }: {
   task: LocalTask
-  projects: Project[]
-  onDelete: (id: string) => void
-  onMove: (id: string, projectId: string) => void
+  isSubtask?: boolean
+  subtaskStats?: { done: number; total: number }
 }) {
   const isSelected = useSelectionStore((s) => s.selectedIds.has(task.id))
-  const hasSelection = useSelectionStore((s) => s.hasSelection)
-  const focusActive = useFocusStore((s) => s.isActive)
 
   return (
     <div className={cn(
-      'group flex items-center gap-2 h-9 px-2 rounded-md transition-all duration-150 hover:bg-accent/30',
+      'group flex items-center gap-2 h-9 min-w-0 px-2 rounded-md transition-all duration-150 hover:bg-accent/30',
       isSelected && 'bg-accent-blue/10',
     )}>
-      {/* Selection checkbox */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          const store = useSelectionStore.getState()
-          if (e.shiftKey) store.rangeSelect(task.id, 'task', [])
-          else store.toggle(task.id, 'task')
-        }}
-        className={cn(
-          'flex size-4 shrink-0 items-center justify-center rounded border transition-all',
-          isSelected ? 'border-accent-blue bg-accent-blue text-white' : 'border-muted-foreground/30 hover:border-muted-foreground/50',
-          hasSelection || isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
-        )}
-      >
-        {isSelected && <Check className="size-3" />}
-      </button>
+      <SelectionCheckbox id={task.id} type="task" />
 
-      {/* Status */}
       <StatusDropdown taskId={task.id} status={task.status ?? 'todo'} />
 
-      {/* Content */}
+      {isSubtask && <SubtaskBadge />}
+
       <button
         onClick={() => useDetailStore.getState().openTask(task.id)}
-        className="flex-1 min-w-0 truncate text-sm text-left bg-transparent border-none cursor-pointer hover:text-foreground"
+        className="flex-1 min-w-0 truncate text-body text-left bg-transparent border-none cursor-pointer hover:text-foreground"
       >
         {task.content}
       </button>
 
-      {/* Actions */}
-      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-        {!task.completed && !focusActive && (
-          <FocusPlayMenu task={task} />
-        )}
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className="flex size-6 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
-            aria-label="Move to project"
-          >
-            <FolderInput className="size-3" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent side="top" sideOffset={4} align="end" className="w-36">
-            {projects
-              .filter((p) => p.id !== task.project_id)
-              .map((p) => (
-                <DropdownMenuItem
-                  key={p.id}
-                  className="gap-2"
-                  onClick={() => onMove(task.id, p.id)}
-                >
-                  <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-                  <span className="truncate">{p.name}</span>
-                </DropdownMenuItem>
-              ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <button
-          onClick={() => onDelete(task.id)}
-          className="flex size-6 items-center justify-center rounded-md text-destructive/40 hover:text-destructive hover:bg-accent/20 transition-colors"
-          aria-label="Delete task"
-        >
-          <Trash2 className="size-3" />
-        </button>
-      </div>
+      {subtaskStats && subtaskStats.total > 0 && (
+        <SubtaskSummary done={subtaskStats.done} total={subtaskStats.total} />
+      )}
     </div>
   )
 }
@@ -391,29 +373,13 @@ function InboxNoteRow({
   onMoveToDoc: (capture: Capture) => void
 }) {
   const isSelected = useSelectionStore((s) => s.selectedIds.has(capture.id))
-  const hasSelection = useSelectionStore((s) => s.hasSelection)
 
   return (
     <div className={cn(
-      'group flex items-center gap-2 h-9 px-2 rounded-md transition-all duration-150 hover:bg-accent/30',
+      'group flex items-center gap-2 h-9 min-w-0 px-2 rounded-md transition-all duration-150 hover:bg-accent/30',
       isSelected && 'bg-accent-blue/10',
     )}>
-      {/* Selection checkbox */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          const store = useSelectionStore.getState()
-          if (e.shiftKey) store.rangeSelect(capture.id, 'capture', [])
-          else store.toggle(capture.id, 'capture')
-        }}
-        className={cn(
-          'flex size-4 shrink-0 items-center justify-center rounded border transition-all',
-          isSelected ? 'border-accent-blue bg-accent-blue text-white' : 'border-muted-foreground/30 hover:border-muted-foreground/50',
-          hasSelection || isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
-        )}
-      >
-        {isSelected && <Check className="size-3" />}
-      </button>
+      <SelectionCheckbox id={capture.id} type="capture" />
 
       {/* Note icon */}
       <PenLine className="size-4 shrink-0 text-amber-500/60" />
@@ -421,14 +387,14 @@ function InboxNoteRow({
       {/* Content */}
       <button
         onClick={() => useDetailStore.getState().openCapture(capture.id)}
-        className="flex-1 min-w-0 truncate text-sm text-left bg-transparent border-none cursor-pointer hover:text-foreground"
+        className="flex-1 min-w-0 truncate text-body text-left bg-transparent border-none cursor-pointer hover:text-foreground"
       >
         {capture.content}
       </button>
 
       {/* Routed badge */}
       {capture.routed_to && (
-        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
+        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-caption text-muted-foreground">
           {capture.routed_to}
         </span>
       )}
@@ -437,14 +403,14 @@ function InboxNoteRow({
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         <button
           onClick={() => onMoveToDoc(capture)}
-          className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20"
+          className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-label text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20"
         >
           <FileText className="size-3" />
           Move to doc
         </button>
         <button
           onClick={onConvert}
-          className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20"
+          className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-label text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20"
         >
           <ArrowRight className="size-3" />
           Convert to task
@@ -465,15 +431,16 @@ function MoveToDocPicker({
   onClose: () => void
   onDone: () => void
 }) {
+  const dp = useDataProvider()
   const [folders, setFolders] = useState<DocFolder[]>([])
   const [docs, setDocs] = useState<Document[]>([])
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getDocFolders().then(setFolders).catch(() => {})
-    getDocuments().then((d) => { setDocs(d); setLoading(false) }).catch(() => setLoading(false))
-  }, [])
+    dp.docs.getFolders().then(setFolders).catch(() => {})
+    dp.docs.getDocuments().then((d) => { setDocs(d); setLoading(false) }).catch(() => setLoading(false))
+  }, [dp])
 
   const filteredDocs = selectedFolderId
     ? docs.filter((d) => d.folder_id === selectedFolderId)
@@ -481,8 +448,8 @@ function MoveToDocPicker({
 
   const handleSelect = async (docId: string) => {
     try {
-      await createDocNote(docId, capture.content)
-      await deleteCapture(capture.id)
+      await dp.docs.createNote(docId, capture.content)
+      await dp.captures.delete(capture.id)
       const doc = docs.find((d) => d.id === docId)
       toast.success(`Moved to "${doc?.title || 'doc'}"`)
       onDone()
@@ -496,15 +463,15 @@ function MoveToDocPicker({
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
       <div className="w-72 rounded-xl border border-border/30 bg-popover p-3 shadow-xl animate-in fade-in slide-in-from-bottom-3 duration-200" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-muted-foreground">Move to doc</span>
-          <button onClick={onClose} className="text-muted-foreground/40 hover:text-muted-foreground text-xs">Esc</button>
+          <span className="text-meta font-medium text-muted-foreground">Move to doc</span>
+          <button onClick={onClose} className="text-muted-foreground/40 hover:text-muted-foreground text-meta">Esc</button>
         </div>
 
         {/* Folder filter */}
         <div className="flex items-center gap-1 mb-2 flex-wrap">
           <button
             onClick={() => setSelectedFolderId(null)}
-            className={cn('rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors', !selectedFolderId ? 'bg-foreground text-background' : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20')}
+            className={cn('rounded-md px-2 py-0.5 text-label font-medium transition-colors', !selectedFolderId ? 'bg-foreground text-background' : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20')}
           >
             All
           </button>
@@ -512,7 +479,7 @@ function MoveToDocPicker({
             <button
               key={f.id}
               onClick={() => setSelectedFolderId(f.id)}
-              className={cn('rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors', selectedFolderId === f.id ? 'bg-foreground text-background' : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20')}
+              className={cn('rounded-md px-2 py-0.5 text-label font-medium transition-colors', selectedFolderId === f.id ? 'bg-foreground text-background' : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/20')}
             >
               {f.name}
             </button>
@@ -522,15 +489,15 @@ function MoveToDocPicker({
         {/* Doc list */}
         <div className="max-h-48 overflow-y-auto space-y-0.5">
           {loading ? (
-            <p className="text-xs text-muted-foreground/40 py-2 text-center">Loading...</p>
+            <p className="text-meta text-muted-foreground/40 py-2 text-center">Loading...</p>
           ) : filteredDocs.length === 0 ? (
-            <p className="text-xs text-muted-foreground/40 py-2 text-center">No docs yet</p>
+            <p className="text-meta text-muted-foreground/40 py-2 text-center">No docs yet</p>
           ) : (
             filteredDocs.map((doc) => (
               <button
                 key={doc.id}
                 onClick={() => handleSelect(doc.id)}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent/20 transition-colors"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-body hover:bg-accent/20 transition-colors"
               >
                 <FileText className="size-3 shrink-0 text-muted-foreground/40" />
                 <span className="truncate">{doc.title || 'Untitled'}</span>
@@ -541,7 +508,7 @@ function MoveToDocPicker({
 
         {/* Note preview */}
         <div className="mt-2 pt-2 border-t border-border/20">
-          <p className="text-[10px] text-muted-foreground/40 truncate">"{capture.content}"</p>
+          <p className="text-label text-muted-foreground/40 truncate">"{capture.content}"</p>
         </div>
       </div>
     </div>
