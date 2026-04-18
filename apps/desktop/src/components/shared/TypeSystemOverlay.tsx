@@ -5,7 +5,7 @@ import { GripHorizontal, X } from 'lucide-react'
 
 /* Draggable dev overlay that renders every design-system type token at
  * actual scale with its token name and numeric values. Mount this behind
- * a DEV gate in App.tsx; keyboard shortcut ⌘⇧K toggles it. Position
+ * a DEV gate in App.tsx; keyboard shortcut ⌘⇧J toggles it. Position
  * persists across reloads via localStorage.
  *
  * Each row shows:
@@ -88,7 +88,7 @@ export function TypeSystemOverlay({ onClose }: { onClose: () => void }) {
           <GripHorizontal className="size-3.5 shrink-0 text-muted-foreground/60" />
           <span className="text-label text-foreground">Type system</span>
           <span className="text-caption text-muted-foreground/70 truncate">
-            ⌘⇧K to toggle · drag to move
+            ⌘⇧J to toggle · drag to move
           </span>
         </div>
         <button
