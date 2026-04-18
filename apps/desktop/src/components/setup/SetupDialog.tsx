@@ -9,7 +9,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { setSetting } from '@/services/tauri'
+import { Meta } from '@/components/shared/typography'
+import { useDataProvider } from '@/services/provider-context'
 
 interface SetupDialogProps {
   open: boolean
@@ -54,6 +55,7 @@ const SETUP_FIELDS: SetupField[] = [
 ]
 
 export function SetupDialog({ open, onComplete }: SetupDialogProps) {
+  const dp = useDataProvider()
   const [values, setValues] = useState<Record<string, string>>({
     obsidian_vault_path: '~/Obsidian/marcowits',
   })
@@ -69,7 +71,7 @@ export function SetupDialog({ open, onComplete }: SetupDialogProps) {
       for (const field of SETUP_FIELDS) {
         const val = values[field.key]?.trim()
         if (val) {
-          await setSetting(field.key, val)
+          await dp.settings.set(field.key, val)
         }
       }
       onComplete()
@@ -86,7 +88,7 @@ export function SetupDialog({ open, onComplete }: SetupDialogProps) {
         className="sm:max-w-lg"
       >
         <DialogHeader>
-          <DialogTitle className="text-lg">Welcome to Daily Triage</DialogTitle>
+          <DialogTitle className="text-heading">Welcome to Daily Triage</DialogTitle>
           <DialogDescription>
             Connect your accounts to get started. These stay on your machine.
           </DialogDescription>
@@ -95,7 +97,7 @@ export function SetupDialog({ open, onComplete }: SetupDialogProps) {
         <div className="space-y-4 pt-2">
           {SETUP_FIELDS.map((field) => (
             <div key={field.key} className="space-y-1.5">
-              <Label htmlFor={field.key} className="text-sm font-medium">
+              <Label htmlFor={field.key} className="text-body-strong">
                 {field.label}
               </Label>
               <Input
@@ -110,12 +112,12 @@ export function SetupDialog({ open, onComplete }: SetupDialogProps) {
                   }))
                 }
               />
-              <p className="text-xs text-muted-foreground">{field.help}</p>
+              <Meta as="p">{field.help}</Meta>
             </div>
           ))}
 
           {error && (
-            <p className="text-sm text-destructive">{error}</p>
+            <p className="text-body text-destructive">{error}</p>
           )}
 
           <Button

@@ -11,13 +11,15 @@ import { useObsidian } from '@/hooks/useObsidian'
 import { useTaskNavigation } from '@/hooks/useTaskNavigation'
 import { useCalendar } from '@/hooks/useCalendar'
 import { cn } from '@/lib/utils'
-import { openUrl, getDailyState, readDailyBrief, listBriefDates } from '@/services/tauri'
-import type { Priority, TodoistTaskRow } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
+import type { Priority, TodoistTaskRow } from '@daily-triage/types'
 import { BriefDisplay } from '@/components/shared/BriefDisplay'
 import { DateStrip } from '@/components/shared/DateStrip'
 import { HabitsSection } from '@/components/goals/HabitsSection'
-import { Calendar, ArrowRight, Check } from 'lucide-react'
+import { ArrowRight, Check } from 'lucide-react'
 import { format } from 'date-fns'
+import { PageHeader } from '@/components/shared/PageHeader'
+import { Meta } from '@/components/shared/typography'
 
 // ── Shared Utilities ──
 
@@ -41,7 +43,7 @@ function ProgressBar({ completed, total }: { completed: number; total: number })
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
+      <span className="text-label font-medium text-muted-foreground tabular-nums">
         {completed}/{total}
       </span>
     </div>
@@ -106,13 +108,13 @@ function ReviewStep({
     )}>
       <div className="flex items-center gap-2 mb-3">
         <span className={cn(
-          'flex size-6 items-center justify-center rounded-full text-xs font-semibold',
+          'flex size-6 items-center justify-center rounded-full text-meta font-semibold',
           done ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground',
         )}>
           {done ? <Check className="size-3.5" /> : step}
         </span>
         <h3 className={cn(
-          'text-sm font-medium',
+          'text-body-strong',
           done && 'text-muted-foreground',
         )}>
           {title}
@@ -138,7 +140,7 @@ function CalendarGlance() {
 
   if (events.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-body text-muted-foreground">
         No meetings today — wide open for deep work.
       </p>
     )
@@ -147,8 +149,8 @@ function CalendarGlance() {
   return (
     <div className="space-y-1">
       {events.slice(0, 5).map((event) => (
-        <div key={event.id} className="flex items-center gap-3 text-sm">
-          <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+        <div key={event.id} className="flex items-center gap-3 text-body">
+          <span className="w-14 shrink-0 text-right text-meta tabular-nums text-muted-foreground">
             {event.all_day ? 'All day' : event.start_time.slice(0, 5)}
           </span>
           {event.feed_color && (
@@ -158,9 +160,7 @@ function CalendarGlance() {
         </div>
       ))}
       {events.length > 5 && (
-        <p className="text-xs text-muted-foreground pl-[62px]">
-          +{events.length - 5} more
-        </p>
+        <Meta as="p" className="pl-[62px]">+{events.length - 5} more</Meta>
       )}
     </div>
   )
@@ -182,7 +182,7 @@ function TriageSection({
 
   if (needsAttention.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-body text-muted-foreground">
         Nothing urgent — you're in good shape.
       </p>
     )
@@ -190,9 +190,9 @@ function TriageSection({
 
   return (
     <div className="space-y-1">
-      <p className="text-xs text-muted-foreground mb-2">
+      <Meta as="p" className="mb-2">
         {needsAttention.length} item{needsAttention.length !== 1 ? 's' : ''} need attention. Complete or snooze to clear them.
-      </p>
+      </Meta>
       {needsAttention.map((task) => (
         <TaskRow
           key={task.id}
@@ -207,6 +207,7 @@ function TriageSection({
 // ── Review Mode ──
 
 function ReviewMode({ onComplete }: { onComplete: (priorities: Priority[]) => void }) {
+  const dp = useDataProvider()
   const [step, setStep] = useState(1)
   const [priorities, setPriorities] = useState<Priority[] | null>(null)
   const [brief, setBrief] = useState<string | null | undefined>(undefined) // undefined = loading
@@ -215,8 +216,8 @@ function ReviewMode({ onComplete }: { onComplete: (priorities: Priority[]) => vo
   const dateStr = format(now, 'EEEE, MMMM d')
 
   useEffect(() => {
-    readDailyBrief().then(setBrief).catch(() => setBrief(null))
-  }, [])
+    dp.dailyState.readDailyBrief().then(setBrief).catch(() => setBrief(null))
+  }, [dp])
 
   const handlePrioritiesGenerated = useCallback((p: Priority[]) => {
     setPriorities(p)
@@ -228,16 +229,14 @@ function ReviewMode({ onComplete }: { onComplete: (priorities: Priority[]) => vo
   }, [priorities, onComplete])
 
   return (
-    <div className="max-w-lg mx-auto space-y-4">
-      {/* Greeting */}
-      <div className="text-center space-y-1 py-4">
-        <h2 className="font-heading text-lg font-semibold tracking-tight">{getGreeting()}</h2>
-        <div className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
-          <Calendar className="size-3.5" />
-          <span>{dateStr}</span>
+    <>
+      <PageHeader title="Today" meta={dateStr} />
+      <div className="px-5 py-6 space-y-4 w-full">
+        {/* Greeting — demoted to first content block */}
+        <div className="text-center space-y-1 py-4">
+          <h2 className="text-heading">{getGreeting()}</h2>
+          <p className="text-body text-muted-foreground pt-1">Let's plan your day.</p>
         </div>
-        <p className="text-sm text-muted-foreground pt-1">Let's plan your day.</p>
-      </div>
 
       {/* Step 1: Daily brief or calendar glance */}
       <ReviewStep
@@ -283,13 +282,15 @@ function ReviewMode({ onComplete }: { onComplete: (priorities: Priority[]) => vo
           </Button>
         </div>
       </ReviewStep>
-    </div>
+      </div>
+    </>
   )
 }
 
 // ── Dashboard Mode ──
 
 function DashboardMode({ cachedPriorities }: { cachedPriorities: Priority[] | null }) {
+  const dp = useDataProvider()
   const { tasks: todoistTasks, completeTask, snoozeTask } = useTodoist()
   const { todayData } = useObsidian()
   const today = new Date().toISOString().slice(0, 10)
@@ -301,16 +302,16 @@ function DashboardMode({ cachedPriorities }: { cachedPriorities: Priority[] | nu
   const [briefLoading, setBriefLoading] = useState(true)
 
   useEffect(() => {
-    listBriefDates().then((dates) => setBriefDates(new Set(dates))).catch(() => {})
-  }, [])
+    dp.dailyState.listBriefDates().then((dates) => setBriefDates(new Set(dates))).catch(() => {})
+  }, [dp])
 
   useEffect(() => {
     setBriefLoading(true)
-    readDailyBrief(selectedDate).then((content) => {
+    dp.dailyState.readDailyBrief(selectedDate).then((content) => {
       setBriefContent(content)
       setBriefLoading(false)
     }).catch(() => setBriefLoading(false))
-  }, [selectedDate])
+  }, [selectedDate, dp])
   const { tasks: localTasks, loading: localLoading, remove: removeLocal, addTask, refresh: refreshLocal } = useLocalTasks({ dueDate: today })
   const { projects } = useProjects()
   const projectMap = useMemo(() => {
@@ -352,9 +353,9 @@ function DashboardMode({ cachedPriorities }: { cachedPriorities: Priority[] | nu
   const handleOpen = useCallback(
     (taskId: string) => {
       const task = todoistTasks.find((t) => t.id === taskId)
-      if (task?.todoist_url) openUrl(task.todoist_url)
+      if (task?.todoist_url) dp.system.openUrl(task.todoist_url)
     },
-    [todoistTasks],
+    [todoistTasks, dp],
   )
 
   useTaskNavigation(flatTaskIds, {
@@ -368,22 +369,21 @@ function DashboardMode({ cachedPriorities }: { cachedPriorities: Priority[] | nu
   const remaining = total - completed
 
   return (
-    <div className="space-y-4">
-      {/* Hero */}
-      <div className="mb-2 space-y-1">
-        <div className="flex items-baseline justify-between">
-          <h2 className="font-heading text-lg font-semibold tracking-tight">{getGreeting()}</h2>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Calendar className="size-3" />
-            <span>{dateStr}</span>
-          </div>
+    <>
+      <PageHeader
+        title="Today"
+        meta={dateStr}
+      />
+      <div className="px-5 py-6 space-y-4 w-full">
+        {/* Greeting — demoted to first content block */}
+        <div className="mb-2 space-y-1">
+          <h2 className="text-heading">{getGreeting()}</h2>
+          {total > 0 && (
+            <p className="text-body text-muted-foreground">
+              {remaining === 0 ? 'All done for today.' : `${remaining} item${remaining === 1 ? '' : 's'} remaining`}
+            </p>
+          )}
         </div>
-        {total > 0 && (
-          <p className="text-sm text-muted-foreground">
-            {remaining === 0 ? 'All done for today.' : `${remaining} item${remaining === 1 ? '' : 's'} remaining`}
-          </p>
-        )}
-      </div>
 
       {/* Date strip + Brief */}
       <DateStrip briefDates={briefDates} selected={selectedDate} onSelect={setSelectedDate} />
@@ -397,7 +397,7 @@ function DashboardMode({ cachedPriorities }: { cachedPriorities: Priority[] | nu
           <BriefDisplay markdown={briefContent} />
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground/40 text-center py-2">
+        <p className="text-meta text-muted-foreground/40 text-center py-2">
           No brief for this date.
         </p>
       )}
@@ -414,40 +414,62 @@ function DashboardMode({ cachedPriorities }: { cachedPriorities: Priority[] | nu
 
       {!localLoading && topLevelLocal.length > 0 && (
         <CollapsibleSection title="Tasks" count={topLevelLocal.filter((t) => !t.completed).length} defaultOpen={true}>
-          <div className="space-y-0.5">
-            {topLevelLocal.map((task) => (
-              <LocalTaskRow
-                key={task.id}
-                task={task}
-                subtasks={subtaskMap[task.id] || []}
-                projects={projects}
-                projectName={projectMap[task.project_id]?.name}
-                projectColor={projectMap[task.project_id]?.color}
-                onDelete={removeLocal}
-                onAddSubtask={handleAddSubtask}
-                onUpdated={refreshLocal}
-              />
-            ))}
+          <div className="divide-y divide-border/20">
+            {topLevelLocal.map((task, i) => {
+              const subs = subtaskMap[task.id] ?? []
+              const done = subs.filter((s) => s.completed || s.status === 'complete').length
+              const stats = subs.length > 0 ? { done, total: subs.length } : undefined
+              const delay = `${Math.min(i, 14) * 25}ms`
+              return (
+                <div
+                  key={task.id}
+                  className="animate-row-enter"
+                  style={{ animationDelay: delay }}
+                >
+                  <LocalTaskRow
+                    task={task}
+                    projects={projects}
+                    projectName={projectMap[task.project_id]?.name}
+                    projectColor={projectMap[task.project_id]?.color}
+                    subtaskStats={stats}
+                    onDelete={removeLocal}
+                    onAddSubtask={handleAddSubtask}
+                    onUpdated={refreshLocal}
+                  />
+                </div>
+              )
+            })}
           </div>
         </CollapsibleSection>
       )}
 
       {todoistTasks.length > 0 && (
         <CollapsibleSection title="Todoist" count={todoistTasks.length} defaultOpen={false}>
-          <div className="space-y-0.5">
-            {todoistTasks.map((task) => (
-              <TaskRow key={task.id} task={task} onSnooze={snoozeTask} />
-            ))}
+          <div className="divide-y divide-border/20">
+            {todoistTasks.map((task, i) => {
+              const delay = `${Math.min(i, 14) * 25}ms`
+              return (
+                <div
+                  key={task.id}
+                  className="animate-row-enter"
+                  style={{ animationDelay: delay }}
+                >
+                  <TaskRow task={task} onSnooze={snoozeTask} />
+                </div>
+              )
+            })}
           </div>
         </CollapsibleSection>
       )}
-    </div>
+      </div>
+    </>
   )
 }
 
 // ── Today Page (Router) ──
 
 export function TodayPage() {
+  const dp = useDataProvider()
   const [reviewComplete, setReviewComplete] = useState<boolean | null>(null) // null = loading
   const [cachedPriorities, setCachedPriorities] = useState<Priority[] | null>(null)
 
@@ -458,7 +480,7 @@ export function TodayPage() {
       setReviewComplete((prev) => prev === null ? false : prev)
     }, 2000)
 
-    getDailyState().then((state) => {
+    dp.dailyState.get().then((state) => {
       clearTimeout(timeout)
       setReviewComplete(state.review_complete)
       if (state.priorities) setCachedPriorities(state.priorities)
@@ -468,7 +490,7 @@ export function TodayPage() {
     })
 
     return () => clearTimeout(timeout)
-  }, [])
+  }, [dp])
 
   const handleReviewComplete = useCallback((priorities: Priority[]) => {
     setCachedPriorities(priorities)
@@ -478,14 +500,13 @@ export function TodayPage() {
   // Loading state while checking daily state
   if (reviewComplete === null) {
     return (
-      <div className="max-w-lg mx-auto space-y-4 py-4">
-        <div className="text-center space-y-1">
-          <Skeleton className="h-7 w-48 mx-auto" />
-          <Skeleton className="h-4 w-32 mx-auto" />
+      <>
+        <PageHeader title="Today" />
+        <div className="px-5 py-6 space-y-4 w-full">
+          <Skeleton className="h-32 rounded-lg" />
+          <Skeleton className="h-24 rounded-lg" />
         </div>
-        <Skeleton className="h-32 rounded-lg" />
-        <Skeleton className="h-24 rounded-lg" />
-      </div>
+      </>
     )
   }
 

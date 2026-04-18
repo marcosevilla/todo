@@ -57,7 +57,7 @@ function PriorityCard({ priority, index }: { priority: Priority; index: number }
       </span>
       <div className="flex-1 min-w-0 space-y-1">
         <div className="flex items-center gap-2">
-          <p className="text-body font-medium leading-snug">{priority.title}</p>
+          <p className="text-body-strong">{priority.title}</p>
           <Badge variant="secondary" className={cn('text-label px-1.5 py-0', sourceStyle)}>
             {priority.source}
           </Badge>
@@ -157,7 +157,7 @@ export function PrioritiesSection({ onGenerated, initialPriorities, compact }: P
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <Sparkles className="size-4 text-accent-blue animate-pulse" />
-          <h3 className="text-body font-medium">Thinking...</h3>
+          <h3 className="text-body-strong">Thinking...</h3>
         </div>
         <div className="space-y-3">
           {[...Array(3)].map((_, i) => (
@@ -180,7 +180,7 @@ export function PrioritiesSection({ onGenerated, initialPriorities, compact }: P
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <Sparkles className="size-4 text-destructive" />
-          <h3 className="text-body font-medium">Couldn't generate priorities</h3>
+          <h3 className="text-body-strong">Couldn't generate priorities</h3>
         </div>
         <Meta as="p">{error}</Meta>
         <Button variant="outline" size="sm" onClick={() => setEnergy(null)}>

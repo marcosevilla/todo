@@ -71,7 +71,7 @@ function NavButton({
     <>
       <Icon className="size-4 shrink-0" strokeWidth={1.75} />
       {expanded && (
-        <span className="text-sm font-medium truncate">{label}</span>
+        <span className="text-body-strong truncate">{label}</span>
       )}
     </>
   )
@@ -138,7 +138,7 @@ function SortableNavItem({
     <>
       <Icon className="size-4 shrink-0" strokeWidth={1.75} />
       {expanded && (
-        <span className="text-sm font-medium truncate">{label}</span>
+        <span className="text-body-strong truncate">{label}</span>
       )}
     </>
   )

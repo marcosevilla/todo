@@ -1,9 +1,64 @@
-import { useCallback, useEffect, useState } from 'react'
-import { readSessionLog } from '@/services/tauri'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useDataProvider } from '@/services/provider-context'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { ActivityTimeline } from '@/components/activity/ActivityTimeline'
+import { PageHeader } from '@/components/shared/PageHeader'
+
+// ── Lightweight inline-markdown renderer ──
+//
+// The session log is markdown on disk. We don't want to render full markdown
+// (no headings/lists/code blocks inside a bullet), but we DO want to strip
+// the `**`/`*`/backticks/brackets so bullets read like prose. Handles:
+//
+//   **bold**            → <strong>bold</strong>
+//   *italic*            → <em>italic</em>
+//   `code`              → <code>code</code>
+//   [label](url)        → <a href="url">label</a>
+//   [[Wiki link]]       → <span>Wiki link</span>  (no actual link — Obsidian-only)
+
+const INLINE_MD_REGEX = /(\*\*[^*\n]+?\*\*)|(`[^`\n]+?`)|(\[\[[^\]\n]+?\]\])|(\[([^\]\n]+?)\]\(([^)\n]+?)\))|(\*[^*\n]+?\*)/g
+
+function renderInline(text: string): ReactNode {
+  const parts: ReactNode[] = []
+  let lastIndex = 0
+  let key = 0
+  for (const match of text.matchAll(INLINE_MD_REGEX)) {
+    const [full, bold, code, wiki, mdlink, linkText, linkUrl, italic] = match
+    const idx = match.index ?? 0
+    if (idx > lastIndex) parts.push(text.slice(lastIndex, idx))
+    if (bold) {
+      parts.push(<strong key={key++} className="font-semibold">{bold.slice(2, -2)}</strong>)
+    } else if (code) {
+      parts.push(
+        <code key={key++} className="rounded bg-muted/60 px-1 py-0.5 text-label font-mono">
+          {code.slice(1, -1)}
+        </code>,
+      )
+    } else if (wiki) {
+      parts.push(<span key={key++} className="text-accent-blue">{wiki.slice(2, -2)}</span>)
+    } else if (mdlink) {
+      parts.push(
+        <a
+          key={key++}
+          href={linkUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="text-accent-blue hover:underline"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {linkText}
+        </a>,
+      )
+    } else if (italic) {
+      parts.push(<em key={key++}>{italic.slice(1, -1)}</em>)
+    }
+    lastIndex = idx + full.length
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex))
+  return parts
+}
 
 // ── Session log parsing (unchanged) ──
 
@@ -68,16 +123,16 @@ function SessionCard({ entry }: { entry: SessionEntry }) {
       >
         <span
           className={cn(
-            'mt-1 text-[10px] text-muted-foreground transition-transform',
+            'mt-1 text-label text-muted-foreground transition-transform',
             expanded && 'rotate-90',
           )}
         >
           ▶
         </span>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-medium leading-snug">{entry.title}</h3>
+          <h3 className="text-body-strong">{entry.title}</h3>
           {entry.timeRange && (
-            <p className="text-[11px] text-muted-foreground mt-0.5">
+            <p className="text-label text-muted-foreground mt-0.5">
               {entry.timeRange}
             </p>
           )}
@@ -87,7 +142,7 @@ function SessionCard({ entry }: { entry: SessionEntry }) {
             {entry.tags.map((tag) => (
               <span
                 key={tag}
-                className="inline-flex items-center rounded-full bg-accent/50 px-2 py-0.5 text-[10px] text-muted-foreground"
+                className="inline-flex items-center rounded-full bg-accent/50 px-2 py-0.5 text-label text-muted-foreground"
               >
                 {tag}
               </span>
@@ -99,13 +154,18 @@ function SessionCard({ entry }: { entry: SessionEntry }) {
       {expanded && entry.bullets.length > 0 && (
         <div className="ml-6 mt-3 space-y-1.5">
           {entry.bullets.map((bullet, i) => (
-            <p key={i} className="text-xs text-foreground/80 leading-relaxed">
-              • {bullet}
+            <p key={i} className="text-meta text-foreground/80 leading-relaxed">
+              • {renderInline(bullet)}
             </p>
           ))}
           {entry.energy && (
-            <p className="mt-2 text-[11px] text-muted-foreground italic">
-              ⚡ {entry.energy}
+            <p className="mt-2 text-label text-muted-foreground italic">
+              ⚡ {renderInline(entry.energy)}
+            </p>
+          )}
+          {entry.refs && (
+            <p className="mt-1 text-label text-muted-foreground/70 leading-relaxed">
+              {renderInline(entry.refs)}
             </p>
           )}
         </div>
@@ -117,6 +177,7 @@ function SessionCard({ entry }: { entry: SessionEntry }) {
 // ── Sessions tab content ──
 
 function SessionsTab() {
+  const dp = useDataProvider()
   const [entries, setEntries] = useState<SessionEntry[]>([])
   const [raw, setRaw] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -125,7 +186,7 @@ function SessionsTab() {
   const refresh = useCallback(async () => {
     try {
       setError(null)
-      const content = await readSessionLog()
+      const content = await dp.dailyState.readSessionLog()
       setRaw(content)
       if (content) {
         setEntries(parseSessionLog(content))
@@ -137,7 +198,7 @@ function SessionsTab() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [dp])
 
   useEffect(() => {
     refresh()
@@ -155,7 +216,7 @@ function SessionsTab() {
 
   if (error) {
     return (
-      <p className="text-sm text-destructive">
+      <p className="text-body text-destructive">
         Could not load session log: {error}
       </p>
     )
@@ -163,7 +224,7 @@ function SessionsTab() {
 
   if (!raw) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-body text-muted-foreground">
         No sessions yet today. They'll appear here as you work with Claude Code.
       </p>
     )
@@ -171,7 +232,7 @@ function SessionsTab() {
 
   if (entries.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-body text-muted-foreground">
         Session log exists but no entries parsed yet.
       </p>
     )
@@ -190,18 +251,23 @@ function SessionsTab() {
 
 export function SessionPage() {
   return (
-    <Tabs defaultValue="timeline">
-      <TabsList>
-        <TabsTrigger value="timeline">Timeline</TabsTrigger>
-        <TabsTrigger value="sessions">Sessions</TabsTrigger>
-      </TabsList>
+    <>
+      <PageHeader title="Activity" />
+      <div className="max-w-3xl mx-auto p-6 w-full">
+        <Tabs defaultValue="timeline">
+          <TabsList>
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <TabsTrigger value="sessions">Sessions</TabsTrigger>
+          </TabsList>
 
-      <TabsContent value="timeline">
-        <ActivityTimeline />
-      </TabsContent>
-      <TabsContent value="sessions">
-        <SessionsTab />
-      </TabsContent>
-    </Tabs>
+          <TabsContent value="timeline">
+            <ActivityTimeline />
+          </TabsContent>
+          <TabsContent value="sessions">
+            <SessionsTab />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </>
   )
 }

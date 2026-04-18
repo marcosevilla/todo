@@ -5,29 +5,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  getSetting,
-  setSetting,
-  clearAllSettings,
-  checkForUpdates,
-  getCalendarFeeds,
-  addCalendarFeed,
-  removeCalendarFeed,
-  getCaptureRoutes,
-  createCaptureRoute,
-  updateCaptureRoute,
-  deleteCaptureRoute,
-  getDocuments,
-  syncPush,
-  syncPull,
-  syncGetStatus,
-  syncConfigure,
-  syncTestConnection,
-  syncInitializeRemote,
-  syncSeedExisting,
-} from '@/services/tauri'
-import type { UpdateStatus, CalendarFeed, CaptureRoute, Document, SyncStatus } from '@/services/tauri'
-import { openUrl } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
+import type { UpdateStatus, CalendarFeed, CaptureRoute, Document, SyncStatus } from '@daily-triage/types'
 import { useAppStore } from '@/stores/appStore'
 import { useTheme } from '@/hooks/useTheme'
 import type { AccentTheme } from '@/hooks/useTheme'
@@ -38,6 +17,30 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { FONT_OPTIONS } from '@/lib/fonts'
+import type { ProductFont } from '@/lib/fonts'
+import { IconButton } from '@/components/shared/IconButton'
+import { PageHeader } from '@/components/shared/PageHeader'
+import { Label as SectionLabel, Meta, SectionTitle } from '@/components/shared/typography'
+import { TodoistMigrationSection } from '@/components/settings/TodoistMigrationSection'
 import { Lightbulb, Quote, CheckSquare, FileText, Pencil, Trash2, ChevronDown } from 'lucide-react'
 
 // ── Types ──
@@ -123,7 +126,7 @@ function SettingFieldRow({
 
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={field.key} className="text-sm font-medium">
+      <Label htmlFor={field.key} className="text-body-strong">
         {field.label}
       </Label>
       <div className="flex items-center gap-2">
@@ -140,7 +143,7 @@ function SettingFieldRow({
             <button
               type="button"
               onClick={() => setVisible(!visible)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-meta text-muted-foreground hover:text-foreground transition-colors"
               tabIndex={-1}
             >
               {visible ? 'Hide' : 'Show'}
@@ -156,9 +159,9 @@ function SettingFieldRow({
           {state.saving ? 'Saving...' : state.saved ? 'Saved' : 'Save'}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">{field.help}</p>
+      <Meta as="p">{field.help}</Meta>
       {state.error && (
-        <p className="text-xs text-destructive">{state.error}</p>
+        <p className="text-meta text-destructive">{state.error}</p>
       )}
     </div>
   )
@@ -173,9 +176,9 @@ function SectionHeader({
 }) {
   return (
     <div className="space-y-1">
-      <h2 className="font-heading text-base font-semibold tracking-tight">{title}</h2>
+      <SectionTitle as="h2">{title}</SectionTitle>
       {description && (
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <p className="text-body text-muted-foreground">{description}</p>
       )}
     </div>
   )
@@ -205,6 +208,7 @@ const FEED_COLORS = [
 // ── Calendar Feeds Section ──
 
 function CalendarsSection() {
+  const dp = useDataProvider()
   const [feeds, setFeeds] = useState<CalendarFeed[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -213,12 +217,11 @@ function CalendarsSection() {
   const [newColor, setNewColor] = useState(FEED_COLORS[0])
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
       try {
-        const data = await getCalendarFeeds()
+        const data = await dp.calendar.getFeeds()
         setFeeds(data)
       } catch {
         // Table might not exist yet on first run
@@ -227,7 +230,7 @@ function CalendarsSection() {
       }
     }
     load()
-  }, [])
+  }, [dp])
 
   const handleAdd = async () => {
     if (!newLabel.trim() || !newUrl.trim()) {
@@ -237,7 +240,7 @@ function CalendarsSection() {
     setAdding(true)
     setError(null)
     try {
-      const feed = await addCalendarFeed(newLabel.trim(), newUrl.trim(), newColor)
+      const feed = await dp.calendar.addFeed(newLabel.trim(), newUrl.trim(), newColor)
       setFeeds((prev) => [...prev, feed])
       setNewLabel('')
       setNewUrl('')
@@ -251,14 +254,9 @@ function CalendarsSection() {
   }
 
   const handleRemove = async (feedId: string) => {
-    if (deleteConfirm !== feedId) {
-      setDeleteConfirm(feedId)
-      return
-    }
     try {
-      await removeCalendarFeed(feedId)
+      await dp.calendar.removeFeed(feedId)
       setFeeds((prev) => prev.filter((f) => f.id !== feedId))
-      setDeleteConfirm(null)
     } catch (e) {
       setError(String(e))
     }
@@ -266,7 +264,7 @@ function CalendarsSection() {
 
   if (loading) {
     return (
-      <section className="space-y-4">
+      <section id="calendars" className="space-y-4 scroll-mt-6">
         <SectionHeader
           title="Calendars"
           description="Add iCal feeds from Google Calendar, Outlook, etc."
@@ -277,7 +275,7 @@ function CalendarsSection() {
   }
 
   return (
-    <section className="space-y-4">
+    <section id="calendars" className="space-y-4 scroll-mt-6">
       <SectionHeader
         title="Calendars"
         description="Add iCal feeds from Google Calendar, Outlook, etc."
@@ -295,23 +293,45 @@ function CalendarsSection() {
               style={{ backgroundColor: feed.color }}
             />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium">{feed.label}</p>
-              <p className="text-xs text-muted-foreground truncate">
+              <p className="text-body-strong">{feed.label}</p>
+              <p className="text-meta text-muted-foreground truncate">
                 {feed.url}
               </p>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs text-destructive hover:text-destructive"
-              onClick={() => handleRemove(feed.id)}
-            >
-              {deleteConfirm === feed.id ? 'Confirm?' : 'Remove'}
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-meta text-destructive hover:text-destructive"
+                  >
+                    Remove
+                  </Button>
+                }
+              />
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Remove "{feed.label}"?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This removes the feed and all its cached events. You'll need to re-add the iCal URL to restore it. This can't be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => handleRemove(feed.id)}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Remove feed
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         ))}
         {feeds.length === 0 && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             No calendars configured yet.
           </p>
         )}
@@ -321,7 +341,7 @@ function CalendarsSection() {
       {showForm ? (
         <div className="space-y-3 rounded-md border p-3">
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Label</Label>
+            <Label className="text-body-strong">Label</Label>
             <Input
               placeholder="Work Calendar"
               value={newLabel}
@@ -329,18 +349,18 @@ function CalendarsSection() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">iCal URL</Label>
+            <Label className="text-body-strong">iCal URL</Label>
             <Input
               placeholder="https://calendar.google.com/calendar/ical/..."
               value={newUrl}
               onChange={(e) => setNewUrl(e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-meta text-muted-foreground">
               Google Calendar: Settings &rarr; Calendar &rarr; "Secret address in iCal format"
             </p>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Color</Label>
+            <Label className="text-body-strong">Color</Label>
             <div className="flex items-center gap-2">
               {FEED_COLORS.map((color) => (
                 <button
@@ -357,7 +377,7 @@ function CalendarsSection() {
               ))}
             </div>
           </div>
-          {error && <p className="text-xs text-destructive">{error}</p>}
+          {error && <p className="text-meta text-destructive">{error}</p>}
           <div className="flex items-center gap-2">
             <Button size="sm" onClick={handleAdd} disabled={adding}>
               {adding ? 'Adding...' : 'Add Calendar'}
@@ -407,7 +427,7 @@ const STATUS_DEFAULTS: Record<string, { label: string; defaultColor: string }> =
 
 function StatusColorsSection() {
   return (
-    <section className="space-y-4">
+    <section id="status-colors" className="space-y-4 scroll-mt-6">
       <SectionHeader
         title="Status Colors"
         description="Current color assignments for task statuses."
@@ -417,13 +437,13 @@ function StatusColorsSection() {
           <div key={status} className="flex items-center justify-between py-1">
             <div className="flex items-center gap-2">
               <span className={cn('size-3 rounded-full', COLOR_OPTIONS.find((c) => c.label === config.defaultColor)?.preview)} />
-              <span className="text-sm">{config.label}</span>
+              <span className="text-body">{config.label}</span>
             </div>
-            <span className="text-xs text-muted-foreground">{config.defaultColor}</span>
+            <span className="text-meta text-muted-foreground">{config.defaultColor}</span>
           </div>
         ))}
       </div>
-      <p className="text-[10px] text-muted-foreground/50">
+      <p className="text-label text-muted-foreground/50">
         Color customization coming soon. These are the current defaults.
       </p>
     </section>
@@ -454,12 +474,12 @@ const ROUTE_COLORS = [
 // ── Capture Routes Section ──
 
 function CaptureRoutesSection() {
+  const dp = useDataProvider()
   const [routes, setRoutes] = useState<CaptureRoute[]>([])
   const [docs, setDocs] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   // Form state
   const [formPrefix, setFormPrefix] = useState('')
@@ -472,13 +492,13 @@ function CaptureRoutesSection() {
 
   useEffect(() => {
     Promise.all([
-      getCaptureRoutes(),
-      getDocuments(),
+      dp.captureRoutes.list(),
+      dp.docs.getDocuments(),
     ]).then(([r, d]) => {
       setRoutes(r)
       setDocs(d)
     }).catch(() => {}).finally(() => setLoading(false))
-  }, [])
+  }, [dp])
 
   const resetForm = () => {
     setFormPrefix('')
@@ -514,7 +534,7 @@ function CaptureRoutesSection() {
     setSaving(true)
     try {
       if (editingId) {
-        await updateCaptureRoute({
+        await dp.captureRoutes.update({
           id: editingId,
           prefix: formPrefix.trim(),
           targetType: formTargetType,
@@ -532,7 +552,7 @@ function CaptureRoutesSection() {
         )
         toast.success('Route updated')
       } else {
-        const route = await createCaptureRoute({
+        const route = await dp.captureRoutes.create({
           prefix: formPrefix.trim(),
           targetType: formTargetType,
           docId: formDocId ?? undefined,
@@ -552,14 +572,9 @@ function CaptureRoutesSection() {
   }
 
   const handleDelete = async (id: string) => {
-    if (deleteConfirm !== id) {
-      setDeleteConfirm(id)
-      return
-    }
     try {
-      await deleteCaptureRoute(id)
+      await dp.captureRoutes.delete(id)
       setRoutes((prev) => prev.filter((r) => r.id !== id))
-      setDeleteConfirm(null)
       toast.success('Route deleted')
     } catch (e) {
       toast.error(`Failed: ${e}`)
@@ -568,7 +583,7 @@ function CaptureRoutesSection() {
 
   if (loading) {
     return (
-      <section className="space-y-4">
+      <section id="capture-routes" className="space-y-4 scroll-mt-6">
         <SectionHeader title="Capture Routes" description="Prefix routing for quick capture to Docs or Tasks." />
         <Skeleton className="h-8" />
       </section>
@@ -576,7 +591,7 @@ function CaptureRoutesSection() {
   }
 
   return (
-    <section className="space-y-4">
+    <section id="capture-routes" className="space-y-4 scroll-mt-6">
       <SectionHeader
         title="Capture Routes"
         description="Type a prefix in the Inbox input to route captures to a Doc or create a Task."
@@ -600,39 +615,57 @@ function CaptureRoutesSection() {
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{route.label}</span>
-                  <code className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono text-muted-foreground">
+                  <span className="text-body-strong">{route.label}</span>
+                  <code className="rounded bg-muted px-1 py-0.5 text-label font-mono text-muted-foreground">
                     {route.prefix}
                   </code>
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-label text-muted-foreground">
                     {route.target_type === 'task' ? 'Creates task' : linkedDoc ? `Doc: ${linkedDoc.title}` : 'Auto-creates doc'}
                   </span>
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button
+                <IconButton
                   onClick={() => startEdit(route)}
-                  className="flex size-6 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
                   aria-label="Edit route"
                 >
                   <Pencil className="size-3" />
-                </button>
-                <button
-                  onClick={() => handleDelete(route.id)}
-                  className="flex size-6 items-center justify-center rounded-md text-destructive/40 hover:text-destructive hover:bg-accent/20 transition-colors"
-                  aria-label="Delete route"
-                >
-                  <Trash2 className="size-3" />
-                </button>
-                {deleteConfirm === route.id && (
-                  <span className="text-[10px] text-destructive">Click again</span>
-                )}
+                </IconButton>
+                <AlertDialog>
+                  <AlertDialogTrigger
+                    render={
+                      <IconButton
+                        tone="destructive"
+                        aria-label="Delete route"
+                      >
+                        <Trash2 className="size-3" />
+                      </IconButton>
+                    }
+                  />
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete the "{route.label}" route?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Captures starting with <code className="font-mono">{route.prefix}</code> will no longer route to {route.target_type === 'task' ? 'a task' : linkedDoc ? `"${linkedDoc.title}"` : 'this doc'}. Existing captures stay where they are. This can't be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => handleDelete(route.id)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Delete route
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           )
         })}
         {routes.length === 0 && (
-          <p className="text-sm text-muted-foreground">No capture routes configured yet.</p>
+          <p className="text-body text-muted-foreground">No capture routes configured yet.</p>
         )}
       </div>
 
@@ -641,7 +674,7 @@ function CaptureRoutesSection() {
         <div className="space-y-3 rounded-md border p-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Prefix</Label>
+              <Label className="text-body-strong">Prefix</Label>
               <Input
                 placeholder="/i"
                 value={formPrefix}
@@ -649,7 +682,7 @@ function CaptureRoutesSection() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Label</Label>
+              <Label className="text-body-strong">Label</Label>
               <Input
                 placeholder="Ideas"
                 value={formLabel}
@@ -659,7 +692,7 @@ function CaptureRoutesSection() {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Type</Label>
+            <Label className="text-body-strong">Type</Label>
             <div className="flex items-center gap-1 rounded-lg border p-1">
               {(['doc', 'task'] as const).map((value) => (
                 <Button
@@ -677,9 +710,9 @@ function CaptureRoutesSection() {
 
           {formTargetType === 'doc' && (
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Linked Doc</Label>
+              <Label className="text-body-strong">Linked Doc</Label>
               <DropdownMenu>
-                <DropdownMenuTrigger className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm hover:bg-accent/10 transition-colors">
+                <DropdownMenuTrigger className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-body hover:bg-accent/10 transition-colors">
                   <span className={cn(formDocId ? 'text-foreground' : 'text-muted-foreground/50')}>
                     {formDocId ? docs.find((d) => d.id === formDocId)?.title ?? 'Unknown' : 'Auto-create on first use'}
                   </span>
@@ -701,7 +734,7 @@ function CaptureRoutesSection() {
           )}
 
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Color</Label>
+            <Label className="text-body-strong">Color</Label>
             <div className="flex items-center gap-2">
               {ROUTE_COLORS.map((color) => (
                 <button
@@ -719,7 +752,7 @@ function CaptureRoutesSection() {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Icon</Label>
+            <Label className="text-body-strong">Icon</Label>
             <div className="flex items-center gap-2">
               {ROUTE_ICON_OPTIONS.map((iconName) => {
                 const Icon = ROUTE_ICON_MAP[iconName] ?? FileText
@@ -761,6 +794,7 @@ function CaptureRoutesSection() {
 // ── Sync Section ──
 
 function SyncSection() {
+  const dp = useDataProvider()
   const [status, setStatus] = useState<SyncStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
@@ -775,7 +809,7 @@ function SyncSection() {
 
   const refreshStatus = async () => {
     try {
-      const newStatus = await syncGetStatus()
+      const newStatus = await dp.sync.getStatus()
       setStatus(newStatus)
     } catch {
       // ignore
@@ -786,9 +820,9 @@ function SyncSection() {
     async function load() {
       try {
         const [url, token, syncStatus] = await Promise.all([
-          getSetting('turso_url'),
-          getSetting('turso_token'),
-          syncGetStatus(),
+          dp.settings.get('turso_url'),
+          dp.settings.get('turso_token'),
+          dp.sync.getStatus(),
         ])
         if (url) setTursoUrl(url)
         if (token) setTursoToken(token)
@@ -800,7 +834,7 @@ function SyncSection() {
       }
     }
     load()
-  }, [])
+  }, [dp])
 
   // Auto-refresh pending changes every 30s
   useEffect(() => {
@@ -816,7 +850,7 @@ function SyncSection() {
     setSaving(true)
     setError(null)
     try {
-      await syncConfigure(tursoUrl.trim(), tursoToken.trim())
+      await dp.sync.configure(tursoUrl.trim(), tursoToken.trim())
       setSaved(true)
       await refreshStatus()
       setTimeout(() => setSaved(false), 2000)
@@ -832,8 +866,8 @@ function SyncSection() {
     setError(null)
     setSyncResult(null)
     try {
-      const pushed = await syncPush()
-      const pulled = await syncPull()
+      const pushed = await dp.sync.push()
+      const pulled = await dp.sync.pull()
       await refreshStatus()
       const msg = `Pushed ${pushed}, pulled ${pulled}`
       setSyncResult(msg)
@@ -855,7 +889,7 @@ function SyncSection() {
     setTesting(true)
     setError(null)
     try {
-      await syncTestConnection(tursoUrl.trim(), tursoToken.trim())
+      await dp.sync.testConnection(tursoUrl.trim(), tursoToken.trim())
       toast.success('Connection successful')
     } catch (e) {
       setError(`Connection failed: ${e}`)
@@ -869,7 +903,7 @@ function SyncSection() {
     setInitializing(true)
     setError(null)
     try {
-      await syncInitializeRemote()
+      await dp.sync.initializeRemote()
       await refreshStatus()
       toast.success('Remote database initialized')
     } catch (e) {
@@ -882,7 +916,7 @@ function SyncSection() {
 
   if (loading) {
     return (
-      <section className="space-y-4">
+      <section id="sync" className="space-y-4 scroll-mt-6">
         <SectionHeader title="Sync" description="Multi-device sync via Turso." />
         <Skeleton className="h-8" />
       </section>
@@ -893,7 +927,7 @@ function SyncSection() {
   const isInitialized = status?.remote_initialized ?? false
 
   return (
-    <section className="space-y-4">
+    <section id="sync" className="space-y-4 scroll-mt-6">
       <SectionHeader
         title="Sync"
         description="Sync data across devices using Turso (hosted SQLite). Single-user, last-write-wins."
@@ -905,7 +939,7 @@ function SyncSection() {
           'size-2 rounded-full',
           isConfigured && isInitialized ? 'bg-green-500' : isConfigured ? 'bg-amber-500' : 'bg-muted-foreground/30',
         )} />
-        <span className="text-sm text-muted-foreground">
+        <span className="text-body text-muted-foreground">
           {isConfigured && isInitialized ? 'Connected' : isConfigured ? 'Configured — needs initialization' : 'Not configured'}
         </span>
       </div>
@@ -914,20 +948,20 @@ function SyncSection() {
       {status && (
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Device ID</span>
-            <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-muted-foreground">
+            <span className="text-body text-muted-foreground">Device ID</span>
+            <code className="rounded bg-muted px-2 py-0.5 text-meta font-mono text-muted-foreground">
               {status.device_id.slice(0, 8)}...
             </code>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Pending changes</span>
-            <span className={cn('text-sm font-mono', status.pending_changes > 0 && 'text-amber-500')}>
+            <span className="text-body text-muted-foreground">Pending changes</span>
+            <span className={cn('text-body font-mono', status.pending_changes > 0 && 'text-amber-500')}>
               {status.pending_changes}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Last synced</span>
-            <span className="text-sm font-mono">
+            <span className="text-body text-muted-foreground">Last synced</span>
+            <span className="text-body font-mono">
               {status.last_sync ?? 'Never'}
             </span>
           </div>
@@ -937,18 +971,18 @@ function SyncSection() {
       {/* Turso config */}
       <div className="space-y-3 rounded-md border p-3">
         <div className="space-y-1.5">
-          <Label className="text-sm font-medium">Turso URL</Label>
+          <Label className="text-body-strong">Turso URL</Label>
           <Input
             placeholder="libsql://your-db-name.turso.io"
             value={tursoUrl}
             onChange={(e) => { setTursoUrl(e.target.value); setSaved(false) }}
           />
-          <p className="text-xs text-muted-foreground">
+          <p className="text-meta text-muted-foreground">
             Your Turso database HTTP URL (starts with libsql:// or https://)
           </p>
         </div>
         <div className="space-y-1.5">
-          <Label className="text-sm font-medium">Auth Token</Label>
+          <Label className="text-body-strong">Auth Token</Label>
           <Input
             type="password"
             placeholder="eyJ..."
@@ -979,7 +1013,7 @@ function SyncSection() {
       {/* Initialize Remote Database — only shown when configured but not initialized */}
       {isConfigured && !isInitialized && (
         <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             Remote database needs to be initialized with the app schema before syncing.
           </p>
           <Button
@@ -1008,7 +1042,7 @@ function SyncSection() {
           onClick={async () => {
             try {
               setError(null)
-              const count = await syncSeedExisting()
+              const count = await dp.sync.seedExisting()
               setSyncResult(`Seeded ${count} existing records to sync log`)
               await refreshStatus()
               setTimeout(() => setSyncResult(null), 5000)
@@ -1021,11 +1055,11 @@ function SyncSection() {
           Seed Existing Data
         </Button>
         {syncResult && (
-          <span className="text-xs text-muted-foreground">{syncResult}</span>
+          <span className="text-meta text-muted-foreground">{syncResult}</span>
         )}
       </div>
 
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-meta text-destructive">{error}</p>}
     </section>
   )
 }
@@ -1033,7 +1067,8 @@ function SyncSection() {
 // ── Main Page ──
 
 export function SettingsPage() {
-  const { theme, setTheme, accent, setAccent } = useTheme()
+  const dp = useDataProvider()
+  const { theme, setTheme, accent, setAccent, headingFont, setHeadingFont, bodyFont, setBodyFont } = useTheme()
   const setSetupComplete = useAppStore((s) => s.setSetupComplete)
   const [fields, setFields] = useState<Record<string, FieldState>>(() => {
     const initial: Record<string, FieldState> = {}
@@ -1043,7 +1078,6 @@ export function SettingsPage() {
     return initial
   })
   const [resetting, setResetting] = useState(false)
-  const [resetConfirm, setResetConfirm] = useState(false)
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
   const [checking, setChecking] = useState(false)
 
@@ -1052,7 +1086,7 @@ export function SettingsPage() {
     async function load() {
       for (const field of ALL_FIELDS) {
         try {
-          const val = await getSetting(field.key)
+          const val = await dp.settings.get(field.key)
           if (val !== null) {
             setFields((prev) => ({
               ...prev,
@@ -1065,7 +1099,7 @@ export function SettingsPage() {
       }
     }
     load()
-  }, [])
+  }, [dp])
 
   const updateFieldValue = useCallback((key: string, value: string) => {
     setFields((prev) => ({
@@ -1089,7 +1123,7 @@ export function SettingsPage() {
         }))
         return
       }
-      await setSetting(key, value)
+      await dp.settings.set(key, value)
       setFields((prev) => ({
         ...prev,
         [key]: { ...prev[key], saving: false, saved: true },
@@ -1111,28 +1145,22 @@ export function SettingsPage() {
   }, [fields])
 
   const handleReset = useCallback(async () => {
-    if (!resetConfirm) {
-      setResetConfirm(true)
-      return
-    }
-
     setResetting(true)
     try {
-      await clearAllSettings()
+      await dp.settings.clearAll()
       setSetupComplete(false)
     } catch (e) {
       console.error('Failed to reset settings:', e)
     } finally {
       setResetting(false)
-      setResetConfirm(false)
     }
-  }, [resetConfirm, setSetupComplete])
+  }, [setSetupComplete, dp])
 
   const handleCheckForUpdates = useCallback(async () => {
     setChecking(true)
     setUpdateStatus(null)
     try {
-      const status = await checkForUpdates()
+      const status = await dp.system.checkForUpdates()
       setUpdateStatus(status)
     } catch (e) {
       setUpdateStatus({
@@ -1145,12 +1173,72 @@ export function SettingsPage() {
     } finally {
       setChecking(false)
     }
-  }, [])
+  }, [dp])
 
   return (
-    <div className="mx-auto max-w-xl space-y-8">
+    <>
+      <PageHeader title="Settings" />
+      <div className="mx-auto flex max-w-3xl gap-8 p-6 w-full">
+      {/* Left rail — section navigation */}
+      <nav className="sticky top-16 hidden w-40 shrink-0 self-start md:block">
+        <ul className="space-y-0.5 text-body">
+          <li>
+            <a href="#appearance" className="block rounded-md px-2 py-1 text-muted-foreground hover:bg-accent/20 hover:text-foreground transition-colors">
+              Appearance
+            </a>
+          </li>
+          <li>
+            <a href="#integrations" className="block rounded-md px-2 py-1 text-muted-foreground hover:bg-accent/20 hover:text-foreground transition-colors">
+              Integrations
+            </a>
+          </li>
+          <li>
+            <a href="#import-todoist" className="block rounded-md px-2 py-1 text-muted-foreground hover:bg-accent/20 hover:text-foreground transition-colors">
+              Import from Todoist
+            </a>
+          </li>
+          <li>
+            <a href="#focus" className="block rounded-md px-2 py-1 text-muted-foreground hover:bg-accent/20 hover:text-foreground transition-colors">
+              Focus Mode
+            </a>
+          </li>
+          <li>
+            <a href="#obsidian" className="block rounded-md px-2 py-1 text-muted-foreground hover:bg-accent/20 hover:text-foreground transition-colors">
+              Obsidian
+            </a>
+          </li>
+          <li>
+            <a href="#calendars" className="block rounded-md px-2 py-1 text-muted-foreground hover:bg-accent/20 hover:text-foreground transition-colors">
+              Calendars
+            </a>
+          </li>
+          <li>
+            <a href="#status-colors" className="block rounded-md px-2 py-1 text-muted-foreground hover:bg-accent/20 hover:text-foreground transition-colors">
+              Status Colors
+            </a>
+          </li>
+          <li>
+            <a href="#capture-routes" className="block rounded-md px-2 py-1 text-muted-foreground hover:bg-accent/20 hover:text-foreground transition-colors">
+              Capture Routes
+            </a>
+          </li>
+          <li>
+            <a href="#sync" className="block rounded-md px-2 py-1 text-muted-foreground hover:bg-accent/20 hover:text-foreground transition-colors">
+              Sync
+            </a>
+          </li>
+          <li>
+            <a href="#about" className="block rounded-md px-2 py-1 text-muted-foreground hover:bg-accent/20 hover:text-foreground transition-colors">
+              About
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      {/* Main content */}
+      <div className="flex-1 min-w-0 space-y-8">
       {/* Appearance */}
-      <section className="space-y-4">
+      <section id="appearance" className="space-y-4 scroll-mt-6">
         <SectionHeader
           title="Appearance"
           description="Choose how Daily Triage looks on your machine."
@@ -1158,7 +1246,7 @@ export function SettingsPage() {
 
         {/* Mode selector */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Mode</Label>
+          <SectionLabel as="div">Mode</SectionLabel>
           <div className="flex items-center gap-1 rounded-lg border p-1">
             {(['light', 'dark', 'system'] as const).map((value) => (
               <Button
@@ -1176,7 +1264,7 @@ export function SettingsPage() {
 
         {/* Accent theme selector */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Accent</Label>
+          <SectionLabel as="div">Accent</SectionLabel>
           <div className="flex items-center gap-2">
             {ACCENT_THEMES.map((t) => (
               <button
@@ -1200,18 +1288,79 @@ export function SettingsPage() {
               </button>
             ))}
           </div>
-          <p className="text-[10px] text-muted-foreground/50">
+          <p className="text-label text-muted-foreground/50">
             {ACCENT_THEMES.find((t) => t.value === accent)?.label ?? 'Warm'} theme
           </p>
         </div>
 
-        {/* Font preview */}
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Typography</Label>
+        {/* Typography */}
+        <div className="space-y-3">
+          <SectionLabel as="div">Typography</SectionLabel>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="heading-font" className="text-label font-medium uppercase tracking-wider text-muted-foreground/70">
+                Heading
+              </Label>
+              <Select
+                value={headingFont}
+                onValueChange={(v) => setHeadingFont(v as ProductFont)}
+              >
+                <SelectTrigger id="heading-font" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FONT_OPTIONS.map((font) => (
+                    <SelectItem
+                      key={font.value}
+                      value={font.value}
+                      style={{ fontFamily: font.stack }}
+                    >
+                      {font.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="body-font" className="text-label font-medium uppercase tracking-wider text-muted-foreground/70">
+                Body
+              </Label>
+              <Select
+                value={bodyFont}
+                onValueChange={(v) => setBodyFont(v as ProductFont)}
+              >
+                <SelectTrigger id="body-font" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FONT_OPTIONS.map((font) => (
+                    <SelectItem
+                      key={font.value}
+                      value={font.value}
+                      style={{ fontFamily: font.stack }}
+                    >
+                      {font.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Preview reads the same runtime CSS vars the rest of the app uses —
+              font-heading → var(--font-heading), font-sans → var(--font-sans).
+              When setHeadingFont/setBodyFont updates :root, the preview follows
+              automatically. One source of truth, no manual stack reconstruction. */}
           <div className="rounded-lg border p-3 space-y-1">
-            <p className="font-heading text-base font-semibold tracking-tight">Plus Jakarta Sans for headings</p>
-            <p className="text-sm">Inter for body text and UI labels</p>
-            <p className="text-xs font-mono text-muted-foreground">Geist Mono for code</p>
+            <p className="text-heading-sm">The quick brown fox jumps</p>
+            <p className="text-body">
+              Over the lazy dog. Body text for UI labels and content.
+            </p>
+            <p className="font-mono text-meta text-muted-foreground">
+              Geist Mono for code and numbers
+            </p>
           </div>
         </div>
       </section>
@@ -1219,7 +1368,7 @@ export function SettingsPage() {
       <Separator />
 
       {/* Integrations */}
-      <section className="space-y-4">
+      <section id="integrations" className="space-y-4 scroll-mt-6">
         <SectionHeader
           title="Integrations"
           description="API tokens and URLs for connected services. Stored locally on your machine."
@@ -1239,8 +1388,19 @@ export function SettingsPage() {
 
       <Separator />
 
+      {/* Import from Todoist */}
+      <section id="import-todoist" className="space-y-4 scroll-mt-6">
+        <SectionHeader
+          title="Import from Todoist"
+          description="One-time migration of your Todoist projects and tasks into the local database. Re-runs upsert in place."
+        />
+        <TodoistMigrationSection />
+      </section>
+
+      <Separator />
+
       {/* Focus Mode */}
-      <section className="space-y-4">
+      <section id="focus" className="space-y-4 scroll-mt-6">
         <SectionHeader
           title="Focus Mode"
           description="Configure Pomodoro and focus session behavior."
@@ -1281,7 +1441,7 @@ export function SettingsPage() {
       <Separator />
 
       {/* Obsidian */}
-      <section className="space-y-4">
+      <section id="obsidian" className="space-y-4 scroll-mt-6">
         <SectionHeader
           title="Obsidian"
           description="Path to your Obsidian vault for Today.md and session logs."
@@ -1302,12 +1462,12 @@ export function SettingsPage() {
       <Separator />
 
       {/* About */}
-      <section className="space-y-4">
+      <section id="about" className="space-y-4 scroll-mt-6">
         <SectionHeader title="About" />
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Version</span>
-            <span className="text-sm font-mono">
+            <span className="text-body text-muted-foreground">Version</span>
+            <span className="text-body font-mono">
               {updateStatus?.current_version ?? '0.1.0'}
             </span>
           </div>
@@ -1323,12 +1483,12 @@ export function SettingsPage() {
               {checking ? 'Checking...' : 'Check for Updates'}
             </Button>
             {updateStatus && !updateStatus.error && !updateStatus.update_available && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-meta text-muted-foreground">
                 You're up to date (v{updateStatus.current_version})
               </p>
             )}
             {updateStatus?.update_available && (
-              <p className="text-xs text-foreground">
+              <p className="text-meta text-foreground">
                 Update available: v{updateStatus.latest_version}
                 {updateStatus.release_url && (
                   <>
@@ -1336,7 +1496,7 @@ export function SettingsPage() {
                     <button
                       type="button"
                       className="underline text-primary hover:text-primary/80 transition-colors"
-                      onClick={() => openUrl(updateStatus.release_url!)}
+                      onClick={() => dp.system.openUrl(updateStatus.release_url!)}
                     >
                       Download
                     </button>
@@ -1345,39 +1505,46 @@ export function SettingsPage() {
               </p>
             )}
             {updateStatus?.error && (
-              <p className="text-xs text-destructive">{updateStatus.error}</p>
+              <p className="text-meta text-destructive">{updateStatus.error}</p>
             )}
           </div>
 
           <Separator />
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               Clear all saved settings and return to the setup screen.
             </p>
-            <Button
-              variant="destructive"
-              onClick={handleReset}
-              disabled={resetting}
-            >
-              {resetting
-                ? 'Resetting...'
-                : resetConfirm
-                  ? 'Are you sure? Click again to confirm'
-                  : 'Reset all settings'}
-            </Button>
-            {resetConfirm && !resetting && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setResetConfirm(false)}
-                className="ml-2"
-              >
-                Cancel
-              </Button>
-            )}
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={
+                  <Button variant="destructive" disabled={resetting}>
+                    {resetting ? 'Resetting...' : 'Reset all settings'}
+                  </Button>
+                }
+              />
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reset all settings?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This clears every saved setting — API keys (Todoist, Anthropic), calendar feeds, Obsidian vault path, focus preferences, and appearance — and sends you back to the setup screen. Your tasks, captures, and docs stay. This can't be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleReset}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Reset everything
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       </section>
-    </div>
+      </div>
+      </div>
+    </>
   )
 }
