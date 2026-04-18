@@ -139,7 +139,7 @@ export function ProjectSidebar({
           )}
         >
           <List className="size-3.5 shrink-0 text-muted-foreground/50" />
-          <span className="flex-1 text-meta truncate">All Tasks</span>
+          <span className="flex-1 text-body truncate">All Tasks</span>
           <span className="text-label text-muted-foreground/50">{totalActive}</span>
         </button>
 
@@ -182,7 +182,7 @@ export function ProjectSidebar({
                 className="size-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: project.color }}
               />
-              <span className="flex-1 text-meta truncate">{project.name}</span>
+              <span className="flex-1 text-body truncate">{project.name}</span>
               <span className="text-label text-muted-foreground/50 group-hover:hidden">{count}</span>
 
               {/* Hover actions */}
