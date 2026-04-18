@@ -220,7 +220,10 @@ export function TypeSystemOverlay({ onClose }: { onClose: () => void }) {
                   {t.size}px · {t.weight} · {formatTracking(t.tracking)}
                 </span>
               </div>
-              <span className={cn(`text-${t.name}`, 'block truncate text-foreground')}>
+              {/* No cn()/text-foreground here: tailwind-merge treats text-foreground
+                  (custom color) and text-<size> as the same group and drops the size.
+                  Body color inherits from <body>; template literal keeps the size. */}
+              <span className={`text-${t.name} block truncate`}>
                 {t.preview}
               </span>
             </div>
