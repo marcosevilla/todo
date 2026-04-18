@@ -1299,7 +1299,7 @@ export function SettingsPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="heading-font" className="text-label font-medium uppercase tracking-wider text-muted-foreground/70">
+              <Label htmlFor="heading-font" className="text-label text-muted-foreground/70">
                 Heading
               </Label>
               <Select
@@ -1324,7 +1324,7 @@ export function SettingsPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="body-font" className="text-label font-medium uppercase tracking-wider text-muted-foreground/70">
+              <Label htmlFor="body-font" className="text-label text-muted-foreground/70">
                 Body
               </Label>
               <Select

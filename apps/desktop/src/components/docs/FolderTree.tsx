@@ -1,12 +1,14 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useDocsStore } from '@/stores/docsStore'
-import { createDocFolder, deleteDocFolder, createDocument, deleteDocument } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
 import { cn } from '@/lib/utils'
 import { ChevronRight, Plus, FolderOpen, FileText, Trash2, PanelLeftClose } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Document } from '@/services/tauri'
+import { IconButton } from '@/components/shared/IconButton'
+import type { Document } from '@daily-triage/types'
 
 export function FolderTree() {
+  const dp = useDataProvider()
   const folders = useDocsStore((s) => s.folders)
   const documents = useDocsStore((s) => s.documents)
   const selectedDocId = useDocsStore((s) => s.selectedDocId)
@@ -59,43 +61,43 @@ export function FolderTree() {
     const name = newFolderName.trim()
     if (!name) return
     try {
-      await createDocFolder(name)
+      await dp.docs.createFolder(name)
       setNewFolderName('')
       setNewFolderInput(false)
       refresh()
     } catch (e) {
       toast.error(`Failed to create folder: ${e}`)
     }
-  }, [newFolderName, refresh])
+  }, [newFolderName, refresh, dp])
 
   const handleCreateDoc = useCallback(async (folderId?: string) => {
     try {
-      const doc = await createDocument('Untitled', folderId)
+      const doc = await dp.docs.createDocument('Untitled', folderId)
       await refresh()
       selectDoc(doc.id)
     } catch (e) {
       toast.error(`Failed to create document: ${e}`)
     }
-  }, [refresh, selectDoc])
+  }, [refresh, selectDoc, dp])
 
   const handleDeleteDoc = useCallback(async (id: string) => {
     try {
-      await deleteDocument(id)
+      await dp.docs.deleteDocument(id)
       if (selectedDocId === id) selectDoc(null)
       refresh()
     } catch (e) {
       toast.error(`Failed to delete: ${e}`)
     }
-  }, [selectedDocId, selectDoc, refresh])
+  }, [selectedDocId, selectDoc, refresh, dp])
 
   const handleDeleteFolder = useCallback(async (id: string) => {
     try {
-      await deleteDocFolder(id)
+      await dp.docs.deleteFolder(id)
       refresh()
     } catch (e) {
       toast.error(`Failed to delete folder: ${e}`)
     }
-  }, [refresh])
+  }, [refresh, dp])
 
   // Resize
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -135,22 +137,22 @@ export function FolderTree() {
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/20">
-        <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">Docs</span>
+        <span className="text-label text-muted-foreground/60">Docs</span>
         <div className="flex items-center gap-0.5">
-          <button
+          <IconButton
             onClick={() => handleCreateDoc(selectedFolderId ?? undefined)}
-            className="flex size-5 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+            size="sm"
             title="New document"
           >
             <Plus className="size-3" />
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             onClick={() => setFolderTreeCollapsed(true)}
-            className="flex size-5 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+            size="sm"
             title="Collapse"
           >
             <PanelLeftClose className="size-3" />
-          </button>
+          </IconButton>
         </div>
       </div>
 
@@ -164,7 +166,7 @@ export function FolderTree() {
                 <ChevronRight className={cn('size-3 text-muted-foreground/40 transition-transform', expandedFolders.has(folder.id) && 'rotate-90')} />
               </button>
               <FolderOpen className="size-3.5 shrink-0 text-muted-foreground/50" />
-              <span className="flex-1 text-xs font-medium truncate">{folder.name}</span>
+              <span className="flex-1 text-meta font-medium truncate">{folder.name}</span>
               <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={() => handleCreateDoc(folder.id)}
@@ -196,7 +198,7 @@ export function FolderTree() {
                     )}
                   >
                     <FileText className="size-3 shrink-0 text-muted-foreground/40" />
-                    <span className="flex-1 text-xs truncate">{doc.title || 'Untitled'}</span>
+                    <span className="flex-1 text-meta truncate">{doc.title || 'Untitled'}</span>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDeleteDoc(doc.id) }}
                       className="flex size-4 items-center justify-center rounded text-destructive/30 opacity-0 group-hover/doc:opacity-100 hover:text-destructive"
@@ -214,7 +216,7 @@ export function FolderTree() {
         {unfiled.length > 0 && (
           <div>
             <div className="flex items-center gap-1 px-1.5 py-1">
-              <span className="text-[10px] text-muted-foreground/30 uppercase tracking-wider">Unfiled</span>
+              <span className="text-label text-muted-foreground/30">Unfiled</span>
             </div>
             <div className="space-y-0.5">
               {unfiled.map((doc) => (
@@ -229,7 +231,7 @@ export function FolderTree() {
                   )}
                 >
                   <FileText className="size-3 shrink-0 text-muted-foreground/40" />
-                  <span className="flex-1 text-xs truncate">{doc.title || 'Untitled'}</span>
+                  <span className="flex-1 text-meta truncate">{doc.title || 'Untitled'}</span>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDeleteDoc(doc.id) }}
                     className="flex size-4 items-center justify-center rounded text-destructive/30 opacity-0 group-hover/doc:opacity-100 hover:text-destructive"
@@ -254,14 +256,14 @@ export function FolderTree() {
               }}
               onBlur={() => { if (!newFolderName.trim()) setNewFolderInput(false) }}
               placeholder="Folder name..."
-              className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/30 border-b border-border/20 py-0.5"
+              className="w-full bg-transparent text-meta outline-none placeholder:text-muted-foreground/30 border-b border-border/20 py-0.5"
               autoFocus
             />
           </div>
         ) : (
           <button
             onClick={() => setNewFolderInput(true)}
-            className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground/30 hover:text-muted-foreground hover:bg-accent/10 transition-colors"
+            className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-meta text-muted-foreground/30 hover:text-muted-foreground hover:bg-accent/10 transition-colors"
           >
             <Plus className="size-3" />
             New folder

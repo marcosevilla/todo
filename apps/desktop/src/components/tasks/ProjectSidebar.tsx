@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils'
 import { Plus, PanelLeftClose, List, Pencil, Trash2, Check, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { IconButton } from '@/components/shared/IconButton'
+import { ProjectEditDialog } from './ProjectEditDialog'
 import type { Project, LocalTask } from '@daily-triage/types'
 
 const PROJECT_COLORS = [
@@ -44,10 +46,8 @@ export function ProjectSidebar({
   const [newProjectName, setNewProjectName] = useState('')
   const [newProjectColor, setNewProjectColor] = useState(PROJECT_COLORS[0])
 
-  // Inline edit state
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editName, setEditName] = useState('')
-  const [showColorsId, setShowColorsId] = useState<string | null>(null)
+  // Editing state
+  const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   // Count non-completed tasks per project
@@ -107,22 +107,22 @@ export function ProjectSidebar({
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/20">
-        <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">Projects</span>
+        <span className="text-label text-muted-foreground/60">Projects</span>
         <div className="flex items-center gap-0.5">
-          <button
+          <IconButton
             onClick={() => setNewProjectInput(true)}
-            className="flex size-5 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+            size="sm"
             title="New project"
           >
             <Plus className="size-3" />
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             onClick={() => setCollapsed(true)}
-            className="flex size-5 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
+            size="sm"
             title="Collapse"
           >
             <PanelLeftClose className="size-3" />
-          </button>
+          </IconButton>
         </div>
       </div>
 
@@ -139,8 +139,8 @@ export function ProjectSidebar({
           )}
         >
           <List className="size-3.5 shrink-0 text-muted-foreground/50" />
-          <span className="flex-1 text-xs font-medium truncate">All Tasks</span>
-          <span className="text-[10px] text-muted-foreground/50">{totalActive}</span>
+          <span className="flex-1 text-meta font-medium truncate">All Tasks</span>
+          <span className="text-label text-muted-foreground/50">{totalActive}</span>
         </button>
 
         {/* Divider */}
@@ -152,60 +152,11 @@ export function ProjectSidebar({
           const isSelected = selectedProjectId === project.id
           const isInbox = project.id === 'inbox'
 
-          // Inline editing
-          if (editingId === project.id) {
-            return (
-              <div key={project.id} className="flex items-center gap-1 px-2 py-1">
-                <Input
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && editName.trim()) {
-                      onRenameProject(project.id, editName.trim())
-                      setEditingId(null)
-                    }
-                    if (e.key === 'Escape') setEditingId(null)
-                  }}
-                  className="h-6 text-xs flex-1"
-                  autoFocus
-                />
-                <Button variant="ghost" size="icon-xs" onClick={() => { if (editName.trim()) { onRenameProject(project.id, editName.trim()); setEditingId(null) } }}>
-                  <Check className="size-3" />
-                </Button>
-                <Button variant="ghost" size="icon-xs" onClick={() => setEditingId(null)}>
-                  <X className="size-3" />
-                </Button>
-              </div>
-            )
-          }
-
-          // Color picker
-          if (showColorsId === project.id) {
-            return (
-              <div key={project.id} className="flex items-center gap-1 px-2 py-1 flex-wrap">
-                {PROJECT_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    className={cn(
-                      'size-4 rounded-full border-2 transition-all',
-                      project.color === c ? 'border-foreground scale-110' : 'border-transparent hover:border-muted-foreground/50',
-                    )}
-                    style={{ backgroundColor: c }}
-                    onClick={() => { onUpdateProjectColor(project.id, c); setShowColorsId(null) }}
-                  />
-                ))}
-                <Button variant="ghost" size="icon-xs" onClick={() => setShowColorsId(null)}>
-                  <X className="size-3" />
-                </Button>
-              </div>
-            )
-          }
-
           // Delete confirm
           if (confirmDeleteId === project.id) {
             return (
               <div key={project.id} className="flex items-center gap-1 px-2 py-1">
-                <span className="text-[10px] text-destructive flex-1">Delete {project.name}?</span>
+                <span className="text-label text-destructive flex-1">Delete {project.name}?</span>
                 <Button variant="ghost" size="icon-xs" className="text-destructive" onClick={() => { onDeleteProject(project.id); setConfirmDeleteId(null); if (selectedProjectId === project.id) onSelectProject(null) }}>
                   <Check className="size-3" />
                 </Button>
@@ -231,24 +182,18 @@ export function ProjectSidebar({
                 className="size-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: project.color }}
               />
-              <span className="flex-1 text-xs font-medium truncate">{project.name}</span>
-              <span className="text-[10px] text-muted-foreground/50 group-hover:hidden">{count}</span>
+              <span className="flex-1 text-meta font-medium truncate">{project.name}</span>
+              <span className="text-label text-muted-foreground/50 group-hover:hidden">{count}</span>
 
               {/* Hover actions */}
               <div className="hidden items-center gap-0.5 group-hover:flex" onClick={(e) => e.stopPropagation()}>
                 <button
-                  onClick={() => { setEditName(project.name); setEditingId(project.id) }}
+                  onClick={() => setEditingProject(project)}
                   className="flex size-4 items-center justify-center rounded text-muted-foreground/30 hover:text-muted-foreground"
-                  title="Rename"
+                  title="Edit project"
                 >
                   <Pencil className="size-2.5" />
                 </button>
-                <button
-                  className="size-4 rounded-full border border-muted-foreground/20 hover:border-muted-foreground/50 transition-colors"
-                  style={{ backgroundColor: project.color }}
-                  onClick={() => setShowColorsId(project.id)}
-                  title="Change color"
-                />
                 {!isInbox && (
                   <button
                     onClick={() => setConfirmDeleteId(project.id)}
@@ -275,7 +220,7 @@ export function ProjectSidebar({
               }}
               onBlur={() => { if (!newProjectName.trim()) setNewProjectInput(false) }}
               placeholder="Project name..."
-              className="h-6 text-xs"
+              className="h-6 text-meta"
               autoFocus
             />
             <div className="flex items-center gap-1">
@@ -300,7 +245,7 @@ export function ProjectSidebar({
         <div className="border-t border-border/20 p-1.5">
           <button
             onClick={() => setNewProjectInput(true)}
-            className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-muted-foreground/30 hover:text-muted-foreground hover:bg-accent/10 transition-colors"
+            className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-meta text-muted-foreground/30 hover:text-muted-foreground hover:bg-accent/10 transition-colors"
           >
             <Plus className="size-3" />
             New project
@@ -315,6 +260,14 @@ export function ProjectSidebar({
           'absolute right-0 top-0 bottom-0 z-10 w-px cursor-col-resize transition-colors bg-border/20',
           dragging ? 'bg-accent-blue/50 w-1' : 'hover:bg-accent-blue/30 hover:w-1',
         )}
+      />
+
+      <ProjectEditDialog
+        project={editingProject}
+        open={editingProject !== null}
+        onOpenChange={(open) => { if (!open) setEditingProject(null) }}
+        onRename={onRenameProject}
+        onUpdateColor={onUpdateProjectColor}
       />
     </div>
   )

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useDetailStore } from '@/stores/detailStore'
 import { TaskDetailPage } from './TaskDetailPage'
 import { CaptureDetailPage } from './CaptureDetailPage'
+import { IconButton } from '@/components/shared/IconButton'
 import { cn } from '@/lib/utils'
 import { Maximize2, X } from 'lucide-react'
 
@@ -67,24 +68,22 @@ export function DetailSidebar() {
 
       {/* Sidebar header */}
       <div className="flex items-center justify-between border-b border-border/20 px-3 py-2">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <span className="text-label text-muted-foreground">
           {target.type === 'task' ? 'Task' : 'Note'}
         </span>
         <div className="flex items-center gap-0.5">
-          <button
+          <IconButton
             onClick={() => switchMode('body')}
-            className="flex size-6 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
             title="Expand to full view"
           >
             <Maximize2 className="size-3.5" />
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             onClick={close}
-            className="flex size-6 items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/20 transition-colors"
             title="Close"
           >
             <X className="size-3.5" />
-          </button>
+          </IconButton>
         </div>
       </div>
 

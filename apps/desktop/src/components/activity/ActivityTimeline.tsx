@@ -197,7 +197,7 @@ export function ActivityTimeline() {
 
       {/* Filter toggle */}
       <div className="flex items-center justify-between">
-        <h3 className="text-meta font-medium uppercase tracking-wider text-muted-foreground/60">
+        <h3 className="text-label text-muted-foreground/60">
           Timeline
         </h3>
         <button

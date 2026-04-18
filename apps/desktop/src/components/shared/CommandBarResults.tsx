@@ -73,7 +73,7 @@ export function CommandBarResults({
         <div className="rounded-xl border border-border/50 bg-popover shadow-lg overflow-hidden">
           <div className="p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">
+              <span className="text-meta font-medium text-muted-foreground">
                 Breaking down: <span className="text-foreground">{breakdownTask.content}</span>
               </span>
               <button onClick={onBreakdownCancel} className="text-muted-foreground/40 hover:text-muted-foreground">
@@ -81,7 +81,7 @@ export function CommandBarResults({
               </button>
             </div>
             {breakdownLoading ? (
-              <div className="flex items-center gap-2 py-4 justify-center text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 py-4 justify-center text-body text-muted-foreground">
                 <Loader2 className="size-4 animate-spin" />
                 Thinking...
               </div>
@@ -90,12 +90,12 @@ export function CommandBarResults({
                 <div className="space-y-1">
                   {breakdownItems.map((item, i) => (
                     <div key={i} className="flex items-center gap-1.5">
-                      <span className="text-xs text-muted-foreground/40 w-4 text-right shrink-0">{i + 1}</span>
+                      <span className="text-meta text-muted-foreground/40 w-4 text-right shrink-0">{i + 1}</span>
                       <input
                         type="text"
                         value={item}
                         onChange={(e) => onBreakdownEdit(i, e.target.value)}
-                        className="flex-1 bg-muted/30 rounded-md px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-accent-blue/40"
+                        className="flex-1 bg-muted/30 rounded-md px-2 py-1 text-body outline-none focus:ring-1 focus:ring-accent-blue/40"
                       />
                       <button
                         onClick={() => onBreakdownRemove(i)}
@@ -109,13 +109,13 @@ export function CommandBarResults({
                 <div className="flex justify-end gap-2 pt-1">
                   <button
                     onClick={onBreakdownCancel}
-                    className="rounded-md px-2.5 py-1 text-xs text-muted-foreground hover:bg-accent/20"
+                    className="rounded-md px-2.5 py-1 text-meta text-muted-foreground hover:bg-accent/20"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={onBreakdownConfirm}
-                    className="rounded-md bg-foreground px-2.5 py-1 text-xs text-background font-medium hover:bg-foreground/90"
+                    className="rounded-md bg-foreground px-2.5 py-1 text-meta text-background font-medium hover:bg-foreground/90"
                   >
                     Create {breakdownItems.filter(Boolean).length} subtasks
                   </button>
@@ -140,7 +140,7 @@ export function CommandBarResults({
         {showTasks && tasks.length > 0 && (
           <div className="max-h-52 overflow-y-auto p-1">
             <div className="px-2 py-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+              <span className="text-label text-muted-foreground/60">
                 Tasks
               </span>
             </div>
@@ -165,7 +165,7 @@ export function CommandBarResults({
           <div className="p-1">
             {tasks.length > 0 && <div className="mx-1 mb-1 border-t border-border/30" />}
             <div className="px-2 py-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+              <span className="text-label text-muted-foreground/60">
                 Docs
               </span>
             </div>
@@ -175,7 +175,7 @@ export function CommandBarResults({
                 <button
                   key={doc.id}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+                    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body transition-colors',
                     selectedIndex === idx ? 'bg-accent/40' : 'hover:bg-accent/20',
                   )}
                   onMouseEnter={() => onSelect(idx)}
@@ -199,7 +199,7 @@ export function CommandBarResults({
           {showCreate && (
             <button
               className={cn(
-                'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+                'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body transition-colors',
                 selectedIndex === createIndex ? 'bg-accent/40' : 'hover:bg-accent/20',
               )}
               onMouseEnter={() => onSelect(createIndex)}
@@ -209,14 +209,14 @@ export function CommandBarResults({
               <span className="text-muted-foreground">Create task</span>
               <span className="flex-1 min-w-0 truncate font-medium">"{query}"</span>
               {selectedIndex === createIndex && (
-                <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">Enter</kbd>
+                <kbd className="rounded bg-muted px-1 py-0.5 text-label text-muted-foreground">Enter</kbd>
               )}
             </button>
           )}
           {showCapture && (
             <button
               className={cn(
-                'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+                'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body transition-colors',
                 selectedIndex === captureIndex ? 'bg-accent/40' : 'hover:bg-accent/20',
               )}
               onMouseEnter={() => onSelect(captureIndex)}
@@ -257,7 +257,7 @@ function TaskResultRow({
   return (
     <div
       className={cn(
-        'group/result relative flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+        'group/result relative flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-body transition-colors',
         isSelected ? 'bg-accent/40' : 'hover:bg-accent/20',
       )}
       onMouseEnter={onSelect}
@@ -274,7 +274,7 @@ function TaskResultRow({
 
       {/* Project badge (when not selected) */}
       {!isSelected && project && project.id !== 'inbox' && (
-        <span className="flex shrink-0 items-center gap-1 rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+        <span className="flex shrink-0 items-center gap-1 rounded-md bg-muted/60 px-1.5 py-0.5 text-label text-muted-foreground">
           <span className="size-1.5 rounded-full" style={{ backgroundColor: project.color }} />
           {project.name}
         </span>
@@ -292,8 +292,8 @@ function TaskResultRow({
                 <TooltipTrigger className="flex size-6 items-center justify-center">
                   <FolderInput className="size-3.5" />
                 </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  Move to project <kbd className="ml-1 rounded bg-muted px-1 py-0.5 font-mono text-[10px]">⌥M</kbd>
+                <TooltipContent side="top" className="text-meta">
+                  Move to project <kbd className="ml-1 rounded bg-muted px-1 py-0.5 font-mono text-label">⌥M</kbd>
                 </TooltipContent>
               </Tooltip>
             </DropdownMenuTrigger>
@@ -342,8 +342,8 @@ function ActionButton({
       >
         <Icon className="size-3.5" />
       </TooltipTrigger>
-      <TooltipContent side="top" className="text-xs">
-        {title} <kbd className="ml-1 rounded bg-muted px-1 py-0.5 font-mono text-[10px]">{hint}</kbd>
+      <TooltipContent side="top" className="text-meta">
+        {title} <kbd className="ml-1 rounded bg-muted px-1 py-0.5 font-mono text-label">{hint}</kbd>
       </TooltipContent>
     </Tooltip>
   )

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getActivityLog } from '@/services/tauri'
-import type { ActivityEntry } from '@/services/tauri'
+import { useDataProvider } from '@/services/provider-context'
+import type { ActivityEntry } from '@daily-triage/types'
 import { cn } from '@/lib/utils'
 import {
   Check, Plus, Trash2, Pencil, Play, Square, SkipForward,
   FolderInput, Sparkles, Zap, ArrowRightLeft,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { Meta } from '@/components/shared/typography'
 
 const ACTION_META: Record<string, { label: string; icon: LucideIcon; color: string }> = {
   task_created: { label: 'Created', icon: Plus, color: 'text-green-500' },
@@ -52,12 +53,13 @@ function getDescription(entry: ActivityEntry): string | null {
 }
 
 export function TaskActivityLog({ taskId }: { taskId: string }) {
+  const dp = useDataProvider()
   const [entries, setEntries] = useState<ActivityEntry[]>([])
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
     try {
-      const log = await getActivityLog({
+      const log = await dp.activity.getLog({
         fromDate: '2020-01-01',
         toDate: new Date().toISOString().slice(0, 10),
         targetId: taskId,
@@ -69,7 +71,7 @@ export function TaskActivityLog({ taskId }: { taskId: string }) {
     } finally {
       setLoading(false)
     }
-  }, [taskId])
+  }, [taskId, dp])
 
   useEffect(() => { refresh() }, [refresh])
 
@@ -85,26 +87,26 @@ export function TaskActivityLog({ taskId }: { taskId: string }) {
 
   return (
     <div className="space-y-3">
-      <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground/60">
+      <h3 className="text-label text-muted-foreground/60">
         Activity
       </h3>
       {Object.entries(grouped).map(([date, items]) => (
         <div key={date}>
-          <p className="text-[10px] font-medium text-muted-foreground/40 mb-1">{date}</p>
+          <p className="text-label font-medium text-muted-foreground/40 mb-1">{date}</p>
           {items.map((entry) => {
             const meta = ACTION_META[entry.action_type] ?? { label: entry.action_type, icon: Zap, color: 'text-muted-foreground' }
             const Icon = meta.icon
             const desc = getDescription(entry)
             return (
               <div key={entry.id} className="flex items-center gap-2 py-1">
-                <span className="w-14 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground/50">
+                <span className="w-14 shrink-0 text-right text-label tabular-nums text-muted-foreground/50">
                   {formatTime(entry.created_at)}
                 </span>
                 <Icon className={cn('size-3 shrink-0', meta.color)} />
-                <span className="text-xs text-muted-foreground">
+                <Meta>
                   {meta.label}
                   {desc && <span className="ml-1 text-muted-foreground/60">— {desc}</span>}
-                </span>
+                </Meta>
               </div>
             )
           })}

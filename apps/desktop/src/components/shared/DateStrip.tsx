@@ -88,7 +88,7 @@ export function DateStrip({ briefDates, selected, onSelect }: DateStripProps) {
                     : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-accent/20',
               )}
             >
-              <span className="text-label font-medium uppercase">{weekday}</span>
+              <span className="text-label">{weekday}</span>
               <span className="text-heading tabular-nums">{day}</span>
               {hasBrief && !isSelected && (
                 <span className="size-1 rounded-full bg-accent-blue/60" />

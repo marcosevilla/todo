@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { HelpCircle, X, Keyboard, Map } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Label, Meta } from '@/components/shared/typography'
 
 // ── Shortcuts data ──
 interface ShortcutRow { key: string; action: string }
@@ -202,14 +203,14 @@ export function HelpPanel() {
               {/* Tab switcher */}
               <div className="border-b border-border/20 px-1 pt-1 shrink-0">
                 <TabsList variant="line" className="h-auto gap-0 bg-transparent p-0">
-                  <TabsTrigger value="shortcuts" className="gap-1.5 rounded-t-lg rounded-b-none px-3 py-2 text-xs">
+                  <TabsTrigger value="shortcuts" className="gap-1.5 rounded-t-lg rounded-b-none px-3 py-2 text-meta">
                     <Keyboard className="size-3" />
                     Shortcuts
                   </TabsTrigger>
-                  <TabsTrigger value="roadmap" className="gap-1.5 rounded-t-lg rounded-b-none px-3 py-2 text-xs">
+                  <TabsTrigger value="roadmap" className="gap-1.5 rounded-t-lg rounded-b-none px-3 py-2 text-meta">
                     <Map className="size-3" />
                     Roadmap
-                    <span className="text-[10px] text-muted-foreground/50 tabular-nums">{doneCount}/{totalCount}</span>
+                    <span className="text-label text-muted-foreground/50 tabular-nums">{doneCount}/{totalCount}</span>
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -238,14 +239,14 @@ function ShortcutsTab() {
     <div className="space-y-4">
       {SHORTCUT_SECTIONS.map((section) => (
         <div key={section.title}>
-          <h3 className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+          <Label as="h3" className="mb-1.5 text-muted-foreground/50">
             {section.title}
-          </h3>
+          </Label>
           <div className="space-y-1">
             {section.shortcuts.map((shortcut) => (
               <div key={shortcut.key} className="flex items-center justify-between py-0.5">
-                <span className="text-xs text-muted-foreground">{shortcut.action}</span>
-                <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-foreground/70">
+                <Meta>{shortcut.action}</Meta>
+                <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-label text-foreground/70">
                   {shortcut.key}
                 </kbd>
               </div>
@@ -274,12 +275,12 @@ function RoadmapTab({ showDone, setShowDone }: { showDone: boolean; setShowDone:
     <div className="space-y-4">
       {/* Toggle */}
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-muted-foreground/50">
+        <span className="text-label text-muted-foreground/50">
           {ROADMAP.filter((r) => !r.done).length} remaining
         </span>
         <button
           onClick={() => setShowDone(!showDone)}
-          className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+          className="text-label text-muted-foreground/40 hover:text-muted-foreground transition-colors"
         >
           {showDone ? 'Hide completed' : 'Show completed'}
         </button>
@@ -288,7 +289,7 @@ function RoadmapTab({ showDone, setShowDone }: { showDone: boolean; setShowDone:
       {Object.entries(groups).map(([phase, phaseItems]) => (
         <div key={phase}>
           <h3 className={cn(
-            'mb-1.5 text-[10px] font-medium uppercase tracking-wider',
+            'mb-1.5 text-label',
             phase === 'Completed' ? 'text-green-500/50' : 'text-muted-foreground/50',
           )}>
             {phase}
@@ -302,12 +303,12 @@ function RoadmapTab({ showDone, setShowDone }: { showDone: boolean; setShowDone:
                 )} />
                 <div className="min-w-0">
                   <p className={cn(
-                    'text-xs font-medium',
+                    'text-meta font-medium',
                     item.done && 'text-muted-foreground line-through',
                   )}>
                     {item.title}
                   </p>
-                  <p className="text-[10px] text-muted-foreground/50 leading-snug">
+                  <p className="text-label text-muted-foreground/50 leading-snug">
                     {item.description}
                   </p>
                 </div>
