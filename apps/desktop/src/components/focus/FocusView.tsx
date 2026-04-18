@@ -88,12 +88,12 @@ export function FocusView() {
         <div className="text-center space-y-6">
           <Coffee className="size-10 mx-auto text-muted-foreground/40" />
           <div>
-            <h2 className="font-heading text-lg font-semibold">Take a break</h2>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h2 className="text-heading">Take a break</h2>
+            <p className="text-body text-muted-foreground mt-1">
               Round {currentPomodoro - 1} of {config.totalPomodoros} complete
             </p>
           </div>
-          <div className="text-4xl font-mono tabular-nums text-muted-foreground">
+          <div className="text-timer text-muted-foreground">
             {formatTime(breakRemaining)}
           </div>
           <Button variant="ghost" size="sm" onClick={endBreak}>
@@ -111,7 +111,7 @@ export function FocusView() {
         <div className="relative mx-auto flex size-[200px] items-center justify-center">
           {isCountdown && <ProgressRing progress={progress} />}
           <span className={cn(
-            'text-5xl font-mono tabular-nums tracking-tight',
+            'text-timer',
             isPaused && 'animate-pulse text-muted-foreground',
             timerDone && 'text-green-500',
           )}>
@@ -140,16 +140,16 @@ export function FocusView() {
 
         {/* Task info */}
         <div className="space-y-1">
-          <h2 className="font-heading text-lg font-semibold tracking-tight">{task.content}</h2>
+          <h2 className="text-heading">{task.content}</h2>
           {task.description && (
-            <p className="text-sm text-muted-foreground">{task.description}</p>
+            <p className="text-body text-muted-foreground">{task.description}</p>
           )}
         </div>
 
         {/* Timer done prompt */}
         {timerDone && currentPomodoro < config.totalPomodoros && (
           <div className="rounded-lg bg-green-500/10 p-3 animate-in fade-in duration-300">
-            <p className="text-sm text-green-600 dark:text-green-400">
+            <p className="text-body text-green-600 dark:text-green-400">
               Round {currentPomodoro} complete!
             </p>
             <Button size="sm" className="mt-2" onClick={startBreak}>
@@ -185,14 +185,14 @@ export function FocusView() {
         <div className="flex items-center justify-center gap-3">
           <button
             onClick={() => setCompact(true)}
-            className="flex items-center gap-1 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+            className="flex items-center gap-1 text-meta text-muted-foreground/50 hover:text-muted-foreground transition-colors"
           >
             <Minimize2 className="size-3" />
             Minimize
           </button>
           <button
             onClick={abandonFocus}
-            className="flex items-center gap-1 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+            className="flex items-center gap-1 text-meta text-muted-foreground/50 hover:text-muted-foreground transition-colors"
           >
             <X className="size-3" />
             Stop
